@@ -1,0 +1,336 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Phase {
+  planner
+  reviewer
+}
+
+enum TaskStatus {
+  pending
+  queue
+  progress
+  completed
+  done
+}
+
+enum ExecutorType {
+  no_skill
+  skill
+  team
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  // Stored AES-encrypted via lib/crypto.ts — never plain text
+  anthropicToken String?
+  slackToken     String?
+  createdAt      DateTime @default(now())
+  lastActive     DateTime @updatedAt
+
+  projects     Project[]
+  chatMessages ChatMessage[]
+  tasks        Task[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Projects
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Project {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  repositoryPath String?
+  slackChannel   String?
+  slackWebhook   String?
+  createdAt      DateTime @default(now())
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collaborators Collaborator[]
+  teams         Team[]
+  chatMessages  ChatMessage[]
+  tasks         Task[]
+  slackLogs     SlackLog[]
+  resourceUsage ResourceUsage[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collaborators
+//
+// Lifecycle:
+//   projectId = null, isPlatformDefault = true  → global seed template
+//   projectId = <id>, isPlatformDefault = true  → per-project copy of default
+//   projectId = <id>, isPlatformDefault = false → user-created collaborator
+//
+// Seed creates global templates (projectId = null).
+// Project creation copies them into per-project rows (see Task 4).
+// SKILL.md for platform defaults is never exposed to the UI.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Collaborator {
+  id                String   @id @default(cuid())
+  // null = global platform default template
+  projectId         String?
+  name              String
+  description       String
+  // The SKILL.md content — never shown to users for platform defaults
+  skillMd           String   @default("")
+  isPlatformDefault Boolean  @default(false)
+  phase             Phase
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskSkillLogs TaskSkillLog[]
+
+  // Unique per (name, projectId) — allows same name across projects
+  @@unique([name, projectId])
+  @@index([projectId, isActive])
+  @@map("collaborators")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Teams
+//
+// collaboratorOrder: CollaboratorOrder JSON — { collaboratorIds: string[] }
+// rejectionRules:    RejectionRules JSON  — { canReject: Record<id,bool>, restartFromCollaboratorId: string }
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Team {
+  id                        String   @id @default(cuid())
+  projectId                 String
+  name                      String
+  collaboratorOrder         Json     @default("[]")
+  hasBuilder                Boolean  @default(false)
+  builderPosition           Int?
+  rejectionRules            Json     @default("{}")
+  restartFromCollaboratorId String?
+  createdAt                 DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId])
+  @@map("teams")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chat messages
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ChatMessage {
+  id            String   @id @default(cuid())
+  projectId     String
+  userId        String
+  content       String
+  // "user" | "claude" | "<skill_name>" — dynamic, kept as String not enum
+  sender        String
+  activeSkillId String?
+  // "no_skill" | "skill" | "team"
+  mode          String   @default("no_skill")
+  createdAt     DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("chat_messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tasks
+//
+// context:            TaskContext JSON — immutable original context from chat
+// accumulatedContext: TaskContext JSON — grows as task passes through team
+// recurrenceConfig:   RecurrenceConfig JSON — only set when isRecurring = true
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Task {
+  id                 String       @id @default(cuid())
+  projectId          String
+  userId             String
+  name               String
+  instruction        String?
+  context            Json         @default("{}")
+  accumulatedContext Json         @default("{}")
+  canModifyRepo      Boolean      @default(false)
+  executorType       ExecutorType @default(no_skill)
+  executorId         String?
+  status             TaskStatus   @default(pending)
+  isRecurring        Boolean      @default(false)
+  recurrenceConfig   Json?
+  scheduledAt        DateTime?
+  pausedAt           DateTime?
+  pausedAtIteration  Int?
+  pausedAtEmployee   String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team          Team?            @relation(fields: [executorId], references: [id])
+  iterations    TaskIteration[]
+  skillLogs     TaskSkillLog[]
+  buildLogs     TaskBuildLog[]
+  suggestions   TaskSuggestion[]
+  slackLogs     SlackLog[]
+  resourceUsage ResourceUsage[]
+
+  @@index([projectId, status])
+  @@map("tasks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task iterations — one per rejection/approval cycle
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TaskIteration {
+  id                       String   @id @default(cuid())
+  taskId                   String
+  iterationNumber          Int
+  rejectionReason          String?
+  rejectedByCollaboratorId String?
+  createdAt                DateTime @default(now())
+
+  task      Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  skillLogs TaskSkillLog[]
+  buildLogs TaskBuildLog[]
+
+  @@index([taskId])
+  @@map("task_iterations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task skill logs — one per collaborator per iteration
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TaskSkillLog {
+  id               String         @id @default(cuid())
+  taskId           String
+  iterationId      String?
+  collaboratorId   String?
+  collaboratorName String
+  inputReceived    String?
+  thoughts         String?
+  conclusion       String?
+  passedForward    String?
+  approved         Boolean?
+  rejectionReason  String?
+  startedAt        DateTime       @default(now())
+  finishedAt       DateTime?
+
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  iteration    TaskIteration? @relation(fields: [iterationId], references: [id])
+  collaborator Collaborator?  @relation(fields: [collaboratorId], references: [id])
+
+  @@index([taskId])
+  @@map("task_skill_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task build logs — one per builder execution per iteration
+//
+// filesTouched: FilesTouched[] JSON array
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TaskBuildLog {
+  id                 String         @id @default(cuid())
+  taskId             String
+  iterationId        String?
+  filesTouched       Json           @default("[]")
+  linesAdded         Int            @default(0)
+  linesRemoved       Int            @default(0)
+  technicalDecisions String?
+  rawLog             String?
+  createdAt          DateTime       @default(now())
+
+  task      Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  iteration TaskIteration? @relation(fields: [iterationId], references: [id])
+
+  @@index([taskId])
+  @@map("task_build_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task suggestions — Claude-identified follow-ups
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TaskSuggestion {
+  id              String   @id @default(cuid())
+  taskId          String
+  suggestionText  String
+  reason          String?
+  accepted        Boolean  @default(false)
+  generatedTaskId String?
+  createdAt       DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_suggestions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Slack logs
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SlackLog {
+  id          String   @id @default(cuid())
+  projectId   String
+  taskId      String?
+  messageSent String
+  channel     String
+  delivered   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id])
+
+  @@index([projectId, delivered])
+  @@map("slack_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Resource usage — for future billing tracking
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ResourceUsage {
+  id         String   @id @default(cuid())
+  userId     String
+  projectId  String
+  taskId     String?
+  cpuSeconds Float    @default(0)
+  gpuSeconds Float    @default(0)
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id])
+
+  @@index([userId, projectId])
+  @@map("resource_usage")
+}
