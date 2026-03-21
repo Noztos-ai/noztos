@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { IterationViewer } from './IterationViewer'
 
 interface TaskItem {
   id: string
@@ -38,6 +39,7 @@ export function TaskSection({ projectId, tasks, teams }: TaskSectionProps) {
   const [name, setName] = useState('')
   const [instruction, setInstruction] = useState('')
   const [teamId, setTeamId] = useState('')
+  const [viewingTask, setViewingTask] = useState<TaskItem | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [running, setRunning] = useState<string | null>(null)
 
@@ -136,6 +138,14 @@ export function TaskSection({ projectId, tasks, teams }: TaskSectionProps) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-zinc-400">{task.status}</span>
+                {task.status !== 'pending' && (
+                  <button
+                    onClick={() => setViewingTask(task)}
+                    className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-50"
+                  >
+                    View
+                  </button>
+                )}
                 {task.status === 'pending' && task.executorType === 'team' && (
                   <button
                     onClick={() => runTask(task.id)}
@@ -194,6 +204,15 @@ export function TaskSection({ projectId, tasks, teams }: TaskSectionProps) {
             </button>
           </div>
         </form>
+      )}
+
+      {viewingTask && (
+        <IterationViewer
+          projectId={projectId}
+          taskId={viewingTask.id}
+          taskName={viewingTask.name}
+          onClose={() => setViewingTask(null)}
+        />
       )}
     </section>
   )
