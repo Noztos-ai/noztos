@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { getSessionUserId } from '@/lib/session'
+import { CollaboratorSection } from '@/components/CollaboratorSection'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -34,6 +35,20 @@ export default async function ProjectDashboard({ params }: PageProps) {
     notFound()
   }
 
+  // Fetch project collaborators and platform default templates
+  const [collaborators, templates] = await Promise.all([
+    prisma.collaborator.findMany({
+      where: { projectId: id, isActive: true },
+      select: { id: true, name: true, description: true, phase: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.collaborator.findMany({
+      where: { isPlatformDefault: true, projectId: null },
+      select: { id: true, name: true, description: true, phase: true },
+      orderBy: { name: 'asc' },
+    }),
+  ])
+
   return (
     <div className="flex flex-col flex-1 bg-zinc-50 font-sans dark:bg-black">
       <header className="flex w-full items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3 dark:border-zinc-800 dark:bg-zinc-950">
@@ -52,15 +67,11 @@ export default async function ProjectDashboard({ params }: PageProps) {
       </header>
 
       <main className="flex flex-1 w-full max-w-5xl mx-auto flex-col gap-6 px-6 py-8">
-        {/* Collaborators section — Task 7 */}
-        <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-            Collaborators
-          </h2>
-          <p className="mt-2 text-sm text-zinc-400">
-            AI employees that work on this project. Add collaborators to build your team.
-          </p>
-        </section>
+        <CollaboratorSection
+          projectId={id}
+          collaborators={collaborators}
+          templates={templates}
+        />
 
         {/* Teams section — Task 8 */}
         <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
