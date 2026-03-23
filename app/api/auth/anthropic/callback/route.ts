@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { encrypt } from '@/lib/crypto'
-import { setSessionCookieArgs } from '@/lib/session'
+import { getSessionUserId } from '@/lib/session'
 
 // OAuth 2.0 authorization code flow — Step 2: exchange code for token.
 //
@@ -62,29 +62,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/?error=auth_failed', request.url))
     }
 
-    // Fetch user profile to get email
-    const userRes = await fetch(USERINFO_URL, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    const userData = await userRes.json()
-    const email: string | undefined = userData.email
+    // The user must already be logged in (session cookie) to connect Anthropic
+    const sessionValue = request.cookies.get('session')?.value
+    const userId = getSessionUserId(sessionValue)
 
-    if (!email) {
-      return NextResponse.redirect(new URL('/?error=auth_failed', request.url))
+    if (!userId) {
+      return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Upsert user — new auth always replaces previous token
-    const user = await prisma.user.upsert({
-      where: { email },
-      create: { email, anthropicToken: encrypt(accessToken) },
-      update: { anthropicToken: encrypt(accessToken) },
-      select: { id: true },
+    // Save the encrypted token to the existing user
+    await prisma.user.update({
+      where: { id: userId },
+      data: { anthropicToken: encrypt(accessToken) },
     })
 
-    // Set session cookie and clear state cookie
+    // Clear state cookie and redirect home
     const response = NextResponse.redirect(new URL('/', request.url))
-    const sessionArgs = setSessionCookieArgs(user.id)
-    response.cookies.set(sessionArgs)
     response.cookies.set(STATE_COOKIE, '', { maxAge: 0, path: '/' })
 
     return response

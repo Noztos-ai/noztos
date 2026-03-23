@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyProjectAccess } from '@/lib/auth'
-import { callChat } from '@/lib/anthropic'
+import { processChat, processChatSync } from '@/lib/chat-engine'
 
 interface RouteContext {
   params: Promise<{ id: string }>
 }
 
-// GET /api/projects/[id]/chat — list chat messages
+// GET — list chat messages
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   const access = await verifyProjectAccess(id)
@@ -22,6 +22,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       content: true,
       sender: true,
       mode: true,
+      activeSkillId: true,
       createdAt: true,
     },
     orderBy: { createdAt: 'asc' },
@@ -31,7 +32,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   return NextResponse.json(messages)
 }
 
-// POST /api/projects/[id]/chat — send a message
+// POST — send a message
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   const access = await verifyProjectAccess(id)
@@ -39,7 +40,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: access.error }, { status: access.status })
   }
 
-  let body: { content?: string }
+  let body: {
+    content?: string
+    mode?: 'no_skill' | 'skill' | 'team'
+    activeSkillId?: string
+    activeTeamId?: string
+    teamConfig?: {
+      order: string[]
+      canRecreateTasks: Record<string, string>
+      hasBuilder: boolean
+    }
+  }
   try {
     body = await request.json()
   } catch {
@@ -55,45 +66,43 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Message too long (max 10000 chars)' }, { status: 400 })
   }
 
-  // Save user message
-  const userMessage = await prisma.chatMessage.create({
-    data: {
-      projectId: id,
-      userId: access.userId,
-      content,
-      sender: 'user',
-      mode: 'no_skill',
-    },
-    select: { id: true, content: true, sender: true, mode: true, createdAt: true },
-  })
-
-  // Get user's Anthropic token for the API call
-  const user = await prisma.user.findUnique({
-    where: { id: access.userId },
-    select: { anthropicToken: true },
-  })
-
-  let aiContent: string
-  if (user?.anthropicToken) {
-    try {
-      aiContent = await callChat(user.anthropicToken, content)
-    } catch {
-      aiContent = 'Sorry, I encountered an error processing your message. Please try again.'
-    }
-  } else {
-    aiContent = 'Please connect your Anthropic account first to chat with AI.'
+  const chatReq = {
+    projectId: id,
+    userId: access.userId,
+    content,
+    mode: body.mode ?? 'no_skill' as const,
+    activeSkillId: body.activeSkillId,
+    activeTeamId: body.activeTeamId,
+    teamConfig: body.teamConfig,
   }
 
-  const aiMessage = await prisma.chatMessage.create({
-    data: {
-      projectId: id,
-      userId: access.userId,
-      content: aiContent,
-      sender: 'claude',
-      mode: 'no_skill',
-    },
-    select: { id: true, content: true, sender: true, mode: true, createdAt: true },
-  })
+  if (body.mode === 'team') {
+    // Team mode: save user message, start processing in background, return immediately
+    const userMessage = await prisma.chatMessage.create({
+      data: {
+        projectId: id,
+        userId: access.userId,
+        content,
+        sender: 'user',
+        mode: 'team',
+        activeSkillId: body.activeSkillId ?? null,
+      },
+      select: { id: true, content: true, sender: true, mode: true, activeSkillId: true, createdAt: true },
+    })
 
-  return NextResponse.json({ userMessage, aiMessage }, { status: 201 })
+    // Fire and forget — process in background
+    processChat(chatReq).catch((err) => {
+      console.error('[chat-engine] Team processing error:', err)
+    })
+
+    return NextResponse.json({
+      userMessage,
+      processing: true,
+      pollUrl: `/api/projects/${id}/chat/status?after=${new Date().toISOString()}`,
+    }, { status: 202 })
+  }
+
+  // No-skill and skill mode: process synchronously
+  const result = await processChatSync(chatReq)
+  return NextResponse.json(result, { status: 201 })
 }

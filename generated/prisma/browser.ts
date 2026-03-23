@@ -28,6 +28,16 @@ export type User = Prisma.UserModel
  */
 export type Project = Prisma.ProjectModel
 /**
+ * Model Repository
+ * 
+ */
+export type Repository = Prisma.RepositoryModel
+/**
+ * Model RepoFile
+ * 
+ */
+export type RepoFile = Prisma.RepoFileModel
+/**
  * Model Collaborator
  * 
  */
@@ -77,3 +87,8 @@ export type SlackLog = Prisma.SlackLogModel
  * 
  */
 export type ResourceUsage = Prisma.ResourceUsageModel
+/**
+ * Model TeamRun
+ * 
+ */
+export type TeamRun = Prisma.TeamRunModel

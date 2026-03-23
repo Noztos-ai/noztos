@@ -53,6 +53,8 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   User: 'User',
   Project: 'Project',
+  Repository: 'Repository',
+  RepoFile: 'RepoFile',
   Collaborator: 'Collaborator',
   Team: 'Team',
   ChatMessage: 'ChatMessage',
@@ -62,7 +64,8 @@ export const ModelName = {
   TaskBuildLog: 'TaskBuildLog',
   TaskSuggestion: 'TaskSuggestion',
   SlackLog: 'SlackLog',
-  ResourceUsage: 'ResourceUsage'
+  ResourceUsage: 'ResourceUsage',
+  TeamRun: 'TeamRun'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -84,9 +87,15 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  passwordHash: 'passwordHash',
   name: 'name',
+  company: 'company',
+  role: 'role',
+  avatarUrl: 'avatarUrl',
   anthropicToken: 'anthropicToken',
   slackToken: 'slackToken',
+  githubToken: 'githubToken',
+  emailVerified: 'emailVerified',
   createdAt: 'createdAt',
   lastActive: 'lastActive'
 } as const
@@ -105,6 +114,37 @@ export const ProjectScalarFieldEnum = {
 } as const
 
 export type ProjectScalarFieldEnum = (typeof ProjectScalarFieldEnum)[keyof typeof ProjectScalarFieldEnum]
+
+
+export const RepositoryScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  githubOwner: 'githubOwner',
+  githubRepo: 'githubRepo',
+  githubBranch: 'githubBranch',
+  lastSyncedSha: 'lastSyncedSha',
+  lastSyncedAt: 'lastSyncedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof typeof RepositoryScalarFieldEnum]
+
+
+export const RepoFileScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  path: 'path',
+  content: 'content',
+  originalContent: 'originalContent',
+  isModified: 'isModified',
+  isBinary: 'isBinary',
+  sizeBytes: 'sizeBytes',
+  blobSha: 'blobSha',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RepoFileScalarFieldEnum = (typeof RepoFileScalarFieldEnum)[keyof typeof RepoFileScalarFieldEnum]
 
 
 export const CollaboratorScalarFieldEnum = {
@@ -259,6 +299,22 @@ export const ResourceUsageScalarFieldEnum = {
 } as const
 
 export type ResourceUsageScalarFieldEnum = (typeof ResourceUsageScalarFieldEnum)[keyof typeof ResourceUsageScalarFieldEnum]
+
+
+export const TeamRunScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  userId: 'userId',
+  teamConfigJson: 'teamConfigJson',
+  userMessage: 'userMessage',
+  status: 'status',
+  plan: 'plan',
+  state: 'state',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TeamRunScalarFieldEnum = (typeof TeamRunScalarFieldEnum)[keyof typeof TeamRunScalarFieldEnum]
 
 
 export const SortOrder = {

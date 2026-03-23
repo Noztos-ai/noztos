@@ -89,3 +89,91 @@ export async function callChat(
   })
   return result.text
 }
+
+// ── Tool Use support ─────────────────────────────────────────────────────
+
+interface ToolDefinition {
+  name: string
+  description: string
+  input_schema: Record<string, unknown>
+}
+
+interface ToolUseBlock {
+  type: 'tool_use'
+  id: string
+  name: string
+  input: Record<string, unknown>
+}
+
+interface TextBlock {
+  type: 'text'
+  text: string
+}
+
+type ContentBlock = ToolUseBlock | TextBlock
+
+interface ToolCallMessage {
+  role: 'user' | 'assistant'
+  content: string | ContentBlock[]
+}
+
+interface ToolCallOptions {
+  encryptedToken: string
+  systemPrompt: string
+  messages: ToolCallMessage[]
+  tools: ToolDefinition[]
+  model?: string
+  maxTokens?: number
+}
+
+interface ToolCallApiResponse {
+  content: ContentBlock[]
+  stop_reason: 'end_turn' | 'tool_use' | 'max_tokens'
+  usage: { input_tokens: number; output_tokens: number }
+}
+
+/**
+ * Call the Anthropic Messages API with tool definitions.
+ * Returns the full content blocks and stop reason for agentic loop handling.
+ */
+export async function callAnthropicWithTools(options: ToolCallOptions): Promise<{
+  content: ContentBlock[]
+  stopReason: string
+  inputTokens: number
+  outputTokens: number
+}> {
+  const apiKey = decrypt(options.encryptedToken)
+  if (!apiKey) throw new Error('Failed to decrypt Anthropic token')
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: options.model ?? DEFAULT_MODEL,
+      max_tokens: options.maxTokens ?? MAX_TOKENS,
+      system: options.systemPrompt,
+      messages: options.messages,
+      tools: options.tools,
+    }),
+  })
+
+  if (!res.ok) {
+    const errorBody = await res.text()
+    throw new Error(`Anthropic API error (${res.status}): ${errorBody.slice(0, 200)}`)
+  }
+
+  const data: ToolCallApiResponse = await res.json()
+
+  return {
+    content: data.content,
+    stopReason: data.stop_reason,
+    inputTokens: data.usage.input_tokens,
+    outputTokens: data.usage.output_tokens,
+  }
+}
+
+export type { ToolDefinition, ToolUseBlock, TextBlock, ContentBlock, ToolCallMessage }

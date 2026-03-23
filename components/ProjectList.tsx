@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { CreateProjectButton } from './CreateProjectForm'
 
 interface Project {
   id: string
@@ -14,7 +17,7 @@ export function ProjectList({ projects }: ProjectListProps) {
   if (projects.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-        <div className="rounded-full bg-zinc-100 p-4 dark:bg-zinc-800">
+        <div className="rounded-full bg-zinc-200 p-4 dark:bg-zinc-800">
           <svg
             className="h-8 w-8 text-zinc-400"
             fill="none"
@@ -34,15 +37,12 @@ export function ProjectList({ projects }: ProjectListProps) {
             No projects yet
           </h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Create your first AI company to get started.
+            Select a GitHub repository to get started.
           </p>
         </div>
-        <Link
-          href="/projects/new"
-          className="mt-2 flex h-10 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          New Project
-        </Link>
+        <div className="mt-2">
+          <CreateProjectButton />
+        </div>
       </div>
     )
   }
@@ -53,25 +53,20 @@ export function ProjectList({ projects }: ProjectListProps) {
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
           Your Projects
         </h2>
-        <Link
-          href="/projects/new"
-          className="flex h-9 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          New Project
-        </Link>
+        <CreateProjectButton />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {projects.map((project) => (
           <Link
             key={project.id}
             href={`/projects/${project.id}`}
-            className="rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+            className="rounded-xl border border-zinc-200/60 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
           >
             <h3 className="font-medium text-zinc-900 dark:text-zinc-50">
               {project.name}
             </h3>
             <p className="mt-1 text-xs text-zinc-400">
-              Created {project.createdAt.toLocaleDateString()}
+              Created {new Date(project.createdAt).toISOString().split('T')[0]}
             </p>
           </Link>
         ))}

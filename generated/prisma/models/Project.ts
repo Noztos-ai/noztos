@@ -199,12 +199,14 @@ export type ProjectWhereInput = {
   slackWebhook?: Prisma.StringNullableFilter<"Project"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Project"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  repository?: Prisma.XOR<Prisma.RepositoryNullableScalarRelationFilter, Prisma.RepositoryWhereInput> | null
   collaborators?: Prisma.CollaboratorListRelationFilter
   teams?: Prisma.TeamListRelationFilter
   chatMessages?: Prisma.ChatMessageListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
   slackLogs?: Prisma.SlackLogListRelationFilter
   resourceUsage?: Prisma.ResourceUsageListRelationFilter
+  teamRuns?: Prisma.TeamRunListRelationFilter
 }
 
 export type ProjectOrderByWithRelationInput = {
@@ -216,12 +218,14 @@ export type ProjectOrderByWithRelationInput = {
   slackWebhook?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
+  repository?: Prisma.RepositoryOrderByWithRelationInput
   collaborators?: Prisma.CollaboratorOrderByRelationAggregateInput
   teams?: Prisma.TeamOrderByRelationAggregateInput
   chatMessages?: Prisma.ChatMessageOrderByRelationAggregateInput
   tasks?: Prisma.TaskOrderByRelationAggregateInput
   slackLogs?: Prisma.SlackLogOrderByRelationAggregateInput
   resourceUsage?: Prisma.ResourceUsageOrderByRelationAggregateInput
+  teamRuns?: Prisma.TeamRunOrderByRelationAggregateInput
 }
 
 export type ProjectWhereUniqueInput = Prisma.AtLeast<{
@@ -236,12 +240,14 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   slackWebhook?: Prisma.StringNullableFilter<"Project"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Project"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  repository?: Prisma.XOR<Prisma.RepositoryNullableScalarRelationFilter, Prisma.RepositoryWhereInput> | null
   collaborators?: Prisma.CollaboratorListRelationFilter
   teams?: Prisma.TeamListRelationFilter
   chatMessages?: Prisma.ChatMessageListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
   slackLogs?: Prisma.SlackLogListRelationFilter
   resourceUsage?: Prisma.ResourceUsageListRelationFilter
+  teamRuns?: Prisma.TeamRunListRelationFilter
 }, "id">
 
 export type ProjectOrderByWithAggregationInput = {
@@ -278,12 +284,14 @@ export type ProjectCreateInput = {
   slackWebhook?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateInput = {
@@ -294,12 +302,14 @@ export type ProjectUncheckedCreateInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUpdateInput = {
@@ -310,12 +320,14 @@ export type ProjectUpdateInput = {
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateInput = {
@@ -326,12 +338,14 @@ export type ProjectUncheckedUpdateInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateManyInput = {
@@ -403,14 +417,14 @@ export type ProjectMinOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
 }
 
-export type ProjectNullableScalarRelationFilter = {
-  is?: Prisma.ProjectWhereInput | null
-  isNot?: Prisma.ProjectWhereInput | null
-}
-
 export type ProjectScalarRelationFilter = {
   is?: Prisma.ProjectWhereInput
   isNot?: Prisma.ProjectWhereInput
+}
+
+export type ProjectNullableScalarRelationFilter = {
+  is?: Prisma.ProjectWhereInput | null
+  isNot?: Prisma.ProjectWhereInput | null
 }
 
 export type ProjectCreateNestedManyWithoutUserInput = {
@@ -453,6 +467,20 @@ export type ProjectUncheckedUpdateManyWithoutUserNestedInput = {
   update?: Prisma.ProjectUpdateWithWhereUniqueWithoutUserInput | Prisma.ProjectUpdateWithWhereUniqueWithoutUserInput[]
   updateMany?: Prisma.ProjectUpdateManyWithWhereWithoutUserInput | Prisma.ProjectUpdateManyWithWhereWithoutUserInput[]
   deleteMany?: Prisma.ProjectScalarWhereInput | Prisma.ProjectScalarWhereInput[]
+}
+
+export type ProjectCreateNestedOneWithoutRepositoryInput = {
+  create?: Prisma.XOR<Prisma.ProjectCreateWithoutRepositoryInput, Prisma.ProjectUncheckedCreateWithoutRepositoryInput>
+  connectOrCreate?: Prisma.ProjectCreateOrConnectWithoutRepositoryInput
+  connect?: Prisma.ProjectWhereUniqueInput
+}
+
+export type ProjectUpdateOneRequiredWithoutRepositoryNestedInput = {
+  create?: Prisma.XOR<Prisma.ProjectCreateWithoutRepositoryInput, Prisma.ProjectUncheckedCreateWithoutRepositoryInput>
+  connectOrCreate?: Prisma.ProjectCreateOrConnectWithoutRepositoryInput
+  upsert?: Prisma.ProjectUpsertWithoutRepositoryInput
+  connect?: Prisma.ProjectWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProjectUpdateToOneWithWhereWithoutRepositoryInput, Prisma.ProjectUpdateWithoutRepositoryInput>, Prisma.ProjectUncheckedUpdateWithoutRepositoryInput>
 }
 
 export type ProjectCreateNestedOneWithoutCollaboratorsInput = {
@@ -541,6 +569,20 @@ export type ProjectUpdateOneRequiredWithoutResourceUsageNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ProjectUpdateToOneWithWhereWithoutResourceUsageInput, Prisma.ProjectUpdateWithoutResourceUsageInput>, Prisma.ProjectUncheckedUpdateWithoutResourceUsageInput>
 }
 
+export type ProjectCreateNestedOneWithoutTeamRunsInput = {
+  create?: Prisma.XOR<Prisma.ProjectCreateWithoutTeamRunsInput, Prisma.ProjectUncheckedCreateWithoutTeamRunsInput>
+  connectOrCreate?: Prisma.ProjectCreateOrConnectWithoutTeamRunsInput
+  connect?: Prisma.ProjectWhereUniqueInput
+}
+
+export type ProjectUpdateOneRequiredWithoutTeamRunsNestedInput = {
+  create?: Prisma.XOR<Prisma.ProjectCreateWithoutTeamRunsInput, Prisma.ProjectUncheckedCreateWithoutTeamRunsInput>
+  connectOrCreate?: Prisma.ProjectCreateOrConnectWithoutTeamRunsInput
+  upsert?: Prisma.ProjectUpsertWithoutTeamRunsInput
+  connect?: Prisma.ProjectWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProjectUpdateToOneWithWhereWithoutTeamRunsInput, Prisma.ProjectUpdateWithoutTeamRunsInput>, Prisma.ProjectUncheckedUpdateWithoutTeamRunsInput>
+}
+
 export type ProjectCreateWithoutUserInput = {
   id?: string
   name: string
@@ -548,12 +590,14 @@ export type ProjectCreateWithoutUserInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutUserInput = {
@@ -563,12 +607,14 @@ export type ProjectUncheckedCreateWithoutUserInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutUserInput = {
@@ -610,6 +656,90 @@ export type ProjectScalarWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Project"> | Date | string
 }
 
+export type ProjectCreateWithoutRepositoryInput = {
+  id?: string
+  name: string
+  repositoryPath?: string | null
+  slackChannel?: string | null
+  slackWebhook?: string | null
+  createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
+  teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
+  chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
+  slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
+  resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
+}
+
+export type ProjectUncheckedCreateWithoutRepositoryInput = {
+  id?: string
+  userId: string
+  name: string
+  repositoryPath?: string | null
+  slackChannel?: string | null
+  slackWebhook?: string | null
+  createdAt?: Date | string
+  collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
+  teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
+  chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
+  slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
+  resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
+}
+
+export type ProjectCreateOrConnectWithoutRepositoryInput = {
+  where: Prisma.ProjectWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProjectCreateWithoutRepositoryInput, Prisma.ProjectUncheckedCreateWithoutRepositoryInput>
+}
+
+export type ProjectUpsertWithoutRepositoryInput = {
+  update: Prisma.XOR<Prisma.ProjectUpdateWithoutRepositoryInput, Prisma.ProjectUncheckedUpdateWithoutRepositoryInput>
+  create: Prisma.XOR<Prisma.ProjectCreateWithoutRepositoryInput, Prisma.ProjectUncheckedCreateWithoutRepositoryInput>
+  where?: Prisma.ProjectWhereInput
+}
+
+export type ProjectUpdateToOneWithWhereWithoutRepositoryInput = {
+  where?: Prisma.ProjectWhereInput
+  data: Prisma.XOR<Prisma.ProjectUpdateWithoutRepositoryInput, Prisma.ProjectUncheckedUpdateWithoutRepositoryInput>
+}
+
+export type ProjectUpdateWithoutRepositoryInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
+  teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
+  chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
+  slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
+  resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
+}
+
+export type ProjectUncheckedUpdateWithoutRepositoryInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
+  teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
+  chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
+  slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
+  resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
+}
+
 export type ProjectCreateWithoutCollaboratorsInput = {
   id?: string
   name: string
@@ -618,11 +748,13 @@ export type ProjectCreateWithoutCollaboratorsInput = {
   slackWebhook?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutCollaboratorsInput = {
@@ -633,11 +765,13 @@ export type ProjectUncheckedCreateWithoutCollaboratorsInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutCollaboratorsInput = {
@@ -664,11 +798,13 @@ export type ProjectUpdateWithoutCollaboratorsInput = {
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutCollaboratorsInput = {
@@ -679,11 +815,13 @@ export type ProjectUncheckedUpdateWithoutCollaboratorsInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateWithoutTeamsInput = {
@@ -694,11 +832,13 @@ export type ProjectCreateWithoutTeamsInput = {
   slackWebhook?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutTeamsInput = {
@@ -709,11 +849,13 @@ export type ProjectUncheckedCreateWithoutTeamsInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutTeamsInput = {
@@ -740,11 +882,13 @@ export type ProjectUpdateWithoutTeamsInput = {
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutTeamsInput = {
@@ -755,11 +899,13 @@ export type ProjectUncheckedUpdateWithoutTeamsInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateWithoutChatMessagesInput = {
@@ -770,11 +916,13 @@ export type ProjectCreateWithoutChatMessagesInput = {
   slackWebhook?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutChatMessagesInput = {
@@ -785,11 +933,13 @@ export type ProjectUncheckedCreateWithoutChatMessagesInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutChatMessagesInput = {
@@ -816,11 +966,13 @@ export type ProjectUpdateWithoutChatMessagesInput = {
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutChatMessagesInput = {
@@ -831,11 +983,13 @@ export type ProjectUncheckedUpdateWithoutChatMessagesInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateWithoutTasksInput = {
@@ -846,11 +1000,13 @@ export type ProjectCreateWithoutTasksInput = {
   slackWebhook?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutTasksInput = {
@@ -861,11 +1017,13 @@ export type ProjectUncheckedCreateWithoutTasksInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutTasksInput = {
@@ -892,11 +1050,13 @@ export type ProjectUpdateWithoutTasksInput = {
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutTasksInput = {
@@ -907,11 +1067,13 @@ export type ProjectUncheckedUpdateWithoutTasksInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateWithoutSlackLogsInput = {
@@ -922,11 +1084,13 @@ export type ProjectCreateWithoutSlackLogsInput = {
   slackWebhook?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutSlackLogsInput = {
@@ -937,11 +1101,13 @@ export type ProjectUncheckedCreateWithoutSlackLogsInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutSlackLogsInput = {
@@ -968,11 +1134,13 @@ export type ProjectUpdateWithoutSlackLogsInput = {
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutSlackLogsInput = {
@@ -983,11 +1151,13 @@ export type ProjectUncheckedUpdateWithoutSlackLogsInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateWithoutResourceUsageInput = {
@@ -998,11 +1168,13 @@ export type ProjectCreateWithoutResourceUsageInput = {
   slackWebhook?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutResourceUsageInput = {
@@ -1013,11 +1185,13 @@ export type ProjectUncheckedCreateWithoutResourceUsageInput = {
   slackChannel?: string | null
   slackWebhook?: string | null
   createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
   collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
   teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
+  teamRuns?: Prisma.TeamRunUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutResourceUsageInput = {
@@ -1044,11 +1218,13 @@ export type ProjectUpdateWithoutResourceUsageInput = {
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutResourceUsageInput = {
@@ -1059,11 +1235,97 @@ export type ProjectUncheckedUpdateWithoutResourceUsageInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
+}
+
+export type ProjectCreateWithoutTeamRunsInput = {
+  id?: string
+  name: string
+  repositoryPath?: string | null
+  slackChannel?: string | null
+  slackWebhook?: string | null
+  createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutProjectsInput
+  repository?: Prisma.RepositoryCreateNestedOneWithoutProjectInput
+  collaborators?: Prisma.CollaboratorCreateNestedManyWithoutProjectInput
+  teams?: Prisma.TeamCreateNestedManyWithoutProjectInput
+  chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutProjectInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
+  slackLogs?: Prisma.SlackLogCreateNestedManyWithoutProjectInput
+  resourceUsage?: Prisma.ResourceUsageCreateNestedManyWithoutProjectInput
+}
+
+export type ProjectUncheckedCreateWithoutTeamRunsInput = {
+  id?: string
+  userId: string
+  name: string
+  repositoryPath?: string | null
+  slackChannel?: string | null
+  slackWebhook?: string | null
+  createdAt?: Date | string
+  repository?: Prisma.RepositoryUncheckedCreateNestedOneWithoutProjectInput
+  collaborators?: Prisma.CollaboratorUncheckedCreateNestedManyWithoutProjectInput
+  teams?: Prisma.TeamUncheckedCreateNestedManyWithoutProjectInput
+  chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutProjectInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
+  slackLogs?: Prisma.SlackLogUncheckedCreateNestedManyWithoutProjectInput
+  resourceUsage?: Prisma.ResourceUsageUncheckedCreateNestedManyWithoutProjectInput
+}
+
+export type ProjectCreateOrConnectWithoutTeamRunsInput = {
+  where: Prisma.ProjectWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProjectCreateWithoutTeamRunsInput, Prisma.ProjectUncheckedCreateWithoutTeamRunsInput>
+}
+
+export type ProjectUpsertWithoutTeamRunsInput = {
+  update: Prisma.XOR<Prisma.ProjectUpdateWithoutTeamRunsInput, Prisma.ProjectUncheckedUpdateWithoutTeamRunsInput>
+  create: Prisma.XOR<Prisma.ProjectCreateWithoutTeamRunsInput, Prisma.ProjectUncheckedCreateWithoutTeamRunsInput>
+  where?: Prisma.ProjectWhereInput
+}
+
+export type ProjectUpdateToOneWithWhereWithoutTeamRunsInput = {
+  where?: Prisma.ProjectWhereInput
+  data: Prisma.XOR<Prisma.ProjectUpdateWithoutTeamRunsInput, Prisma.ProjectUncheckedUpdateWithoutTeamRunsInput>
+}
+
+export type ProjectUpdateWithoutTeamRunsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutProjectsNestedInput
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
+  collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
+  teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
+  chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
+  slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
+  resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+}
+
+export type ProjectUncheckedUpdateWithoutTeamRunsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
+  collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
+  teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
+  chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
+  slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
+  resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateManyUserInput = {
@@ -1082,12 +1344,14 @@ export type ProjectUpdateWithoutUserInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutUserInput = {
@@ -1097,12 +1361,14 @@ export type ProjectUncheckedUpdateWithoutUserInput = {
   slackChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackWebhook?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  repository?: Prisma.RepositoryUncheckedUpdateOneWithoutProjectNestedInput
   collaborators?: Prisma.CollaboratorUncheckedUpdateManyWithoutProjectNestedInput
   teams?: Prisma.TeamUncheckedUpdateManyWithoutProjectNestedInput
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutProjectNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   slackLogs?: Prisma.SlackLogUncheckedUpdateManyWithoutProjectNestedInput
   resourceUsage?: Prisma.ResourceUsageUncheckedUpdateManyWithoutProjectNestedInput
+  teamRuns?: Prisma.TeamRunUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateManyWithoutUserInput = {
@@ -1126,6 +1392,7 @@ export type ProjectCountOutputType = {
   tasks: number
   slackLogs: number
   resourceUsage: number
+  teamRuns: number
 }
 
 export type ProjectCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1135,6 +1402,7 @@ export type ProjectCountOutputTypeSelect<ExtArgs extends runtime.Types.Extension
   tasks?: boolean | ProjectCountOutputTypeCountTasksArgs
   slackLogs?: boolean | ProjectCountOutputTypeCountSlackLogsArgs
   resourceUsage?: boolean | ProjectCountOutputTypeCountResourceUsageArgs
+  teamRuns?: boolean | ProjectCountOutputTypeCountTeamRunsArgs
 }
 
 /**
@@ -1189,6 +1457,13 @@ export type ProjectCountOutputTypeCountResourceUsageArgs<ExtArgs extends runtime
   where?: Prisma.ResourceUsageWhereInput
 }
 
+/**
+ * ProjectCountOutputType without action
+ */
+export type ProjectCountOutputTypeCountTeamRunsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TeamRunWhereInput
+}
+
 
 export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1199,12 +1474,14 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   slackWebhook?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  repository?: boolean | Prisma.Project$repositoryArgs<ExtArgs>
   collaborators?: boolean | Prisma.Project$collaboratorsArgs<ExtArgs>
   teams?: boolean | Prisma.Project$teamsArgs<ExtArgs>
   chatMessages?: boolean | Prisma.Project$chatMessagesArgs<ExtArgs>
   tasks?: boolean | Prisma.Project$tasksArgs<ExtArgs>
   slackLogs?: boolean | Prisma.Project$slackLogsArgs<ExtArgs>
   resourceUsage?: boolean | Prisma.Project$resourceUsageArgs<ExtArgs>
+  teamRuns?: boolean | Prisma.Project$teamRunsArgs<ExtArgs>
   _count?: boolean | Prisma.ProjectCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["project"]>
 
@@ -1243,12 +1520,14 @@ export type ProjectSelectScalar = {
 export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "repositoryPath" | "slackChannel" | "slackWebhook" | "createdAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  repository?: boolean | Prisma.Project$repositoryArgs<ExtArgs>
   collaborators?: boolean | Prisma.Project$collaboratorsArgs<ExtArgs>
   teams?: boolean | Prisma.Project$teamsArgs<ExtArgs>
   chatMessages?: boolean | Prisma.Project$chatMessagesArgs<ExtArgs>
   tasks?: boolean | Prisma.Project$tasksArgs<ExtArgs>
   slackLogs?: boolean | Prisma.Project$slackLogsArgs<ExtArgs>
   resourceUsage?: boolean | Prisma.Project$resourceUsageArgs<ExtArgs>
+  teamRuns?: boolean | Prisma.Project$teamRunsArgs<ExtArgs>
   _count?: boolean | Prisma.ProjectCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ProjectIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1262,12 +1541,14 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
   name: "Project"
   objects: {
     user: Prisma.$UserPayload<ExtArgs>
+    repository: Prisma.$RepositoryPayload<ExtArgs> | null
     collaborators: Prisma.$CollaboratorPayload<ExtArgs>[]
     teams: Prisma.$TeamPayload<ExtArgs>[]
     chatMessages: Prisma.$ChatMessagePayload<ExtArgs>[]
     tasks: Prisma.$TaskPayload<ExtArgs>[]
     slackLogs: Prisma.$SlackLogPayload<ExtArgs>[]
     resourceUsage: Prisma.$ResourceUsagePayload<ExtArgs>[]
+    teamRuns: Prisma.$TeamRunPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1672,12 +1953,14 @@ readonly fields: ProjectFieldRefs;
 export interface Prisma__ProjectClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  repository<T extends Prisma.Project$repositoryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$repositoryArgs<ExtArgs>>): Prisma.Prisma__RepositoryClient<runtime.Types.Result.GetResult<Prisma.$RepositoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   collaborators<T extends Prisma.Project$collaboratorsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$collaboratorsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollaboratorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   teams<T extends Prisma.Project$teamsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$teamsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TeamPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   chatMessages<T extends Prisma.Project$chatMessagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$chatMessagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ChatMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tasks<T extends Prisma.Project$tasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   slackLogs<T extends Prisma.Project$slackLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$slackLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SlackLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   resourceUsage<T extends Prisma.Project$resourceUsageArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$resourceUsageArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResourceUsagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  teamRuns<T extends Prisma.Project$teamRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$teamRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TeamRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2115,6 +2398,25 @@ export type ProjectDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
 }
 
 /**
+ * Project.repository
+ */
+export type Project$repositoryArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Repository
+   */
+  select?: Prisma.RepositorySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Repository
+   */
+  omit?: Prisma.RepositoryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RepositoryInclude<ExtArgs> | null
+  where?: Prisma.RepositoryWhereInput
+}
+
+/**
  * Project.collaborators
  */
 export type Project$collaboratorsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2256,6 +2558,30 @@ export type Project$resourceUsageArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   distinct?: Prisma.ResourceUsageScalarFieldEnum | Prisma.ResourceUsageScalarFieldEnum[]
+}
+
+/**
+ * Project.teamRuns
+ */
+export type Project$teamRunsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TeamRun
+   */
+  select?: Prisma.TeamRunSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TeamRun
+   */
+  omit?: Prisma.TeamRunOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TeamRunInclude<ExtArgs> | null
+  where?: Prisma.TeamRunWhereInput
+  orderBy?: Prisma.TeamRunOrderByWithRelationInput | Prisma.TeamRunOrderByWithRelationInput[]
+  cursor?: Prisma.TeamRunWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TeamRunScalarFieldEnum | Prisma.TeamRunScalarFieldEnum[]
 }
 
 /**

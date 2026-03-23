@@ -40,10 +40,16 @@ enum ExecutorType {
 model User {
   id             String   @id @default(cuid())
   email          String   @unique
-  name           String?
+  passwordHash   String
+  name           String
+  company        String?
+  role           String?
+  avatarUrl      String?
   // Stored AES-encrypted via lib/crypto.ts — never plain text
   anthropicToken String?
   slackToken     String?
+  githubToken    String?
+  emailVerified  Boolean  @default(false)
   createdAt      DateTime @default(now())
   lastActive     DateTime @updatedAt
 
@@ -68,15 +74,66 @@ model Project {
   createdAt      DateTime @default(now())
 
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository    Repository?
   collaborators Collaborator[]
   teams         Team[]
   chatMessages  ChatMessage[]
   tasks         Task[]
   slackLogs     SlackLog[]
   resourceUsage ResourceUsage[]
+  teamRuns      TeamRun[]
 
   @@index([userId])
   @@map("projects")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Repositories — cloned GitHub repos stored in our DB
+//
+// 1:1 with Project. Files stored as RepoFile rows.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Repository {
+  id              String    @id @default(cuid())
+  projectId       String    @unique
+  githubOwner     String
+  githubRepo      String
+  githubBranch    String    @default("main")
+  lastSyncedSha   String?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime  @default(now())
+
+  project Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files   RepoFile[]
+
+  @@map("repositories")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Repo files — one row per file in the cloned repo
+//
+// originalContent: snapshot at last sync (for diffing)
+// isModified:      true when Claude has written to the file
+// ─────────────────────────────────────────────────────────────────────────────
+
+model RepoFile {
+  id              String   @id @default(cuid())
+  repositoryId    String
+  path            String
+  content         String
+  originalContent String
+  isModified      Boolean  @default(false)
+  isBinary        Boolean  @default(false)
+  sizeBytes       Int      @default(0)
+  blobSha         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, path])
+  @@index([repositoryId, isModified])
+  @@map("repo_files")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -333,4 +390,30 @@ model ResourceUsage {
 
   @@index([userId, projectId])
   @@map("resource_usage")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Team runs — persists the state of a team pipeline execution
+//
+// status: "running" | "completed" | "failed" | "timed_out"
+// plan:   JSON — the etapas plan { etapas: [{ name, objective, members }] }
+// state:  JSON — current progress { etapas: [{ status, members: [{ name, status, redirectedTo? }] }] }
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TeamRun {
+  id            String   @id @default(cuid())
+  projectId     String
+  userId        String
+  teamConfigJson Json
+  userMessage   String
+  status        String   @default("running")
+  plan          Json     @default("{}")
+  state         Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@map("team_runs")
 }

@@ -15,7 +15,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   const sessionValue = cookieStore.get('session')?.value
   const userId = getSessionUserId(sessionValue)
 
-  if (!userId) redirect('/')
+  if (!userId) redirect('/login')
 
   const project = await prisma.project.findUnique({
     where: { id },

@@ -1,3 +1,6 @@
+import 'dotenv/config'
+import { Pool } from 'pg'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, Phase } from '../generated/prisma/client'
 
 // Seed script — creates the 7 platform default collaborators as global templates.
@@ -11,7 +14,9 @@ import { PrismaClient, Phase } from '../generated/prisma/client'
 // Run: npx tsx prisma/seed.ts
 // Or:  npx prisma db seed (configured in package.json)
 
-const prisma = new PrismaClient()
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
 
 interface PlatformCollaborator {
   name: string
@@ -118,30 +123,41 @@ async function main() {
   console.log('Seeding platform default collaborators...')
 
   for (const collaborator of PLATFORM_DEFAULTS) {
-    const result = await prisma.collaborator.upsert({
+    // Check if already exists (projectId IS NULL)
+    const existing = await prisma.collaborator.findFirst({
       where: {
-        name_projectId: {
+        name: collaborator.name,
+        projectId: null,
+        isPlatformDefault: true,
+      },
+      select: { id: true, name: true },
+    })
+
+    if (existing) {
+      // Update in case skillMd or description changed
+      await prisma.collaborator.update({
+        where: { id: existing.id },
+        data: {
+          description: collaborator.description,
+          skillMd: collaborator.skillMd,
+          phase: collaborator.phase,
+        },
+      })
+      console.log(`  ~ ${existing.name} (${existing.id}) updated`)
+    } else {
+      const result = await prisma.collaborator.create({
+        data: {
           name: collaborator.name,
+          description: collaborator.description,
+          skillMd: collaborator.skillMd,
+          phase: collaborator.phase,
+          isPlatformDefault: true,
+          isActive: true,
           projectId: null,
         },
-      },
-      update: {
-        // Keep description and skillMd in sync if they change
-        description: collaborator.description,
-        skillMd: collaborator.skillMd,
-        phase: collaborator.phase,
-      },
-      create: {
-        name: collaborator.name,
-        description: collaborator.description,
-        skillMd: collaborator.skillMd,
-        phase: collaborator.phase,
-        isPlatformDefault: true,
-        isActive: true,
-        projectId: null,
-      },
-    })
-    console.log(`  ✓ ${result.name} (${result.id})`)
+      })
+      console.log(`  + ${result.name} (${result.id}) created`)
+    }
   }
 
   console.log(`\nSeeded ${PLATFORM_DEFAULTS.length} platform default collaborators.`)

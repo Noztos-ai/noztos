@@ -465,10 +465,6 @@ export type CollaboratorUncheckedUpdateManyWithoutProjectNestedInput = {
   deleteMany?: Prisma.CollaboratorScalarWhereInput | Prisma.CollaboratorScalarWhereInput[]
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type EnumPhaseFieldUpdateOperationsInput = {
   set?: $Enums.Phase
 }

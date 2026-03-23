@@ -27,9 +27,15 @@ export type AggregateUser = {
 export type UserMinAggregateOutputType = {
   id: string | null
   email: string | null
+  passwordHash: string | null
   name: string | null
+  company: string | null
+  role: string | null
+  avatarUrl: string | null
   anthropicToken: string | null
   slackToken: string | null
+  githubToken: string | null
+  emailVerified: boolean | null
   createdAt: Date | null
   lastActive: Date | null
 }
@@ -37,9 +43,15 @@ export type UserMinAggregateOutputType = {
 export type UserMaxAggregateOutputType = {
   id: string | null
   email: string | null
+  passwordHash: string | null
   name: string | null
+  company: string | null
+  role: string | null
+  avatarUrl: string | null
   anthropicToken: string | null
   slackToken: string | null
+  githubToken: string | null
+  emailVerified: boolean | null
   createdAt: Date | null
   lastActive: Date | null
 }
@@ -47,9 +59,15 @@ export type UserMaxAggregateOutputType = {
 export type UserCountAggregateOutputType = {
   id: number
   email: number
+  passwordHash: number
   name: number
+  company: number
+  role: number
+  avatarUrl: number
   anthropicToken: number
   slackToken: number
+  githubToken: number
+  emailVerified: number
   createdAt: number
   lastActive: number
   _all: number
@@ -59,9 +77,15 @@ export type UserCountAggregateOutputType = {
 export type UserMinAggregateInputType = {
   id?: true
   email?: true
+  passwordHash?: true
   name?: true
+  company?: true
+  role?: true
+  avatarUrl?: true
   anthropicToken?: true
   slackToken?: true
+  githubToken?: true
+  emailVerified?: true
   createdAt?: true
   lastActive?: true
 }
@@ -69,9 +93,15 @@ export type UserMinAggregateInputType = {
 export type UserMaxAggregateInputType = {
   id?: true
   email?: true
+  passwordHash?: true
   name?: true
+  company?: true
+  role?: true
+  avatarUrl?: true
   anthropicToken?: true
   slackToken?: true
+  githubToken?: true
+  emailVerified?: true
   createdAt?: true
   lastActive?: true
 }
@@ -79,9 +109,15 @@ export type UserMaxAggregateInputType = {
 export type UserCountAggregateInputType = {
   id?: true
   email?: true
+  passwordHash?: true
   name?: true
+  company?: true
+  role?: true
+  avatarUrl?: true
   anthropicToken?: true
   slackToken?: true
+  githubToken?: true
+  emailVerified?: true
   createdAt?: true
   lastActive?: true
   _all?: true
@@ -162,9 +198,15 @@ export type UserGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 export type UserGroupByOutputType = {
   id: string
   email: string
-  name: string | null
+  passwordHash: string
+  name: string
+  company: string | null
+  role: string | null
+  avatarUrl: string | null
   anthropicToken: string | null
   slackToken: string | null
+  githubToken: string | null
+  emailVerified: boolean
   createdAt: Date
   lastActive: Date
   _count: UserCountAggregateOutputType | null
@@ -193,9 +235,15 @@ export type UserWhereInput = {
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   id?: Prisma.StringFilter<"User"> | string
   email?: Prisma.StringFilter<"User"> | string
-  name?: Prisma.StringNullableFilter<"User"> | string | null
+  passwordHash?: Prisma.StringFilter<"User"> | string
+  name?: Prisma.StringFilter<"User"> | string
+  company?: Prisma.StringNullableFilter<"User"> | string | null
+  role?: Prisma.StringNullableFilter<"User"> | string | null
+  avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   anthropicToken?: Prisma.StringNullableFilter<"User"> | string | null
   slackToken?: Prisma.StringNullableFilter<"User"> | string | null
+  githubToken?: Prisma.StringNullableFilter<"User"> | string | null
+  emailVerified?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeFilter<"User"> | Date | string
   projects?: Prisma.ProjectListRelationFilter
@@ -206,9 +254,15 @@ export type UserWhereInput = {
 export type UserOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
-  name?: Prisma.SortOrderInput | Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
+  name?: Prisma.SortOrder
+  company?: Prisma.SortOrderInput | Prisma.SortOrder
+  role?: Prisma.SortOrderInput | Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   anthropicToken?: Prisma.SortOrderInput | Prisma.SortOrder
   slackToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
   projects?: Prisma.ProjectOrderByRelationAggregateInput
@@ -222,9 +276,15 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
-  name?: Prisma.StringNullableFilter<"User"> | string | null
+  passwordHash?: Prisma.StringFilter<"User"> | string
+  name?: Prisma.StringFilter<"User"> | string
+  company?: Prisma.StringNullableFilter<"User"> | string | null
+  role?: Prisma.StringNullableFilter<"User"> | string | null
+  avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   anthropicToken?: Prisma.StringNullableFilter<"User"> | string | null
   slackToken?: Prisma.StringNullableFilter<"User"> | string | null
+  githubToken?: Prisma.StringNullableFilter<"User"> | string | null
+  emailVerified?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeFilter<"User"> | Date | string
   projects?: Prisma.ProjectListRelationFilter
@@ -235,9 +295,15 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
 export type UserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
-  name?: Prisma.SortOrderInput | Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
+  name?: Prisma.SortOrder
+  company?: Prisma.SortOrderInput | Prisma.SortOrder
+  role?: Prisma.SortOrderInput | Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   anthropicToken?: Prisma.SortOrderInput | Prisma.SortOrder
   slackToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
@@ -251,9 +317,15 @@ export type UserScalarWhereWithAggregatesInput = {
   NOT?: Prisma.UserScalarWhereWithAggregatesInput | Prisma.UserScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"User"> | string
   email?: Prisma.StringWithAggregatesFilter<"User"> | string
-  name?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  passwordHash?: Prisma.StringWithAggregatesFilter<"User"> | string
+  name?: Prisma.StringWithAggregatesFilter<"User"> | string
+  company?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  role?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   anthropicToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   slackToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  githubToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  emailVerified?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
@@ -261,9 +333,15 @@ export type UserScalarWhereWithAggregatesInput = {
 export type UserCreateInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
@@ -274,9 +352,15 @@ export type UserCreateInput = {
 export type UserUncheckedCreateInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
@@ -287,9 +371,15 @@ export type UserUncheckedCreateInput = {
 export type UserUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
@@ -300,9 +390,15 @@ export type UserUpdateInput = {
 export type UserUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
@@ -313,9 +409,15 @@ export type UserUncheckedUpdateInput = {
 export type UserCreateManyInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
 }
@@ -323,9 +425,15 @@ export type UserCreateManyInput = {
 export type UserUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -333,9 +441,15 @@ export type UserUpdateManyMutationInput = {
 export type UserUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -343,9 +457,15 @@ export type UserUncheckedUpdateManyInput = {
 export type UserCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  company?: Prisma.SortOrder
+  role?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   anthropicToken?: Prisma.SortOrder
   slackToken?: Prisma.SortOrder
+  githubToken?: Prisma.SortOrder
+  emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
 }
@@ -353,9 +473,15 @@ export type UserCountOrderByAggregateInput = {
 export type UserMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  company?: Prisma.SortOrder
+  role?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   anthropicToken?: Prisma.SortOrder
   slackToken?: Prisma.SortOrder
+  githubToken?: Prisma.SortOrder
+  emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
 }
@@ -363,9 +489,15 @@ export type UserMaxOrderByAggregateInput = {
 export type UserMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  company?: Prisma.SortOrder
+  role?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   anthropicToken?: Prisma.SortOrder
   slackToken?: Prisma.SortOrder
+  githubToken?: Prisma.SortOrder
+  emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
 }
@@ -381,6 +513,10 @@ export type StringFieldUpdateOperationsInput = {
 
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
+}
+
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -432,9 +568,15 @@ export type UserUpdateOneRequiredWithoutTasksNestedInput = {
 export type UserCreateWithoutProjectsInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
@@ -444,9 +586,15 @@ export type UserCreateWithoutProjectsInput = {
 export type UserUncheckedCreateWithoutProjectsInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
@@ -472,9 +620,15 @@ export type UserUpdateToOneWithWhereWithoutProjectsInput = {
 export type UserUpdateWithoutProjectsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
@@ -484,9 +638,15 @@ export type UserUpdateWithoutProjectsInput = {
 export type UserUncheckedUpdateWithoutProjectsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
@@ -496,9 +656,15 @@ export type UserUncheckedUpdateWithoutProjectsInput = {
 export type UserCreateWithoutChatMessagesInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
@@ -508,9 +674,15 @@ export type UserCreateWithoutChatMessagesInput = {
 export type UserUncheckedCreateWithoutChatMessagesInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
@@ -536,9 +708,15 @@ export type UserUpdateToOneWithWhereWithoutChatMessagesInput = {
 export type UserUpdateWithoutChatMessagesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
@@ -548,9 +726,15 @@ export type UserUpdateWithoutChatMessagesInput = {
 export type UserUncheckedUpdateWithoutChatMessagesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
@@ -560,9 +744,15 @@ export type UserUncheckedUpdateWithoutChatMessagesInput = {
 export type UserCreateWithoutTasksInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
@@ -572,9 +762,15 @@ export type UserCreateWithoutTasksInput = {
 export type UserUncheckedCreateWithoutTasksInput = {
   id?: string
   email: string
-  name?: string | null
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
+  githubToken?: string | null
+  emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
@@ -600,9 +796,15 @@ export type UserUpdateToOneWithWhereWithoutTasksInput = {
 export type UserUpdateWithoutTasksInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
@@ -612,9 +814,15 @@ export type UserUpdateWithoutTasksInput = {
 export type UserUncheckedUpdateWithoutTasksInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
@@ -673,9 +881,15 @@ export type UserCountOutputTypeCountTasksArgs<ExtArgs extends runtime.Types.Exte
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
+  passwordHash?: boolean
   name?: boolean
+  company?: boolean
+  role?: boolean
+  avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
+  githubToken?: boolean
+  emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
   projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
@@ -687,9 +901,15 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
 export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
+  passwordHash?: boolean
   name?: boolean
+  company?: boolean
+  role?: boolean
+  avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
+  githubToken?: boolean
+  emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
 }, ExtArgs["result"]["user"]>
@@ -697,9 +917,15 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
+  passwordHash?: boolean
   name?: boolean
+  company?: boolean
+  role?: boolean
+  avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
+  githubToken?: boolean
+  emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
 }, ExtArgs["result"]["user"]>
@@ -707,14 +933,20 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectScalar = {
   id?: boolean
   email?: boolean
+  passwordHash?: boolean
   name?: boolean
+  company?: boolean
+  role?: boolean
+  avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
+  githubToken?: boolean
+  emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "name" | "anthropicToken" | "slackToken" | "createdAt" | "lastActive", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "passwordHash" | "name" | "company" | "role" | "avatarUrl" | "anthropicToken" | "slackToken" | "githubToken" | "emailVerified" | "createdAt" | "lastActive", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   chatMessages?: boolean | Prisma.User$chatMessagesArgs<ExtArgs>
@@ -734,9 +966,15 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     email: string
-    name: string | null
+    passwordHash: string
+    name: string
+    company: string | null
+    role: string | null
+    avatarUrl: string | null
     anthropicToken: string | null
     slackToken: string | null
+    githubToken: string | null
+    emailVerified: boolean
     createdAt: Date
     lastActive: Date
   }, ExtArgs["result"]["user"]>
@@ -1167,9 +1405,15 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
 export interface UserFieldRefs {
   readonly id: Prisma.FieldRef<"User", 'String'>
   readonly email: Prisma.FieldRef<"User", 'String'>
+  readonly passwordHash: Prisma.FieldRef<"User", 'String'>
   readonly name: Prisma.FieldRef<"User", 'String'>
+  readonly company: Prisma.FieldRef<"User", 'String'>
+  readonly role: Prisma.FieldRef<"User", 'String'>
+  readonly avatarUrl: Prisma.FieldRef<"User", 'String'>
   readonly anthropicToken: Prisma.FieldRef<"User", 'String'>
   readonly slackToken: Prisma.FieldRef<"User", 'String'>
+  readonly githubToken: Prisma.FieldRef<"User", 'String'>
+  readonly emailVerified: Prisma.FieldRef<"User", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly lastActive: Prisma.FieldRef<"User", 'DateTime'>
 }

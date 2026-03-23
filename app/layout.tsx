@@ -2,7 +2,10 @@ import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { getSessionUserId } from '@/lib/session'
+import { prisma } from '@/lib/db'
 import { AuthModalProvider } from '@/components/AuthModal'
+import { SettingsModalProvider } from '@/components/SettingsModal'
+import { GitHubModalProvider } from '@/components/GitHubModal'
 import './globals.css'
 
 const geistSans = Geist({
@@ -27,7 +30,23 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies()
   const sessionValue = cookieStore.get('session')?.value
-  const hasSession = !!getSessionUserId(sessionValue)
+  const userId = getSessionUserId(sessionValue)
+
+  let showAnthropicModal = false
+  let userName = ''
+  let userEmail = ''
+  let githubConnected = false
+
+  if (userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, anthropicToken: true, githubToken: true },
+    })
+    showAnthropicModal = !user?.anthropicToken
+    userName = user?.name ?? ''
+    userEmail = user?.email ?? ''
+    githubConnected = !!user?.githubToken
+  }
 
   return (
     <html
@@ -35,9 +54,13 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthModalProvider initialOpen={!hasSession}>
-          {children}
-        </AuthModalProvider>
+        <SettingsModalProvider userName={userName} userEmail={userEmail}>
+          <GitHubModalProvider isConnected={githubConnected}>
+            <AuthModalProvider initialOpen={showAnthropicModal}>
+              {children}
+            </AuthModalProvider>
+          </GitHubModalProvider>
+        </SettingsModalProvider>
       </body>
     </html>
   )

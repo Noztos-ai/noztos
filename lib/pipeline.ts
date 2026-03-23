@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db'
-import { callAnthropic } from '@/lib/anthropic'
+import { callAnthropic, callAnthropicWithTools } from '@/lib/anthropic'
+import { REPO_TOOLS, executeTool } from '@/lib/tools'
+import type { ContentBlock, ToolCallMessage } from '@/lib/anthropic'
 
 // Team Pipeline Engine
 //
@@ -7,19 +9,9 @@ import { callAnthropic } from '@/lib/anthropic'
 // collaborator pipeline. Each collaborator processes the task in order,
 // passing their output forward to the next.
 //
-// State transitions:
-//   pending → queue → progress → completed → done
-//
-// Pipeline flow (per iteration):
-//   ┌──────────┐    ┌──────────┐    ┌──────────┐
-//   │ Collab 1 │ →  │ Collab 2 │ →  │ Collab N │ → done
-//   └──────────┘    └──────────┘    └──────────┘
-//        ↓               ↓               ↓
-//   TaskSkillLog    TaskSkillLog    TaskSkillLog
-//
-// On rejection by a reviewer:
-//   → create new TaskIteration
-//   → restart from restartFromCollaboratorId (or beginning)
+// When a repository is connected, collaborators get file tools
+// (read_file, write_file, list_dir, search_files, delete_file)
+// and run in an agentic tool loop — just like Claude Code.
 
 interface CollaboratorOrder {
   collaboratorIds: string[]
@@ -31,9 +23,10 @@ interface PipelineResult {
   skillLogId?: string
 }
 
+const MAX_TOOL_ITERATIONS = 30
+
 /**
  * Start a new pipeline run for a task.
- * Creates a TaskIteration and sets the task to 'progress'.
  */
 export async function startPipeline(taskId: string): Promise<PipelineResult> {
   const task = await prisma.task.findUnique({
@@ -44,41 +37,26 @@ export async function startPipeline(taskId: string): Promise<PipelineResult> {
     },
   })
 
-  if (!task) {
-    return { status: 'error', message: 'Task not found' }
-  }
-
-  if (!task.team) {
-    return { status: 'error', message: 'Task has no team assigned' }
-  }
-
+  if (!task) return { status: 'error', message: 'Task not found' }
+  if (!task.team) return { status: 'error', message: 'Task has no team assigned' }
   if (task.status !== 'pending' && task.status !== 'queue') {
     return { status: 'error', message: `Task is in ${task.status} status, cannot start` }
   }
-
   if (!task.user.anthropicToken) {
-    return { status: 'error', message: 'User has no Anthropic token. Connect your Anthropic account first.' }
+    return { status: 'error', message: 'User has no Anthropic token. Connect your API key first.' }
   }
 
-  const order = task.team.collaboratorOrder as CollaboratorOrder
+  const order = task.team.collaboratorOrder as unknown as CollaboratorOrder
   if (!order.collaboratorIds || order.collaboratorIds.length === 0) {
     return { status: 'error', message: 'Team has no collaborators in pipeline' }
   }
 
-  // Count existing iterations to determine iteration number
-  const iterationCount = await prisma.taskIteration.count({
-    where: { taskId },
-  })
+  const iterationCount = await prisma.taskIteration.count({ where: { taskId } })
 
-  // Create a new iteration
   const iteration = await prisma.taskIteration.create({
-    data: {
-      taskId,
-      iterationNumber: iterationCount + 1,
-    },
+    data: { taskId, iterationNumber: iterationCount + 1 },
   })
 
-  // Update task status to progress
   await prisma.task.update({
     where: { id: taskId },
     data: {
@@ -88,14 +66,11 @@ export async function startPipeline(taskId: string): Promise<PipelineResult> {
     },
   })
 
-  // Run the first collaborator step
   return advancePipeline(taskId, iteration.id, 0, task.user.anthropicToken)
 }
 
 /**
  * Advance the pipeline to the next collaborator.
- * Calls the Anthropic API with the collaborator's skillMd as system prompt
- * and the previous collaborator's output (or task instruction) as user message.
  */
 export async function advancePipeline(
   taskId: string,
@@ -105,24 +80,23 @@ export async function advancePipeline(
 ): Promise<PipelineResult> {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { team: true },
+    include: {
+      team: true,
+      project: { include: { repository: true } },
+    },
   })
 
   if (!task || !task.team) {
     return { status: 'error', message: 'Task or team not found' }
   }
 
-  const order = task.team.collaboratorOrder as CollaboratorOrder
+  const order = task.team.collaboratorOrder as unknown as CollaboratorOrder
   const collaboratorIds = order.collaboratorIds
 
   if (collaboratorIndex >= collaboratorIds.length) {
-    // Pipeline complete — all collaborators have run
     await prisma.task.update({
       where: { id: taskId },
-      data: {
-        status: 'completed',
-        pausedAtEmployee: null,
-      },
+      data: { status: 'completed', pausedAtEmployee: null },
     })
     return { status: 'completed', message: 'Pipeline complete' }
   }
@@ -137,15 +111,11 @@ export async function advancePipeline(
     return { status: 'error', message: `Collaborator ${collaboratorId} not found` }
   }
 
-  // Get the previous collaborator's output (if any) as input
+  // Get previous output as input
   let inputReceived: string | null = null
   if (collaboratorIndex > 0) {
     const prevLog = await prisma.taskSkillLog.findFirst({
-      where: {
-        taskId,
-        iterationId,
-        collaboratorId: collaboratorIds[collaboratorIndex - 1],
-      },
+      where: { taskId, iterationId, collaboratorId: collaboratorIds[collaboratorIndex - 1] },
       select: { passedForward: true },
       orderBy: { startedAt: 'desc' },
     })
@@ -155,40 +125,54 @@ export async function advancePipeline(
   }
 
   const userMessage = inputReceived ?? task.instruction ?? task.name
-  const systemPrompt = collaborator.skillMd || `You are ${collaborator.name}. ${collaborator.phase === 'reviewer' ? 'Review the work and either approve or reject with specific feedback.' : 'Complete the assigned task thoroughly.'}`
+  const systemPrompt = collaborator.skillMd ||
+    `You are ${collaborator.name}. ${collaborator.phase === 'reviewer' ? 'Review the work and either approve or reject with specific feedback.' : 'Complete the assigned task thoroughly.'}`
 
-  // Call Anthropic API
+  const hasRepo = !!task.project.repository
+  const useTools = hasRepo && task.canModifyRepo
+
   let thoughts = ''
   let conclusion = ''
   let passedForward = ''
   let approved: boolean | null = null
+  const filesTouched: string[] = []
 
   try {
-    const result = await callAnthropic({
-      encryptedToken,
-      systemPrompt,
-      userMessage,
-    })
+    if (useTools) {
+      // Agentic tool loop — collaborator can read/write files
+      const result = await runToolLoop({
+        encryptedToken,
+        systemPrompt,
+        userMessage,
+        repositoryId: task.project.repository!.id,
+      })
+      thoughts = result.thoughts
+      conclusion = result.conclusion
+      passedForward = result.conclusion
+      filesTouched.push(...result.filesTouched)
+    } else {
+      // Simple text call — no file access
+      const result = await callAnthropic({ encryptedToken, systemPrompt, userMessage })
+      thoughts = result.text
+      conclusion = result.text
+      passedForward = result.text
+    }
 
-    thoughts = result.text
-    conclusion = result.text
-    passedForward = result.text
-
-    // For reviewers, check if the response indicates approval or rejection
+    // For reviewers, check approval/rejection
     if (collaborator.phase === 'reviewer') {
-      const lowerText = result.text.toLowerCase()
+      const lowerText = conclusion.toLowerCase()
       const hasReject = lowerText.includes('reject') || lowerText.includes('revision needed') || lowerText.includes('needs work')
       const hasApprove = lowerText.includes('approve') || lowerText.includes('approved') || lowerText.includes('looks good')
       approved = hasApprove && !hasReject
     }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-    thoughts = `Error calling Anthropic API: ${errorMsg}`
+    thoughts = `Error: ${errorMsg}`
     conclusion = thoughts
     passedForward = inputReceived ?? ''
   }
 
-  // Create skill log entry
+  // Create skill log
   const skillLog = await prisma.taskSkillLog.create({
     data: {
       taskId,
@@ -204,26 +188,111 @@ export async function advancePipeline(
     },
   })
 
-  // Update task position
+  // Create build log if files were touched
+  if (filesTouched.length > 0) {
+    await prisma.taskBuildLog.create({
+      data: {
+        taskId,
+        iterationId,
+        filesTouched: filesTouched.map((p) => ({ path: p, linesAdded: 0, linesRemoved: 0 })),
+      },
+    })
+  }
+
   await prisma.task.update({
     where: { id: taskId },
-    data: {
-      pausedAtEmployee: collaboratorId,
-    },
+    data: { pausedAtEmployee: collaboratorId },
   })
 
-  // If reviewer rejected, handle rejection
+  // Handle rejection
   if (collaborator.phase === 'reviewer' && approved === false) {
     return rejectPipeline(taskId, collaboratorId, conclusion)
   }
 
-  // Auto-advance to next collaborator
   return advancePipeline(taskId, iterationId, collaboratorIndex + 1, encryptedToken)
 }
 
 /**
- * Handle a rejection by a reviewer collaborator.
- * Creates a new iteration and restarts from the configured restart point.
+ * Agentic tool loop — Claude calls tools to read/write files until done.
+ */
+async function runToolLoop(options: {
+  encryptedToken: string
+  systemPrompt: string
+  userMessage: string
+  repositoryId: string
+}): Promise<{ thoughts: string; conclusion: string; filesTouched: string[] }> {
+  const messages: ToolCallMessage[] = [
+    { role: 'user', content: options.userMessage },
+  ]
+  const allText: string[] = []
+  const filesTouched = new Set<string>()
+
+  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const response = await callAnthropicWithTools({
+      encryptedToken: options.encryptedToken,
+      systemPrompt: options.systemPrompt,
+      messages,
+      tools: REPO_TOOLS,
+      maxTokens: 8192,
+    })
+
+    // Collect text from response
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        allText.push(block.text)
+      }
+    }
+
+    // If Claude is done (no more tool calls)
+    if (response.stopReason === 'end_turn' || response.stopReason === 'max_tokens') {
+      break
+    }
+
+    // Process tool calls
+    const toolUseBlocks = response.content.filter(
+      (b): b is Extract<ContentBlock, { type: 'tool_use' }> => b.type === 'tool_use'
+    )
+
+    if (toolUseBlocks.length === 0) break
+
+    // Add assistant message with tool calls
+    messages.push({ role: 'assistant', content: response.content })
+
+    // Execute tools and build results
+    const toolResults: { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }[] = []
+
+    for (const toolCall of toolUseBlocks) {
+      const result = await executeTool(options.repositoryId, toolCall.name, toolCall.input)
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: toolCall.id,
+        content: result.result,
+        is_error: result.isError || undefined,
+      })
+
+      // Track files touched by write/delete
+      if (toolCall.name === 'write_file' || toolCall.name === 'delete_file') {
+        filesTouched.add(toolCall.input.path as string)
+      }
+    }
+
+    // Add tool results as user message
+    messages.push({
+      role: 'user',
+      content: toolResults as unknown as ContentBlock[],
+    })
+  }
+
+  const fullText = allText.join('\n\n')
+  return {
+    thoughts: fullText,
+    conclusion: fullText,
+    filesTouched: [...filesTouched],
+  }
+}
+
+/**
+ * Handle rejection — create new iteration and restart.
  */
 export async function rejectPipeline(
   taskId: string,
@@ -239,12 +308,8 @@ export async function rejectPipeline(
     return { status: 'error', message: 'Task or team not found' }
   }
 
-  // Count iterations for new iteration number
-  const iterationCount = await prisma.taskIteration.count({
-    where: { taskId },
-  })
+  const iterationCount = await prisma.taskIteration.count({ where: { taskId } })
 
-  // Create rejection iteration
   await prisma.taskIteration.create({
     data: {
       taskId,
@@ -254,8 +319,7 @@ export async function rejectPipeline(
     },
   })
 
-  // Determine restart point
-  const order = task.team.collaboratorOrder as CollaboratorOrder
+  const order = task.team.collaboratorOrder as unknown as CollaboratorOrder
   const restartFromId = task.team.restartFromCollaboratorId
   let restartIndex = 0
 
@@ -264,7 +328,6 @@ export async function rejectPipeline(
     if (idx !== -1) restartIndex = idx
   }
 
-  // Update task for new iteration
   await prisma.task.update({
     where: { id: taskId },
     data: {
