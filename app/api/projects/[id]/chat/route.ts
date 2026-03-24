@@ -50,6 +50,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       canRecreateTasks: Record<string, string>
       hasBuilder: boolean
     }
+    isBuild?: boolean
+    sessionId?: string
+    model?: string
+    thinkingBudget?: number
   }
   try {
     body = await request.json()
@@ -74,6 +78,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     activeSkillId: body.activeSkillId,
     activeTeamId: body.activeTeamId,
     teamConfig: body.teamConfig,
+    isBuild: body.isBuild ?? false,
+    sessionId: body.sessionId,
+    model: body.model,
+    thinkingBudget: body.thinkingBudget,
   }
 
   if (body.mode === 'team') {
@@ -82,6 +90,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       data: {
         projectId: id,
         userId: access.userId,
+        sessionId: body.sessionId ?? null,
         content,
         sender: 'user',
         mode: 'team',

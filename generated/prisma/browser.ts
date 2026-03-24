@@ -48,6 +48,11 @@ export type Collaborator = Prisma.CollaboratorModel
  */
 export type Team = Prisma.TeamModel
 /**
+ * Model ChatSession
+ * 
+ */
+export type ChatSession = Prisma.ChatSessionModel
+/**
  * Model ChatMessage
  * 
  */
@@ -92,3 +97,8 @@ export type ResourceUsage = Prisma.ResourceUsageModel
  * 
  */
 export type TeamRun = Prisma.TeamRunModel
+/**
+ * Model BuildSession
+ * 
+ */
+export type BuildSession = Prisma.BuildSessionModel

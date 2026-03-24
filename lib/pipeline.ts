@@ -145,6 +145,7 @@ export async function advancePipeline(
         systemPrompt,
         userMessage,
         repositoryId: task.project.repository!.id,
+        projectId: task.projectId,
       })
       thoughts = result.thoughts
       conclusion = result.conclusion
@@ -220,6 +221,7 @@ async function runToolLoop(options: {
   systemPrompt: string
   userMessage: string
   repositoryId: string
+  projectId: string
 }): Promise<{ thoughts: string; conclusion: string; filesTouched: string[] }> {
   const messages: ToolCallMessage[] = [
     { role: 'user', content: options.userMessage },
@@ -262,7 +264,7 @@ async function runToolLoop(options: {
     const toolResults: { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }[] = []
 
     for (const toolCall of toolUseBlocks) {
-      const result = await executeTool(options.repositoryId, toolCall.name, toolCall.input)
+      const result = await executeTool(options.repositoryId, toolCall.name, toolCall.input, options.projectId)
       toolResults.push({
         type: 'tool_result',
         tool_use_id: toolCall.id,

@@ -57,6 +57,7 @@ export const ModelName = {
   RepoFile: 'RepoFile',
   Collaborator: 'Collaborator',
   Team: 'Team',
+  ChatSession: 'ChatSession',
   ChatMessage: 'ChatMessage',
   Task: 'Task',
   TaskIteration: 'TaskIteration',
@@ -65,7 +66,8 @@ export const ModelName = {
   TaskSuggestion: 'TaskSuggestion',
   SlackLog: 'SlackLog',
   ResourceUsage: 'ResourceUsage',
-  TeamRun: 'TeamRun'
+  TeamRun: 'TeamRun',
+  BuildSession: 'BuildSession'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -177,10 +179,24 @@ export const TeamScalarFieldEnum = {
 export type TeamScalarFieldEnum = (typeof TeamScalarFieldEnum)[keyof typeof TeamScalarFieldEnum]
 
 
+export const ChatSessionScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  userId: 'userId',
+  name: 'name',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ChatSessionScalarFieldEnum = (typeof ChatSessionScalarFieldEnum)[keyof typeof ChatSessionScalarFieldEnum]
+
+
 export const ChatMessageScalarFieldEnum = {
   id: 'id',
   projectId: 'projectId',
   userId: 'userId',
+  sessionId: 'sessionId',
   content: 'content',
   sender: 'sender',
   activeSkillId: 'activeSkillId',
@@ -315,6 +331,18 @@ export const TeamRunScalarFieldEnum = {
 } as const
 
 export type TeamRunScalarFieldEnum = (typeof TeamRunScalarFieldEnum)[keyof typeof TeamRunScalarFieldEnum]
+
+
+export const BuildSessionScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  userId: 'userId',
+  buildWith: 'buildWith',
+  active: 'active',
+  createdAt: 'createdAt'
+} as const
+
+export type BuildSessionScalarFieldEnum = (typeof BuildSessionScalarFieldEnum)[keyof typeof BuildSessionScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -77,11 +77,13 @@ model Project {
   repository    Repository?
   collaborators Collaborator[]
   teams         Team[]
+  chatSessions  ChatSession[]
   chatMessages  ChatMessage[]
   tasks         Task[]
   slackLogs     SlackLog[]
   resourceUsage ResourceUsage[]
   teamRuns      TeamRun[]
+  buildSessions BuildSession[]
 
   @@index([userId])
   @@map("projects")
@@ -197,6 +199,28 @@ model Team {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Chat sessions — multiple chats per project (like tabs)
+//
+// status: "open" | "closed"
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  name      String   @default("New Chat")
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([projectId, status])
+  @@map("chat_sessions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Chat messages
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -204,6 +228,7 @@ model ChatMessage {
   id            String   @id @default(cuid())
   projectId     String
   userId        String
+  sessionId     String?
   content       String
   // "user" | "claude" | "<skill_name>" — dynamic, kept as String not enum
   sender        String
@@ -212,9 +237,11 @@ model ChatMessage {
   mode          String   @default("no_skill")
   createdAt     DateTime @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session ChatSession?  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
+  @@index([sessionId, createdAt])
   @@index([projectId, createdAt])
   @@map("chat_messages")
 }
@@ -416,4 +443,25 @@ model TeamRun {
 
   @@index([projectId, status])
   @@map("team_runs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build sessions — gate that prevents code execution without confirmation
+//
+// buildWith: "claude" | employee ID | team ID
+// active:    true while build is authorized, false when done or cancelled
+// ─────────────────────────────────────────────────────────────────────────────
+
+model BuildSession {
+  id         String   @id @default(cuid())
+  projectId  String
+  userId     String
+  buildWith  String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, active])
+  @@map("build_sessions")
 }

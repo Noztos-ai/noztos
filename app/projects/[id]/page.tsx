@@ -23,7 +23,7 @@ export default async function ProjectPage({ params }: PageProps) {
 
   if (!project || project.userId !== userId) notFound()
 
-  const [collaborators, teams, chatMessages, tasks] = await Promise.all([
+  const [collaborators, teams, tasks] = await Promise.all([
     prisma.collaborator.findMany({
       where: { projectId: id, isActive: true },
       select: { id: true, name: true, description: true, phase: true, skillMd: true },
@@ -34,20 +34,9 @@ export default async function ProjectPage({ params }: PageProps) {
       select: { id: true, name: true, collaboratorOrder: true, createdAt: true },
       orderBy: { createdAt: 'asc' },
     }),
-    prisma.chatMessage.findMany({
-      where: { projectId: id },
-      select: { id: true, content: true, sender: true, createdAt: true },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
-    }),
     prisma.task.findMany({
       where: { projectId: id },
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        pausedAtEmployee: true,
-      },
+      select: { id: true, name: true, status: true, pausedAtEmployee: true },
       orderBy: { createdAt: 'desc' },
     }),
   ])
@@ -60,12 +49,6 @@ export default async function ProjectPage({ params }: PageProps) {
         id: t.id,
         name: t.name,
         collaboratorOrder: t.collaboratorOrder as unknown as { collaboratorIds: string[] },
-      }))}
-      initialMessages={chatMessages.map((m) => ({
-        id: m.id,
-        content: m.content,
-        sender: m.sender,
-        createdAt: m.createdAt.toISOString(),
       }))}
       tasks={tasks}
     />

@@ -71,11 +71,61 @@ interface ToolResult {
   isError: boolean
 }
 
+/**
+ * Check if there's an active build session for this project.
+ * Returns the session if authorized, null if not.
+ */
+export async function checkBuildAuthorization(projectId: string): Promise<boolean> {
+  const session = await prisma.buildSession.findFirst({
+    where: { projectId, active: true },
+  })
+  return !!session
+}
+
+/**
+ * Create a build session (called when user confirms build).
+ */
+export async function createBuildSession(projectId: string, userId: string, buildWith: string): Promise<void> {
+  // Deactivate any existing session
+  await prisma.buildSession.updateMany({
+    where: { projectId, active: true },
+    data: { active: false },
+  })
+  await prisma.buildSession.create({
+    data: { projectId, userId, buildWith },
+  })
+}
+
+/**
+ * End the active build session.
+ */
+export async function endBuildSession(projectId: string): Promise<void> {
+  await prisma.buildSession.updateMany({
+    where: { projectId, active: true },
+    data: { active: false },
+  })
+}
+
+// Write operations that require build authorization
+const WRITE_TOOLS = new Set(['write_file', 'delete_file'])
+
 export async function executeTool(
   repositoryId: string,
   toolName: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  projectId?: string
 ): Promise<ToolResult> {
+  // Gate: write operations require active build session
+  if (WRITE_TOOLS.has(toolName) && projectId) {
+    const authorized = await checkBuildAuthorization(projectId)
+    if (!authorized) {
+      return {
+        result: 'BUILD NOT AUTHORIZED. You must ask the user for confirmation before writing or deleting files. Ask: "Can I build this? With which employee/team, or should I proceed directly?"',
+        isError: true,
+      }
+    }
+  }
+
   switch (toolName) {
     case 'read_file':
       return readFile(repositoryId, input.path as string)

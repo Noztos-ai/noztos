@@ -83,12 +83,12 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left: Employees — 50% */}
-      <div className="flex w-1/2 flex-col border-r border-zinc-300/60 bg-zinc-100 p-6">
+      <div className="flex w-1/2 flex-col border-r border-white/10 p-6" style={{ backgroundColor: '#111116' }}>
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-800">Employees</h2>
+          <h2 className="text-lg font-semibold text-zinc-200">Employees</h2>
           <button
             onClick={() => setShowHireModal(true)}
-            className="rounded-lg bg-zinc-800 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700"
+            className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500"
           >
             + Hire
           </button>
@@ -96,18 +96,18 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
 
         {!hasAnyHired ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="rounded-full bg-zinc-200 p-4">
-              <svg className="h-8 w-8 text-zinc-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <div className="rounded-full bg-white/5 p-4">
+              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
               </svg>
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-zinc-700">Hire your first employee</p>
-              <p className="mt-1 text-xs text-zinc-400">Build your AI team to start working on code</p>
+              <p className="text-sm font-medium text-zinc-300">Hire your first employee</p>
+              <p className="mt-1 text-xs text-zinc-500">Build your AI team to start working on code</p>
             </div>
             <button
               onClick={() => setShowHireModal(true)}
-              className="rounded-full bg-zinc-800 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+              className="rounded-full bg-violet-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
             >
               Hire employees
             </button>
@@ -123,12 +123,12 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
       </div>
 
       {/* Right: Teams — 50% */}
-      <div className="flex w-1/2 flex-col bg-zinc-50 p-6">
+      <div className="flex w-1/2 flex-col p-6" style={{ backgroundColor: '#0d0d12' }}>
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-800">My Teams</h2>
+          <h2 className="text-lg font-semibold text-zinc-200">My Teams</h2>
           <button
             onClick={() => setShowTeamModal(true)}
-            className="rounded-lg bg-zinc-800 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-700"
+            className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500"
           >
             + Create
           </button>
@@ -136,18 +136,18 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
 
         {teams.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="rounded-full bg-zinc-200 p-4">
-              <svg className="h-8 w-8 text-zinc-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <div className="rounded-full bg-white/5 p-4">
+              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
               </svg>
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-zinc-700">Create your first team</p>
-              <p className="mt-1 text-xs text-zinc-400">Organize employees into teams with execution order</p>
+              <p className="text-sm font-medium text-zinc-300">Create your first team</p>
+              <p className="mt-1 text-xs text-zinc-500">Organize employees into teams with execution order</p>
             </div>
             <button
               onClick={() => setShowTeamModal(true)}
-              className="rounded-full bg-zinc-800 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+              className="rounded-full bg-violet-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
             >
               Create team
             </button>
@@ -273,10 +273,10 @@ function HiringModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-xl">
-        <h2 className="mb-1 text-xl font-semibold text-zinc-800">Hire Employees</h2>
-        <p className="mb-6 text-sm text-zinc-500">Select who you want on your team. The Builder is hired automatically.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 p-8 shadow-xl" style={{ backgroundColor: '#1a1a22' }}>
+        <h2 className="mb-1 text-xl font-semibold text-zinc-100">Hire Employees</h2>
+        <p className="mb-6 text-sm text-zinc-400">Select who you want on your team. The Builder is hired automatically.</p>
 
         <div className="space-y-3">
           {AVAILABLE_EMPLOYEES.map((emp) => {
@@ -313,13 +313,13 @@ function HiringModal({
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => onConfirm([...selected])}
-            className="flex h-10 flex-1 items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+            className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500"
           >
             Confirm ({selected.size} selected)
           </button>
           <button
             onClick={onClose}
-            className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-500 hover:text-zinc-800"
+            className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200"
           >
             Cancel
           </button>
@@ -425,23 +425,23 @@ function TeamBuilderModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 p-8 shadow-xl" style={{ backgroundColor: '#1a1a22' }}>
 
         {/* Step 1: Select members (including Builder) */}
         {step === 'select' && (
           <>
-            <h2 className="mb-1 text-xl font-semibold text-zinc-800">Create Team</h2>
-            <p className="mb-4 text-sm text-zinc-500">Select employees for this team.</p>
+            <h2 className="mb-1 text-xl font-semibold text-zinc-100">Create Team</h2>
+            <p className="mb-4 text-sm text-zinc-400">Select employees for this team.</p>
 
             {noHires ? (
               <>
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-                  <p className="text-sm font-medium text-amber-800">No employees hired yet</p>
-                  <p className="mt-1 text-xs text-amber-700">You need to hire employees first before creating a team. Go to the Employees section and hire your team.</p>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
+                  <p className="text-sm font-medium text-amber-300">No employees hired yet</p>
+                  <p className="mt-1 text-xs text-amber-400/80">You need to hire employees first before creating a team. Go to the Employees section and hire your team.</p>
                 </div>
                 <div className="mt-6">
-                  <button onClick={onClose} className="flex h-10 w-full items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-white transition-colors hover:bg-zinc-700">
+                  <button onClick={onClose} className="flex h-10 w-full items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500">
                     Got it
                   </button>
                 </div>
@@ -453,7 +453,7 @@ function TeamBuilderModal({
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
                   placeholder="Team name *"
-                  className="mb-4 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none"
+                  className="mb-4 block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:border-violet-500/50 focus:outline-none"
                 />
 
                 <div className="space-y-2">
@@ -489,11 +489,11 @@ function TeamBuilderModal({
                   <button
                     onClick={handleContinueFromSelect}
                     disabled={selectedIds.size === 0 || !teamName.trim()}
-                    className="flex h-10 flex-1 items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-30"
+                    className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
                   >
                     Continue
                   </button>
-                  <button onClick={onClose} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-500 hover:text-zinc-800">
+                  <button onClick={onClose} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200">
                     Cancel
                   </button>
                 </div>
@@ -505,29 +505,29 @@ function TeamBuilderModal({
         {/* No Builder Warning */}
         {step === 'no-builder-warning' && (
           <>
-            <h2 className="mb-4 text-xl font-semibold text-zinc-800">No Builder selected</h2>
+            <h2 className="mb-4 text-xl font-semibold text-zinc-100">No Builder selected</h2>
 
-            <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 px-5 py-4">
-              <p className="text-sm font-medium text-amber-800">This team won't be able to build.</p>
-              <p className="mt-1 text-xs text-amber-700">Without a Builder, this team can only make decisions, have discussions, and review code — it cannot write or edit files.</p>
+            <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
+              <p className="text-sm font-medium text-amber-300">This team won&apos;t be able to build.</p>
+              <p className="mt-1 text-xs text-amber-400/80">Without a Builder, this team can only make decisions, have discussions, and review code — it cannot write or edit files.</p>
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={handleConfirmNoBuilder}
-                className="flex h-10 flex-1 items-center justify-center rounded-full border border-zinc-300 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+                className="flex h-10 flex-1 items-center justify-center rounded-full border border-white/10 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/5"
               >
                 Continue without Builder
               </button>
               <button
                 onClick={() => setStep('select')}
-                className="flex h-10 flex-1 items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+                className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500"
               >
                 Go back and add Builder
               </button>
             </div>
 
-            <button onClick={onClose} className="mt-3 w-full text-center text-sm text-zinc-400 hover:text-zinc-600">
+            <button onClick={onClose} className="mt-3 w-full text-center text-sm text-zinc-500 hover:text-zinc-300">
               Cancel
             </button>
           </>
@@ -536,8 +536,8 @@ function TeamBuilderModal({
         {/* Step 2: Execution Order (drag) */}
         {step === 'order' && (
           <>
-            <h2 className="mb-1 text-xl font-semibold text-zinc-800">Execution Order</h2>
-            <p className="mb-4 text-sm text-zinc-500">Drag to set the order your team works in. First to last.</p>
+            <h2 className="mb-1 text-xl font-semibold text-zinc-100">Execution Order</h2>
+            <p className="mb-4 text-sm text-zinc-400">Drag to set the order your team works in. First to last.</p>
 
             <div className="space-y-2">
               {order.map((id, index) => {
@@ -572,16 +572,16 @@ function TeamBuilderModal({
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setStep('recreate')}
-                className="flex h-10 flex-1 items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+                className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500"
               >
                 Continue
               </button>
-              <button onClick={() => setStep('select')} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-500 hover:text-zinc-800">
+              <button onClick={() => setStep('select')} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200">
                 Back
               </button>
             </div>
 
-            <button onClick={onClose} className="mt-2 w-full text-center text-sm text-zinc-400 hover:text-zinc-600">
+            <button onClick={onClose} className="mt-2 w-full text-center text-sm text-zinc-500 hover:text-zinc-300">
               Cancel
             </button>
           </>
@@ -590,8 +590,8 @@ function TeamBuilderModal({
         {/* Step 3: Who can recreate tasks */}
         {step === 'recreate' && (
           <>
-            <h2 className="mb-1 text-xl font-semibold text-zinc-800">Task Recreation</h2>
-            <p className="mb-4 text-sm text-zinc-500">Select who can reject and recreate tasks, and who the task redirects to.</p>
+            <h2 className="mb-1 text-xl font-semibold text-zinc-100">Task Recreation</h2>
+            <p className="mb-4 text-sm text-zinc-400">Select who can reject and recreate tasks, and who the task redirects to.</p>
 
             <div className="space-y-3">
               {order.map((id, index) => {
@@ -601,9 +601,9 @@ function TeamBuilderModal({
                 const isEnabled = !isBuilder && !!canRecreateTasks[id]
 
                 return (
-                  <div key={id} className={`rounded-xl border p-3 ${isBuilder ? 'border-zinc-200/50 bg-zinc-100' : 'border-zinc-200 bg-zinc-50'}`}>
+                  <div key={id} className={`rounded-xl border p-3 ${isBuilder ? 'border-white/5 bg-white/3' : 'border-white/10 bg-white/5'}`}>
                     <div className="flex items-center gap-3">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-500">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[10px] font-bold text-zinc-400">
                         {index + 1}
                       </span>
                       {isBuilder ? (
@@ -629,18 +629,18 @@ function TeamBuilderModal({
                           <span className="text-xs font-semibold text-white">{emp.name}</span>
                         </button>
                       )}
-                      <span className="text-xs text-zinc-400">
+                      <span className="text-xs text-zinc-500">
                         {isBuilder ? 'cannot recreate' : 'can recreate tasks'}
                       </span>
                     </div>
 
                     {isEnabled && !isBuilder && (
                       <div className="mt-2 flex items-center gap-2 pl-8">
-                        <span className="text-xs text-zinc-500">Redirects to:</span>
+                        <span className="text-xs text-zinc-400">Redirects to:</span>
                         <select
                           value={canRecreateTasks[id] ?? ''}
                           onChange={(e) => setRedirectTarget(id, e.target.value)}
-                          className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700 focus:border-zinc-500 focus:outline-none"
+                          className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-300 focus:border-violet-500/50 focus:outline-none"
                         >
                           {order.filter((o) => o !== id).map((o) => {
                             const target = getEmployee(o)
@@ -657,16 +657,16 @@ function TeamBuilderModal({
             <div className="mt-6 flex gap-3">
               <button
                 onClick={handleConfirm}
-                className="flex h-10 flex-1 items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+                className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500"
               >
                 Create Team
               </button>
-              <button onClick={() => setStep('order')} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-500 hover:text-zinc-800">
+              <button onClick={() => setStep('order')} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200">
                 Back
               </button>
             </div>
 
-            <button onClick={onClose} className="mt-2 w-full text-center text-sm text-zinc-400 hover:text-zinc-600">
+            <button onClick={onClose} className="mt-2 w-full text-center text-sm text-zinc-500 hover:text-zinc-300">
               Cancel
             </button>
           </>

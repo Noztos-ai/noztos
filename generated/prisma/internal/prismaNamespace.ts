@@ -390,6 +390,7 @@ export const ModelName = {
   RepoFile: 'RepoFile',
   Collaborator: 'Collaborator',
   Team: 'Team',
+  ChatSession: 'ChatSession',
   ChatMessage: 'ChatMessage',
   Task: 'Task',
   TaskIteration: 'TaskIteration',
@@ -398,7 +399,8 @@ export const ModelName = {
   TaskSuggestion: 'TaskSuggestion',
   SlackLog: 'SlackLog',
   ResourceUsage: 'ResourceUsage',
-  TeamRun: 'TeamRun'
+  TeamRun: 'TeamRun',
+  BuildSession: 'BuildSession'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -414,7 +416,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "project" | "repository" | "repoFile" | "collaborator" | "team" | "chatMessage" | "task" | "taskIteration" | "taskSkillLog" | "taskBuildLog" | "taskSuggestion" | "slackLog" | "resourceUsage" | "teamRun"
+    modelProps: "user" | "project" | "repository" | "repoFile" | "collaborator" | "team" | "chatSession" | "chatMessage" | "task" | "taskIteration" | "taskSkillLog" | "taskBuildLog" | "taskSuggestion" | "slackLog" | "resourceUsage" | "teamRun" | "buildSession"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -859,6 +861,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.TeamCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.TeamCountAggregateOutputType> | number
+        }
+      }
+    }
+    ChatSession: {
+      payload: Prisma.$ChatSessionPayload<ExtArgs>
+      fields: Prisma.ChatSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ChatSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ChatSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.ChatSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ChatSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>
+        }
+        findMany: {
+          args: Prisma.ChatSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>[]
+        }
+        create: {
+          args: Prisma.ChatSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>
+        }
+        createMany: {
+          args: Prisma.ChatSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ChatSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.ChatSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>
+        }
+        update: {
+          args: Prisma.ChatSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.ChatSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ChatSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ChatSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.ChatSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ChatSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.ChatSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateChatSession>
+        }
+        groupBy: {
+          args: Prisma.ChatSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ChatSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ChatSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ChatSessionCountAggregateOutputType> | number
         }
       }
     }
@@ -1528,6 +1604,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    BuildSession: {
+      payload: Prisma.$BuildSessionPayload<ExtArgs>
+      fields: Prisma.BuildSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BuildSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BuildSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.BuildSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BuildSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>
+        }
+        findMany: {
+          args: Prisma.BuildSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>[]
+        }
+        create: {
+          args: Prisma.BuildSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>
+        }
+        createMany: {
+          args: Prisma.BuildSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BuildSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.BuildSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>
+        }
+        update: {
+          args: Prisma.BuildSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.BuildSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BuildSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BuildSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.BuildSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BuildSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.BuildSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBuildSession>
+        }
+        groupBy: {
+          args: Prisma.BuildSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BuildSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BuildSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BuildSessionCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1660,10 +1810,24 @@ export const TeamScalarFieldEnum = {
 export type TeamScalarFieldEnum = (typeof TeamScalarFieldEnum)[keyof typeof TeamScalarFieldEnum]
 
 
+export const ChatSessionScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  userId: 'userId',
+  name: 'name',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ChatSessionScalarFieldEnum = (typeof ChatSessionScalarFieldEnum)[keyof typeof ChatSessionScalarFieldEnum]
+
+
 export const ChatMessageScalarFieldEnum = {
   id: 'id',
   projectId: 'projectId',
   userId: 'userId',
+  sessionId: 'sessionId',
   content: 'content',
   sender: 'sender',
   activeSkillId: 'activeSkillId',
@@ -1798,6 +1962,18 @@ export const TeamRunScalarFieldEnum = {
 } as const
 
 export type TeamRunScalarFieldEnum = (typeof TeamRunScalarFieldEnum)[keyof typeof TeamRunScalarFieldEnum]
+
+
+export const BuildSessionScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  userId: 'userId',
+  buildWith: 'buildWith',
+  active: 'active',
+  createdAt: 'createdAt'
+} as const
+
+export type BuildSessionScalarFieldEnum = (typeof BuildSessionScalarFieldEnum)[keyof typeof BuildSessionScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -2073,6 +2249,7 @@ export type GlobalOmitConfig = {
   repoFile?: Prisma.RepoFileOmit
   collaborator?: Prisma.CollaboratorOmit
   team?: Prisma.TeamOmit
+  chatSession?: Prisma.ChatSessionOmit
   chatMessage?: Prisma.ChatMessageOmit
   task?: Prisma.TaskOmit
   taskIteration?: Prisma.TaskIterationOmit
@@ -2082,6 +2259,7 @@ export type GlobalOmitConfig = {
   slackLog?: Prisma.SlackLogOmit
   resourceUsage?: Prisma.ResourceUsageOmit
   teamRun?: Prisma.TeamRunOmit
+  buildSession?: Prisma.BuildSessionOmit
 }
 
 /* Types for Logging */
