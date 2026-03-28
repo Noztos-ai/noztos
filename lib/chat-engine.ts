@@ -150,6 +150,31 @@ interface EtapaState {
 
 const ALL_RULES = `${BUILD_RULE}\n\n${TASK_RULE}`
 
+// ── Error Detection ───────────────────────────────────────────────────────
+
+function getChatErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  const lower = msg.toLowerCase()
+
+  if (lower.includes('credit') || lower.includes('quota') || lower.includes('billing') || msg.includes('429')) {
+    return 'Your API credits have been exhausted or rate limited. Please check your Anthropic account billing and try again.'
+  }
+  if (lower.includes('rate_limit') || lower.includes('too many requests')) {
+    return 'Too many requests — rate limited by Anthropic. Wait a moment and try again.'
+  }
+  if (lower.includes('overloaded') || msg.includes('529')) {
+    return 'Anthropic servers are currently overloaded. Please try again in a few minutes.'
+  }
+  if (lower.includes('invalid_api_key') || lower.includes('authentication') || lower.includes('401')) {
+    return 'Your API key is invalid or expired. Please update it in Settings.'
+  }
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return 'The request timed out. This might be due to a complex request — try simplifying or try again.'
+  }
+
+  return 'Sorry, I encountered an error. Please try again.'
+}
+
 // ── Task/Reminder detection from Claude's response ────────────────────────
 
 const TASK_TAG_REGEX = /\[CREATE_TASK:\s*(.+?)\]/i
@@ -512,8 +537,8 @@ async function handleNoSkill(req: ChatRequest, token: string, userMessage: ChatR
       ...getModelOptions(req),
     })
     content = result.text
-  } catch {
-    content = 'Sorry, I encountered an error. Please try again.'
+  } catch (err) {
+    content = getChatErrorMessage(err)
   }
 
   // Check if Claude proactively suggested a task/reminder
@@ -550,8 +575,8 @@ async function handleSkill(req: ChatRequest, token: string, userMessage: ChatRep
     })
     content = result.text
     if (!content.startsWith(`${skill.name}:`)) content = `${skill.name}: ${content}`
-  } catch {
-    content = `${skill.name}: Sorry, error. Try again.`
+  } catch (err) {
+    content = `${skill.name}: ${getChatErrorMessage(err)}`
   }
 
   // Check if employee proactively suggested a task/reminder
@@ -720,8 +745,8 @@ CONVERSATION only. Do NOT write or edit any code. Only analyze, discuss, and adv
                 summary: buildResult.summary,
                 iterationCount: buildResult.iterationCount,
               }
-            } catch {
-              content = 'Builder: [Build error]'
+            } catch (buildErr) {
+              content = `Builder: [Build error — ${getChatErrorMessage(buildErr)}]`
             }
           } else {
             content = 'Builder: No repository connected. Cannot build.'
@@ -737,8 +762,8 @@ CONVERSATION only. Do NOT write or edit any code. Only analyze, discuss, and adv
             })
             content = result.text
             if (!content.startsWith(`${member.name}:`)) content = `${member.name}: ${content}`
-          } catch {
-            content = `${member.name}: [Error]`
+          } catch (memberErr) {
+            content = `${member.name}: [${getChatErrorMessage(memberErr)}]`
           }
         }
 
@@ -846,7 +871,7 @@ CONVERSATION only. Do NOT write or edit any code. Only analyze, discuss, and adv
       where: { id: teamRun.id },
       data: { status: 'failed' },
     })
-    await saveMessage(req, 'system', 'Team processing failed. Please try again.')
+    await saveMessage(req, 'system', `Team processing failed. ${getChatErrorMessage(err)}`)
   }
 }
 

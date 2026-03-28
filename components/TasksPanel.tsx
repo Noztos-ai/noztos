@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { ChatReport } from '@/lib/report-types'
 import { TaskRunnerViewer } from './TaskRunnerViewer'
 
@@ -29,7 +29,7 @@ interface TaskItem {
   executorType: string
   executorId: string | null
   context: {
-    source?: 'chat_suggested' | 'reminder' | 'report' | 'chained' | 'suggestion'
+    source?: 'chat_suggested' | 'reminder' | 'report' | 'chained' | 'suggestion' | 'manual' | 'security_scan' | 'code_health'
     parentTaskId?: string
     report?: Record<string, unknown>
     conversationSummary?: string
@@ -43,7 +43,11 @@ interface TaskItem {
       completedAt?: string
       suggestionsCount?: number
     }
+    failReason?: string
+    pausedState?: Record<string, unknown>
   }
+  isRecurring: boolean
+  recurrenceConfig: { intervalDays?: number } | null
   queuePosition: number | null
   scheduledAt: string | null
   originalScheduledAt: string | null
@@ -60,6 +64,10 @@ export function TasksPanel({ projectId }: { projectId: string }) {
   const [teams, setTeams] = useState<TeamOption[]>([])
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showCreateTask, setShowCreateTask] = useState(false)
+  const [showSecurityScan, setShowSecurityScan] = useState(false)
+  const [showCodeHealth, setShowCodeHealth] = useState(false)
+  const [showRecurringManager, setShowRecurringManager] = useState(false)
 
   // ── MOCK DATA (remove after testing) ──────────────────────────────────
   const MOCK_TASKS: TaskItem[] = [
@@ -115,6 +123,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         conversationSummary: '=== Conversation Summary ===\nUser wants to add dark mode to the settings page. Discussed using CSS variables vs Tailwind dark class. Decided on CSS variables for flexibility. Theme should persist via localStorage with optional DB sync for cross-device.\n\n=== Recent Messages ===\nuser: I want to add a dark mode toggle to settings\n\nclaude: Great idea. Should we use CSS variables or Tailwind dark class?\n\nuser: CSS variables for more flexibility\n\nclaude: Perfect. Want me to build this now or create a task for later?\n\nuser: create a task',
       },
       accumulatedContext: {},
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -134,6 +144,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         conversationSummary: '=== Conversation Summary ===\nDiscussed security improvements for the API layer. User asked about best practices for protecting public endpoints. Covered authentication, CORS, and rate limiting. Claude identified that rate limiting is missing entirely and suggested creating a task.\n\n=== Recent Messages ===\nuser: What security do we have on our API routes?\n\nclaude: Currently you have session-based auth and CORS configured. However, there is no rate limiting on any endpoint — a single client could hammer the API with unlimited requests.\n\nuser: That sounds bad\n\nclaude: It is. I\'d recommend adding rate limiting with something like upstash/ratelimit or a simple in-memory sliding window. Want me to build this now, or create a task to handle it later?\n\nuser: task for later\n\nclaude: I\'ll create a task for that.\n\nuser: What else should we look at?\n\nclaude: Input validation on all POST/PATCH routes. You have some but it\'s inconsistent.',
       },
       accumulatedContext: {},
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -152,6 +164,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         source: 'reminder' as const,
       },
       accumulatedContext: {},
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -184,6 +198,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         conversationSummary: 'Previous task implemented avatar upload with S3 presigned URLs, 200x200 server-side resize with sharp, and a drag & drop AvatarUpload component. Architecture: browser uploads directly to S3 via presigned URL, server gets callback, resizes, saves URL to user profile. Files created: lib/s3.ts (S3 client), app/api/upload/route.ts (upload endpoint), components/AvatarUpload.tsx (UI component). Integrated into SettingsModal. Security approved the approach.',
       },
       accumulatedContext: {},
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -232,6 +248,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         conversationSummary: 'User wants dark mode in settings. Decided on CSS variables for flexibility.',
       },
       accumulatedContext: { model: 'sonnet', intent: 'build' as const },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: '2026-03-26T14:00:00.000Z',
       originalScheduledAt: null,
@@ -251,6 +269,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         conversationSummary: 'Discussed API security. No rate limiting exists. Recommended upstash/ratelimit.',
       },
       accumulatedContext: { model: 'opus', intent: 'analyze_fix' as const },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: 0,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -270,6 +290,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         conversationSummary: '=== Conversation Summary ===\nDiscussed auth architecture. Current HMAC cookies work but JWT would enable stateless auth, easier mobile support, and third-party integrations.\n\n=== Recent Messages ===\nuser: Our auth is HMAC cookies right?\n\nclaude: Yes, HMAC-SHA256 session cookies with 30-day expiry.\n\nuser: Would JWT be better for mobile?\n\nclaude: Definitely — JWT is stateless, works across platforms. Want me to build this now or create a task?\n\nuser: task for later',
       },
       accumulatedContext: { model: 'sonnet', intent: 'build' as const },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: '2026-03-27T10:00:00.000Z',
       originalScheduledAt: '2026-03-27T09:00:00.000Z',
@@ -288,6 +310,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
         source: 'reminder' as const,
       },
       accumulatedContext: { model: 'haiku', intent: 'conversation' as const },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: 1,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -305,6 +329,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
       executorId: null,
       context: { source: 'reminder' as const },
       accumulatedContext: {},
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -333,6 +359,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
           suggestionsCount: 3,
         },
       },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -397,6 +425,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
           completedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
         },
       },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -423,6 +453,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
           completedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
         },
       },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -451,6 +483,8 @@ export function TasksPanel({ projectId }: { projectId: string }) {
           suggestionsCount: 1,
         },
       },
+      isRecurring: false,
+      recurrenceConfig: null,
       queuePosition: null,
       scheduledAt: null,
       originalScheduledAt: null,
@@ -539,7 +573,83 @@ export function TasksPanel({ projectId }: { projectId: string }) {
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Sub-navbar */}
       <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-5 py-1.5" style={{ backgroundColor: '#1e1e28' }}>
-        {/* Placeholder for special option squares */}
+        {/* Create Task */}
+        <div className="relative group">
+          <button
+            onClick={() => setShowCreateTask(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10 transition-all hover:border-violet-500/50 hover:bg-violet-500/20"
+          >
+            <svg className="h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+          </button>
+          <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-white/10 p-4 opacity-0 shadow-xl transition-opacity group-hover:opacity-100" style={{ backgroundColor: '#15151c' }}>
+            <p className="text-[11px] font-semibold text-zinc-100">Create Task</p>
+            <div className="mt-2 space-y-2 text-[10px] leading-relaxed text-zinc-400">
+              <p><span className="text-violet-400 font-medium">New task:</span> Define a task from scratch — name, instructions, upload context files (PDF, code, docs), choose who executes, select model.</p>
+              <p><span className="text-zinc-300 font-medium">Schedule:</span> Run once (anytime or fixed date) or set up recurring runs (every X days). Goes straight to the queue.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Security Scan */}
+        <div className="relative group">
+          <button
+            onClick={() => setShowSecurityScan(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 transition-all hover:border-red-500/50 hover:bg-red-500/20"
+          >
+            <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+          </button>
+          <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-white/10 p-4 opacity-0 shadow-xl transition-opacity group-hover:opacity-100" style={{ backgroundColor: '#15151c' }}>
+            <p className="text-[11px] font-semibold text-zinc-100">Security Scan</p>
+            <div className="mt-2 space-y-2 text-[10px] leading-relaxed text-zinc-400">
+              <p><span className="text-red-400 font-medium">Full Scan:</span> Comprehensive audit — OWASP Top 10, STRIDE, secret detection, dependency vulnerabilities, auth review, injection vectors.</p>
+              <p><span className="text-amber-400 font-medium">Targeted:</span> Same enterprise security context focused on a specific area you define.</p>
+              <p><span className="text-zinc-300 font-medium">Recommended:</span> Opus model, weekly recurring.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Code Health */}
+        <div className="relative group">
+          <button
+            onClick={() => setShowCodeHealth(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/20"
+          >
+            <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+          </button>
+          <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-white/10 p-4 opacity-0 shadow-xl transition-opacity group-hover:opacity-100" style={{ backgroundColor: '#15151c' }}>
+            <p className="text-[11px] font-semibold text-zinc-100">Code Health</p>
+            <div className="mt-2 space-y-2 text-[10px] leading-relaxed text-zinc-400">
+              <p><span className="text-emerald-400 font-medium">Full Analysis:</span> Comprehensive health check — dead code, complexity, type safety, naming, duplication, tech debt, dependencies, architecture smells. Grades A-F.</p>
+              <p><span className="text-amber-400 font-medium">Targeted:</span> Same depth focused on a specific module, component, or area you choose.</p>
+              <p><span className="text-zinc-300 font-medium">Recommended:</span> Sonnet model, bi-weekly recurring for continuous health monitoring.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Recurring Manager */}
+        <div className="relative group">
+          <button
+            onClick={() => setShowRecurringManager(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 transition-all hover:border-cyan-500/50 hover:bg-cyan-500/20"
+          >
+            <svg className="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+            </svg>
+          </button>
+          <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-white/10 p-4 opacity-0 shadow-xl transition-opacity group-hover:opacity-100" style={{ backgroundColor: '#15151c' }}>
+            <p className="text-[11px] font-semibold text-zinc-100">Recurring Tasks</p>
+            <div className="mt-2 space-y-2 text-[10px] leading-relaxed text-zinc-400">
+              <p><span className="text-cyan-400 font-medium">All recurring:</span> View every task set to run on a schedule — manual tasks, security scans, or any other recurring work. All in one place.</p>
+              <p><span className="text-zinc-300 font-medium">Manage:</span> Skip the next run, change interval, or stop a recurring task permanently. Each run is independent — no context carried between executions.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main content */}
@@ -734,6 +844,48 @@ export function TasksPanel({ projectId }: { projectId: string }) {
           onClose={() => setReorderMode(false)}
         />
       )}
+
+      {/* Create task modal */}
+      {showCreateTask && (
+        <CreateTaskModal
+          projectId={projectId}
+          teams={teams}
+          onCreated={(newTask) => { setTasks((prev) => [newTask, ...prev]); setShowCreateTask(false) }}
+          onClose={() => setShowCreateTask(false)}
+        />
+      )}
+
+      {/* Recurring manager modal */}
+      {showRecurringManager && (
+        <ManageRecurringModal
+          projectId={projectId}
+          tasks={tasks.filter((t) => t.isRecurring)}
+          teams={teams}
+          onUpdated={(updated) => setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t))}
+          onDeleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))}
+          onClose={() => setShowRecurringManager(false)}
+        />
+      )}
+
+      {/* Code health modal */}
+      {showCodeHealth && (
+        <CodeHealthModal
+          projectId={projectId}
+          teams={teams}
+          onCreated={(newTask) => { setTasks((prev) => [newTask, ...prev]); setShowCodeHealth(false) }}
+          onClose={() => setShowCodeHealth(false)}
+        />
+      )}
+
+      {/* Security scan modal */}
+      {showSecurityScan && (
+        <SecurityScanModal
+          projectId={projectId}
+          teams={teams}
+          onCreated={(newTask) => { setTasks((prev) => [newTask, ...prev]); setShowSecurityScan(false) }}
+          onClose={() => setShowSecurityScan(false)}
+        />
+      )}
     </div>
   )
 }
@@ -776,6 +928,18 @@ function TaskCard({ task, onClick }: { task: TaskItem; onClick?: () => void }) {
         )}
         {task.context?.source === 'suggestion' && (
           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">suggestion</span>
+        )}
+        {task.context?.source === 'manual' && !task.isRecurring && (
+          <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[9px] font-medium text-zinc-400">manual</span>
+        )}
+        {task.context?.source === 'security_scan' && (
+          <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-medium text-red-400">security</span>
+        )}
+        {task.context?.source === 'code_health' && (
+          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">health</span>
+        )}
+        {task.isRecurring && (
+          <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-medium text-cyan-400">recurring</span>
         )}
         {hasReport && !isReminder && task.context?.source !== 'chained' && (
           <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-400">report</span>
@@ -1777,6 +1941,125 @@ function ScheduleModal({
   )
 }
 
+// ── Schedule Picker (reusable) ─────────────────────────────────────────────
+
+const SP_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function SchedulePicker({
+  month, setMonth, day, setDay, year, setYear,
+  hour, setHour, minute, setMinute, period, setPeriod,
+  accentColor = 'violet',
+}: {
+  month: string; setMonth: (v: string) => void
+  day: string; setDay: (v: string) => void
+  year: string; setYear: (v: string) => void
+  hour: string; setHour: (v: string) => void
+  minute: string; setMinute: (v: string) => void
+  period: 'AM' | 'PM'; setPeriod: (v: 'AM' | 'PM') => void
+  accentColor?: 'violet' | 'red' | 'emerald'
+}) {
+  const now = new Date()
+  const nowYear = now.getFullYear()
+  const nowMonth = now.getMonth()
+  const nowDay = now.getDate()
+  const nowHour = now.getHours()
+
+  const selYear = parseInt(year)
+  const selMonth = parseInt(month)
+  const selDay = parseInt(day)
+  const isToday = selYear === nowYear && selMonth === nowMonth && selDay === nowDay
+
+  function isMonthDisabled(m: number) { return selYear === nowYear && m < nowMonth }
+  function isDayDisabled(d: number) {
+    if (selYear > nowYear) return false
+    if (selYear === nowYear && selMonth > nowMonth) return false
+    if (selYear === nowYear && selMonth === nowMonth) return d < nowDay
+    return true
+  }
+  function isHourDisabled(h12: number, p: 'AM' | 'PM') {
+    if (!isToday) return false
+    const h24 = p === 'AM' ? (h12 === 12 ? 0 : h12) : (h12 === 12 ? 12 : h12 + 12)
+    return h24 < nowHour
+  }
+
+  function isMinuteDisabled(min: string) {
+    if (!isToday) return false
+    const selH24 = period === 'AM' ? (parseInt(hour) === 12 ? 0 : parseInt(hour)) : (parseInt(hour) === 12 ? 12 : parseInt(hour) + 12)
+    if (selH24 > nowHour) return false
+    if (selH24 === nowHour) return parseInt(min) <= now.getMinutes()
+    return true
+  }
+
+  function isPeriodDisabled(p: 'AM' | 'PM') {
+    if (!isToday) return false
+    if (p === 'AM' && nowHour >= 12) return true
+    return false
+  }
+
+  const ac = {
+    violet: { selected: 'bg-violet-500 text-white shadow-sm shadow-violet-500/30', monthSel: 'bg-violet-500/20 text-violet-300', today: 'bg-white/10 text-violet-400 ring-1 ring-violet-500/30' },
+    red: { selected: 'bg-red-500 text-white shadow-sm shadow-red-500/30', monthSel: 'bg-red-500/20 text-red-300', today: 'bg-white/10 text-red-400 ring-1 ring-red-500/30' },
+    emerald: { selected: 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30', monthSel: 'bg-emerald-500/20 text-emerald-300', today: 'bg-white/10 text-emerald-400 ring-1 ring-emerald-500/30' },
+  }[accentColor]
+
+  return (
+    <div className="space-y-3">
+      {/* Month & Year */}
+      <div className="flex items-center gap-2">
+        <div className="flex overflow-hidden rounded-lg border border-white/10">
+          {SP_MONTHS.map((m, i) => {
+            const disabled = isMonthDisabled(i)
+            return <button key={m} type="button" onClick={() => !disabled && setMonth(String(i))} className={`px-2 py-1.5 text-[10px] font-medium transition-all ${disabled ? 'bg-white/[0.02] text-zinc-700 cursor-not-allowed' : month === String(i) ? ac.monthSel : 'bg-white/5 text-zinc-600 hover:text-zinc-400'}`}>{m}</button>
+          })}
+        </div>
+        <div className="flex overflow-hidden rounded-lg border border-white/10">
+          {[2026, 2027, 2028].map((y) => <button key={y} type="button" onClick={() => setYear(String(y))} className={`px-2.5 py-1.5 text-[10px] font-medium transition-all ${year === String(y) ? ac.monthSel : 'bg-white/5 text-zinc-600 hover:text-zinc-400'}`}>{y}</button>)}
+        </div>
+      </div>
+
+      {/* Day grid */}
+      <div>
+        <p className="mb-1 text-[10px] text-zinc-600">Day</p>
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: 31 }, (_, i) => {
+            const d = String(i + 1).padStart(2, '0')
+            const disabled = isDayDisabled(i + 1)
+            const todayMark = selYear === nowYear && selMonth === nowMonth && i + 1 === nowDay
+            return <button key={d} type="button" onClick={() => !disabled && setDay(d)} className={`flex h-7 items-center justify-center rounded-md text-[11px] font-medium transition-all ${disabled ? 'bg-white/[0.02] text-zinc-700 cursor-not-allowed' : day === d ? ac.selected : todayMark ? ac.today : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'}`}>{i + 1}</button>
+          })}
+        </div>
+      </div>
+
+      {/* Time */}
+      <div>
+        <p className="mb-1 text-[10px] text-zinc-600">Time</p>
+        <div className="flex items-center gap-2">
+          <div className="grid grid-cols-6 gap-1">
+            {Array.from({ length: 12 }, (_, i) => {
+              const h = String(i + 1)
+              const disabled = isHourDisabled(i + 1, period)
+              return <button key={h} type="button" onClick={() => !disabled && setHour(h)} className={`flex h-7 w-8 items-center justify-center rounded-md text-[11px] font-medium transition-all ${disabled ? 'bg-white/[0.02] text-zinc-700 cursor-not-allowed' : hour === h ? ac.selected : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'}`}>{h}</button>
+            })}
+          </div>
+          <span className="text-sm font-bold text-zinc-500">:</span>
+          <div className="flex flex-col gap-1">
+            {['00', '15', '30', '45'].map((m) => {
+              const mDisabled = isMinuteDisabled(m)
+              return <button key={m} type="button" onClick={() => !mDisabled && setMinute(m)} className={`flex h-7 w-10 items-center justify-center rounded-md text-[11px] font-medium transition-all ${mDisabled ? 'bg-white/[0.02] text-zinc-700 cursor-not-allowed' : minute === m ? ac.selected : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'}`}>{m}</button>
+            })}
+          </div>
+          <div className="flex flex-col gap-1">
+            {(['AM', 'PM'] as const).map((p) => {
+              const pDisabled = isPeriodDisabled(p)
+              return <button key={p} type="button" onClick={() => !pDisabled && setPeriod(p)} className={`flex h-7 w-10 items-center justify-center rounded-md text-[11px] font-semibold transition-all ${pDisabled ? 'bg-white/[0.02] text-zinc-700 cursor-not-allowed' : period === p ? ac.selected : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'}`}>{p}</button>
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Builder Warning ────────────────────────────────────────────────────────
 
 function BuilderWarning({ intent, executorType, executorId, teams }: {
@@ -1872,6 +2155,18 @@ function DoneCard({ task, teams, onClick }: { task: TaskItem; teams: TeamOption[
         )}
         {!isAwaitingReview && !isReminder && (
           <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">reviewed</span>
+        )}
+        {task.isRecurring && (
+          <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-medium text-cyan-400">recurring</span>
+        )}
+        {task.context?.source === 'manual' && !task.isRecurring && (
+          <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[9px] font-medium text-zinc-400">manual</span>
+        )}
+        {task.context?.source === 'security_scan' && (
+          <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-medium text-red-400">security</span>
+        )}
+        {task.context?.source === 'code_health' && (
+          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">health</span>
         )}
         {completedAt && (
           <span className="text-[10px] text-zinc-500">{getTimeAgo(completedAt)}</span>
@@ -2437,6 +2732,882 @@ function ExecutionReportContent({ taskId, projectId }: { taskId: string; project
   )
 }
 
+// ── Code Health Modal ──────────────────────────────────────────────────────
+
+function CodeHealthModal({
+  projectId,
+  teams,
+  onCreated,
+  onClose,
+}: {
+  projectId: string
+  teams: TeamOption[]
+  onCreated: (task: TaskItem) => void
+  onClose: () => void
+}) {
+  const [scanType, setScanType] = useState<'full' | 'targeted'>('full')
+  const [instruction, setInstruction] = useState('')
+  const [taskIntent, setTaskIntent] = useState<'analyze_fix' | 'conversation'>('conversation')
+  const [executorType, setExecutorType] = useState<'skill' | 'team'>('skill')
+  const [executorId, setExecutorId] = useState('architect')
+  const [model, setModel] = useState('sonnet')
+  const [scheduleType, setScheduleType] = useState<'anytime' | 'fixed' | 'recurring'>('anytime')
+  const [intervalDays, setIntervalDays] = useState('14')
+  const [submitting, setSubmitting] = useState(false)
+
+  const now = new Date()
+  const [month, setMonth] = useState(String(now.getMonth()))
+  const [day, setDay] = useState('')
+  const [year, setYear] = useState(String(now.getFullYear()))
+  const [hour, setHour] = useState('9')
+  const [minute, setMinute] = useState('00')
+  const [period, setPeriod] = useState<'AM' | 'PM'>('AM')
+  const CH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  function getScheduledAt(): string | null {
+    if (scheduleType !== 'fixed') return null
+    if (!month || !day || !year) return null
+    const h24 = period === 'AM' ? (hour === '12' ? 0 : parseInt(hour)) : (hour === '12' ? 12 : parseInt(hour) + 12)
+    return `${year}-${String(parseInt(month) + 1).padStart(2, '0')}-${day.padStart(2, '0')}T${String(h24).padStart(2, '0')}:${minute}:00.000Z`
+  }
+
+  async function handleSubmit() {
+    if (submitting) return
+    if (scanType === 'targeted' && !instruction.trim()) return
+    setSubmitting(true)
+
+    const taskName = scanType === 'full'
+      ? 'Code Health — Full Repository Analysis'
+      : `Code Health — ${instruction.trim().slice(0, 60)}`
+
+    const healthInstruction = scanType === 'full'
+      ? 'Perform a comprehensive code health analysis of the entire repository. Follow the full enterprise code health context provided.'
+      : instruction.trim()
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: taskName,
+          instruction: healthInstruction,
+          executorType,
+          executorId,
+          status: 'queue',
+          scheduledAt: getScheduledAt(),
+          isRecurring: scheduleType === 'recurring',
+          recurrenceConfig: scheduleType === 'recurring' ? { intervalDays: parseInt(intervalDays) || 14 } : undefined,
+          accumulatedContext: { model, intent: taskIntent },
+          context: {
+            source: 'code_health',
+            scanType,
+            healthContext: scanType === 'full' ? 'full_analysis' : 'targeted',
+          },
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        onCreated(created)
+      }
+    } catch {}
+    setSubmitting(false)
+  }
+
+  const INTENT_OPTIONS: { id: 'analyze_fix' | 'conversation'; label: string; desc: string; color: string }[] = [
+    { id: 'conversation', label: 'Analyze Only', desc: 'Review and report — no code changes', color: 'text-sky-300' },
+    { id: 'analyze_fix', label: 'Analyze & Fix', desc: 'Find issues and clean them up', color: 'text-amber-300' },
+  ]
+
+  const canSubmit = (scanType === 'full' || instruction.trim()) && executorId
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="flex h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-emerald-500/20 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-emerald-500/20 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20">
+              <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-100">Code Health</h2>
+              <p className="text-[11px] text-zinc-500">Quality, maintainability & technical debt analysis</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/5 hover:text-zinc-300">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Scan type */}
+          <div>
+            <div className="flex gap-2">
+              <button onClick={() => setScanType('full')} className={`flex-1 rounded-lg border px-3 py-2.5 text-left transition-all ${scanType === 'full' ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                <p className={`text-xs font-medium ${scanType === 'full' ? 'text-emerald-300' : 'text-zinc-400'}`}>Full Analysis</p>
+                <p className="text-[10px] text-zinc-600">Entire repository health check</p>
+              </button>
+              <button onClick={() => setScanType('targeted')} className={`flex-1 rounded-lg border px-3 py-2.5 text-left transition-all ${scanType === 'targeted' ? 'border-amber-500/50 bg-amber-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                <p className={`text-xs font-medium ${scanType === 'targeted' ? 'text-amber-300' : 'text-zinc-400'}`}>Targeted</p>
+                <p className="text-[10px] text-zinc-600">Focus on specific area</p>
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-zinc-500">
+              {scanType === 'full'
+                ? 'Will check dead code, complexity, type safety, naming, duplication, tech debt, dependencies, and architecture smells across the entire codebase.'
+                : 'Same depth of analysis but focused on the specific module, component, or area you define below.'}
+            </p>
+          </div>
+
+          {/* Health context (locked) */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Health Context</p>
+            <div className="flex items-center gap-3 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15">
+                <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-emerald-300">Enterprise Code Health Context</p>
+                <p className="text-[9px] text-zinc-500">Quality · Complexity · Patterns · Debt · Dependencies · Architecture</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Instruction */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Instructions</p>
+            {scanType === 'full' ? (
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                <p className="text-[11px] text-zinc-600 italic">Full repository code health analysis — dead code, complexity, patterns, tech debt, dependencies, architecture</p>
+              </div>
+            ) : (
+              <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="What should be analyzed? e.g. 'Check the components folder', 'Analyze the API routes', 'Review the auth module'..." rows={3} className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-emerald-500/50 focus:outline-none" />
+            )}
+          </div>
+
+          {/* Intent */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">What should happen</p>
+            <div className="space-y-1.5">
+              {INTENT_OPTIONS.map((opt) => (
+                <button key={opt.id} onClick={() => setTaskIntent(opt.id)} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${taskIntent === opt.id ? 'border-emerald-500/40 bg-emerald-500/[0.06]' : 'border-white/10 hover:border-white/20'}`}>
+                  <div className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${taskIntent === opt.id ? 'border-emerald-500 bg-emerald-500' : 'border-zinc-600'}`}>
+                    {taskIntent === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <p className={`text-xs font-medium ${taskIntent === opt.id ? opt.color : 'text-zinc-400'}`}>{opt.label}</p>
+                    <p className="text-[10px] text-zinc-600">{opt.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <BuilderWarning intent={taskIntent} executorType={executorType} executorId={executorId} teams={teams} />
+
+          {/* Executor */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Assign to</p>
+            <div className="flex gap-2 mb-2">
+              <button onClick={() => { setExecutorType('skill'); setExecutorId('architect') }} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${executorType === 'skill' ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>Employee</button>
+              <button onClick={() => { setExecutorType('team'); setExecutorId('') }} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${executorType === 'team' ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>Team</button>
+            </div>
+            {executorType === 'skill' ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {EMPLOYEES.map((emp) => (
+                  <button key={emp.id} onClick={() => setExecutorId(emp.id)} className={`rounded-lg bg-gradient-to-br ${emp.color} px-3 py-2 text-left transition-all ${executorId === emp.id ? 'ring-2 ring-white/40 shadow-lg' : 'opacity-50 hover:opacity-80'}`}>
+                    <p className="text-xs font-semibold text-white">{emp.name}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {teams.length === 0 ? <p className="text-[11px] text-zinc-600">No teams created yet.</p> : teams.map((team) => (
+                  <button key={team.id} onClick={() => setExecutorId(team.id)} className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all ${executorId === team.id ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                    <span className={`text-xs font-medium ${executorId === team.id ? 'text-emerald-300' : 'text-zinc-400'}`}>{team.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Model */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Model</p>
+            <div className="flex gap-2">
+              {[{ id: 'haiku', label: 'Haiku', desc: 'Fast' }, { id: 'sonnet', label: 'Sonnet', desc: 'Recommended' }, { id: 'opus', label: 'Opus', desc: 'Most capable' }].map((m) => (
+                <button key={m.id} onClick={() => setModel(m.id)} className={`flex-1 rounded-lg border px-3 py-2 text-left transition-all ${model === m.id ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                  <p className={`text-xs font-medium ${model === m.id ? 'text-emerald-300' : 'text-zinc-400'}`}>{m.label}</p>
+                  <p className={`text-[10px] ${m.id === 'sonnet' ? 'text-emerald-400/60' : 'text-zinc-600'}`}>{m.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Schedule */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Schedule</p>
+            <div className="flex gap-2 mb-2">
+              {(['anytime', 'fixed', 'recurring'] as const).map((s) => (
+                <button key={s} onClick={() => setScheduleType(s)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${scheduleType === s ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>
+                  {s === 'anytime' ? 'Anytime' : s === 'fixed' ? 'Fixed Date' : 'Recurring'}
+                </button>
+              ))}
+            </div>
+
+            {scheduleType === 'fixed' && (
+              <SchedulePicker month={month} setMonth={setMonth} day={day} setDay={setDay} year={year} setYear={setYear} hour={hour} setHour={setHour} minute={minute} setMinute={setMinute} period={period} setPeriod={setPeriod} accentColor="emerald" />
+            )}
+
+            {scheduleType === 'recurring' && (
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-3">
+                <p className="text-[11px] text-emerald-300 mb-2">Run every:</p>
+                <div className="flex items-center gap-2">
+                  <input type="number" min="1" max="365" value={intervalDays} onChange={(e) => setIntervalDays(e.target.value)} className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-center text-sm text-zinc-200 focus:border-emerald-500/50 focus:outline-none" />
+                  <span className="text-xs text-zinc-400">days</span>
+                  <span className="text-[10px] text-zinc-600">(14 days recommended)</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 border-t border-emerald-500/20 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <button onClick={handleSubmit} disabled={!canSubmit || submitting} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 text-xs font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-30">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+            {submitting ? 'Creating...' : scanType === 'full' ? 'Start Full Analysis' : 'Start Targeted Analysis'}
+          </button>
+          <button onClick={onClose} className="flex h-9 items-center justify-center rounded-lg px-4 text-xs text-zinc-400 hover:text-zinc-200">Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Security Scan Modal ────────────────────────────────────────────────────
+
+function SecurityScanModal({
+  projectId,
+  teams,
+  onCreated,
+  onClose,
+}: {
+  projectId: string
+  teams: TeamOption[]
+  onCreated: (task: TaskItem) => void
+  onClose: () => void
+}) {
+  const [scanType, setScanType] = useState<'full' | 'targeted'>('full')
+  const [instruction, setInstruction] = useState('')
+  const [taskIntent, setTaskIntent] = useState<'analyze_fix' | 'conversation'>('conversation')
+  const [executorType, setExecutorType] = useState<'skill' | 'team'>('skill')
+  const [executorId, setExecutorId] = useState('security')
+  const [model, setModel] = useState('opus')
+  const [scheduleType, setScheduleType] = useState<'anytime' | 'fixed' | 'recurring'>('anytime')
+  const [intervalDays, setIntervalDays] = useState('7')
+  const [hoveredInfo, setHoveredInfo] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Schedule state
+  const now = new Date()
+  const [month, setMonth] = useState(String(now.getMonth()))
+  const [day, setDay] = useState('')
+  const [year, setYear] = useState(String(now.getFullYear()))
+  const [hour, setHour] = useState('9')
+  const [minute, setMinute] = useState('00')
+  const [period, setPeriod] = useState<'AM' | 'PM'>('AM')
+  const SEC_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  function getScheduledAt(): string | null {
+    if (scheduleType !== 'fixed') return null
+    if (!month || !day || !year) return null
+    const h24 = period === 'AM' ? (hour === '12' ? 0 : parseInt(hour)) : (hour === '12' ? 12 : parseInt(hour) + 12)
+    return `${year}-${String(parseInt(month) + 1).padStart(2, '0')}-${day.padStart(2, '0')}T${String(h24).padStart(2, '0')}:${minute}:00.000Z`
+  }
+
+  async function handleSubmit() {
+    if (submitting) return
+    if (scanType === 'targeted' && !instruction.trim()) return
+    setSubmitting(true)
+
+    const taskName = scanType === 'full'
+      ? 'Security Scan — Full Repository Audit'
+      : `Security Scan — ${instruction.trim().slice(0, 60)}`
+
+    const securityInstruction = scanType === 'full'
+      ? 'Perform a comprehensive security audit of the entire repository. Follow the full enterprise security context provided.'
+      : instruction.trim()
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: taskName,
+          instruction: securityInstruction,
+          executorType,
+          executorId,
+          status: 'queue',
+          scheduledAt: getScheduledAt(),
+          isRecurring: scheduleType === 'recurring',
+          recurrenceConfig: scheduleType === 'recurring' ? { intervalDays: parseInt(intervalDays) || 7 } : undefined,
+          accumulatedContext: { model, intent: taskIntent },
+          context: {
+            source: 'security_scan',
+            scanType,
+            securityContext: scanType === 'full' ? 'full_scan' : 'targeted',
+          },
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        onCreated(created)
+      }
+    } catch {}
+    setSubmitting(false)
+  }
+
+  const INTENT_OPTIONS: { id: 'analyze_fix' | 'conversation'; label: string; desc: string; color: string }[] = [
+    { id: 'conversation', label: 'Analyze Only', desc: 'Review and report — no code changes', color: 'text-sky-300' },
+    { id: 'analyze_fix', label: 'Analyze & Fix', desc: 'Find issues and fix them if possible', color: 'text-amber-300' },
+  ]
+
+  const canSubmit = (scanType === 'full' || instruction.trim()) && executorId
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="flex h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-red-500/20 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-red-500/20 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20">
+              <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-100">Security Scan</h2>
+              <p className="text-[11px] text-zinc-500">Enterprise-level security audit</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/5 hover:text-zinc-300">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* Scrollable form */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Scan type toggle */}
+          <div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setScanType('full')}
+                className={`flex-1 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                  scanType === 'full' ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 hover:border-white/20'
+                }`}
+              >
+                <p className={`text-xs font-medium ${scanType === 'full' ? 'text-red-300' : 'text-zinc-400'}`}>Full Scan</p>
+                <p className="text-[10px] text-zinc-600">Entire repository audit</p>
+              </button>
+              <button
+                onClick={() => setScanType('targeted')}
+                className={`flex-1 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                  scanType === 'targeted' ? 'border-amber-500/50 bg-amber-500/10' : 'border-white/10 hover:border-white/20'
+                }`}
+              >
+                <p className={`text-xs font-medium ${scanType === 'targeted' ? 'text-amber-300' : 'text-zinc-400'}`}>Targeted</p>
+                <p className="text-[10px] text-zinc-600">Focus on specific area</p>
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-zinc-500">
+              {scanType === 'full'
+                ? 'Will use the full enterprise security context (OWASP Top 10, STRIDE, CWE, SANS Top 25) and scan the entire repository.'
+                : 'Will use the full enterprise security context but focused on the area you specify below.'}
+            </p>
+          </div>
+
+          {/* Security context (locked, read-only) */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Security Context</p>
+            <div className="flex items-center gap-3 rounded-lg border border-red-500/15 bg-red-500/[0.04] p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/15">
+                <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-red-300">Enterprise Security Audit Context</p>
+                <p className="text-[9px] text-zinc-500">OWASP Top 10 · STRIDE · CWE · SANS Top 25 · Secret Detection · Dependency Audit</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Instruction (disabled for full, enabled for targeted) */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Instructions</p>
+            {scanType === 'full' ? (
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                <p className="text-[11px] text-zinc-600 italic">Full repository security review — comprehensive scan using all security frameworks</p>
+              </div>
+            ) : (
+              <textarea
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                placeholder="What should be audited? e.g. 'Review the authentication flow', 'Audit the payment endpoints', 'Check the file upload feature'..."
+                rows={3}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-amber-500/50 focus:outline-none"
+              />
+            )}
+          </div>
+
+          {/* Intent (only analyze or analyze+fix, no build) */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">What should happen</p>
+            <div className="space-y-1.5">
+              {INTENT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setTaskIntent(opt.id)}
+                  className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                    taskIntent === opt.id ? 'border-red-500/40 bg-red-500/[0.06]' : 'border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <div className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${
+                    taskIntent === opt.id ? 'border-red-500 bg-red-500' : 'border-zinc-600'
+                  }`}>
+                    {taskIntent === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <p className={`text-xs font-medium ${taskIntent === opt.id ? opt.color : 'text-zinc-400'}`}>{opt.label}</p>
+                    <p className="text-[10px] text-zinc-600">{opt.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Builder warning */}
+          <BuilderWarning intent={taskIntent} executorType={executorType} executorId={executorId} teams={teams} />
+
+          {/* Executor */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Assign to</p>
+            <div className="flex gap-2 mb-2">
+              <button onClick={() => { setExecutorType('skill'); setExecutorId('security') }} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${executorType === 'skill' ? 'border-red-500/50 bg-red-500/10 text-red-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>Employee</button>
+              <button onClick={() => { setExecutorType('team'); setExecutorId('') }} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${executorType === 'team' ? 'border-red-500/50 bg-red-500/10 text-red-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>Team</button>
+            </div>
+            {executorType === 'skill' ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {EMPLOYEES.map((emp) => (
+                  <button key={emp.id} onClick={() => setExecutorId(emp.id)} className={`rounded-lg bg-gradient-to-br ${emp.color} px-3 py-2 text-left transition-all ${executorId === emp.id ? 'ring-2 ring-white/40 shadow-lg' : 'opacity-50 hover:opacity-80'}`}>
+                    <p className="text-xs font-semibold text-white">{emp.name}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {teams.length === 0 ? <p className="text-[11px] text-zinc-600">No teams created yet.</p> : teams.map((team) => (
+                  <button key={team.id} onClick={() => setExecutorId(team.id)} className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all ${executorId === team.id ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                    <span className={`text-xs font-medium ${executorId === team.id ? 'text-red-300' : 'text-zinc-400'}`}>{team.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Model */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Model</p>
+            <div className="flex gap-2">
+              {[{ id: 'haiku', label: 'Haiku', desc: 'Fast' }, { id: 'sonnet', label: 'Sonnet', desc: 'Balanced' }, { id: 'opus', label: 'Opus', desc: 'Recommended' }].map((m) => (
+                <button key={m.id} onClick={() => setModel(m.id)} className={`flex-1 rounded-lg border px-3 py-2 text-left transition-all ${model === m.id ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                  <p className={`text-xs font-medium ${model === m.id ? 'text-red-300' : 'text-zinc-400'}`}>{m.label}</p>
+                  <p className={`text-[10px] ${m.id === 'opus' ? 'text-red-400/60' : 'text-zinc-600'}`}>{m.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Schedule */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Schedule</p>
+            <div className="flex gap-2 mb-2">
+              {(['anytime', 'fixed', 'recurring'] as const).map((s) => (
+                <button key={s} onClick={() => setScheduleType(s)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${scheduleType === s ? 'border-red-500/50 bg-red-500/10 text-red-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>
+                  {s === 'anytime' ? 'Anytime' : s === 'fixed' ? 'Fixed Date' : 'Recurring'}
+                </button>
+              ))}
+            </div>
+
+            {scheduleType === 'fixed' && (
+              <SchedulePicker month={month} setMonth={setMonth} day={day} setDay={setDay} year={year} setYear={setYear} hour={hour} setHour={setHour} minute={minute} setMinute={setMinute} period={period} setPeriod={setPeriod} accentColor="red" />
+            )}
+
+            {scheduleType === 'recurring' && (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/[0.04] p-3">
+                <p className="text-[11px] text-red-300 mb-2">Run every:</p>
+                <div className="flex items-center gap-2">
+                  <input type="number" min="1" max="365" value={intervalDays} onChange={(e) => setIntervalDays(e.target.value)} className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-center text-sm text-zinc-200 focus:border-red-500/50 focus:outline-none" />
+                  <span className="text-xs text-zinc-400">days</span>
+                  <span className="text-[10px] text-zinc-600">(7 days recommended)</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 border-t border-red-500/20 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <button onClick={handleSubmit} disabled={!canSubmit || submitting} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-30">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+            {submitting ? 'Creating...' : scanType === 'full' ? 'Start Full Scan' : 'Start Targeted Scan'}
+          </button>
+          <button onClick={onClose} className="flex h-9 items-center justify-center rounded-lg px-4 text-xs text-zinc-400 hover:text-zinc-200">Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Create Task Modal ──────────────────────────────────────────────────────
+
+function CreateTaskModal({
+  projectId,
+  teams,
+  onCreated,
+  onClose,
+}: {
+  projectId: string
+  teams: TeamOption[]
+  onCreated: (task: TaskItem) => void
+  onClose: () => void
+}) {
+  const [name, setName] = useState('')
+  const [instruction, setInstruction] = useState('')
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; content: string } | null>(null)
+  const [taskIntent, setTaskIntent] = useState<'build' | 'analyze_fix' | 'conversation'>('build')
+  const [hoveredInfo, setHoveredInfo] = useState<string | null>(null)
+  const [executorType, setExecutorType] = useState<'skill' | 'team'>('skill')
+  const [executorId, setExecutorId] = useState('')
+  const [model, setModel] = useState('sonnet')
+  const [scheduleType, setScheduleType] = useState<'anytime' | 'fixed' | 'recurring'>('anytime')
+  const [intervalDays, setIntervalDays] = useState('7')
+  const [submitting, setSubmitting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Schedule state (reuse from ScheduleModal)
+  const now = new Date()
+  const [month, setMonth] = useState(String(now.getMonth()))
+  const [day, setDay] = useState('')
+  const [year, setYear] = useState(String(now.getFullYear()))
+  const [hour, setHour] = useState('9')
+  const [minute, setMinute] = useState('00')
+  const [period, setPeriod] = useState<'AM' | 'PM'>('AM')
+  const MONTHS_LIST = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  function getScheduledAt(): string | null {
+    if (scheduleType !== 'fixed') return null
+    if (!month || !day || !year) return null
+    const h24 = period === 'AM' ? (hour === '12' ? 0 : parseInt(hour)) : (hour === '12' ? 12 : parseInt(hour) + 12)
+    return `${year}-${String(parseInt(month) + 1).padStart(2, '0')}-${day.padStart(2, '0')}T${String(h24).padStart(2, '0')}:${minute}:00.000Z`
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    setUploadedFile({ name: file.name, content: text.slice(0, 50000) })
+  }
+
+  async function handleSubmit() {
+    if (!name.trim() || !executorId || submitting) return
+    setSubmitting(true)
+    try {
+      const taskData: Record<string, unknown> = {
+        name: name.trim(),
+        instruction: instruction.trim() || null,
+        executorType,
+        executorId,
+        status: 'queue',
+        scheduledAt: getScheduledAt(),
+        isRecurring: scheduleType === 'recurring',
+        recurrenceConfig: scheduleType === 'recurring' ? { intervalDays: parseInt(intervalDays) || 7 } : undefined,
+        accumulatedContext: { model, intent: taskIntent },
+        context: {
+          source: 'manual',
+          ...(uploadedFile ? { uploadedFile: { name: uploadedFile.name, content: uploadedFile.content } } : {}),
+        },
+      }
+      const res = await fetch(`/api/projects/${projectId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taskData),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        onCreated(created)
+      }
+    } catch {}
+    setSubmitting(false)
+  }
+
+  const canSubmit = name.trim() && executorId && (scheduleType !== 'fixed' || (month && day && year))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="flex h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-100">Create Task</h2>
+            <p className="text-[11px] text-zinc-500">Goes directly to the queue — fully configured.</p>
+          </div>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/5 hover:text-zinc-300">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* Scrollable form */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Name */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Task Name</p>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="What needs to be done?" className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-violet-500/50 focus:outline-none" />
+          </div>
+
+          {/* Instruction */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Instructions</p>
+            <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="Detailed instructions for the executor..." rows={3} className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-violet-500/50 focus:outline-none" />
+          </div>
+
+          {/* Upload context */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Context File (optional)</p>
+            {uploadedFile ? (
+              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+                <svg className="h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                <span className="flex-1 text-xs text-zinc-300 truncate">{uploadedFile.name}</span>
+                <button onClick={() => setUploadedFile(null)} className="text-zinc-500 hover:text-red-400">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.02] px-3 py-3 text-xs text-zinc-500 hover:border-white/25 hover:bg-white/[0.04]">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                Upload PDF, text, code, or docs
+              </button>
+            )}
+            <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.ts,.tsx,.js,.jsx,.json,.py,.go,.rs,.css,.html" className="hidden" onChange={handleUpload} />
+          </div>
+
+          {/* Intent */}
+          <TaskIntentSelector value={taskIntent} onChange={setTaskIntent} hoveredInfo={hoveredInfo} onHoverInfo={setHoveredInfo} />
+
+          {/* Builder warning */}
+          <BuilderWarning intent={taskIntent} executorType={executorType} executorId={executorId} teams={teams} />
+
+          {/* Executor */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Assign to</p>
+            <div className="flex gap-2 mb-2">
+              <button onClick={() => { setExecutorType('skill'); setExecutorId('') }} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${executorType === 'skill' ? 'border-violet-500/50 bg-violet-500/10 text-violet-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>Employee</button>
+              <button onClick={() => { setExecutorType('team'); setExecutorId('') }} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${executorType === 'team' ? 'border-violet-500/50 bg-violet-500/10 text-violet-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>Team</button>
+            </div>
+            {executorType === 'skill' ? (
+              <div className="grid grid-cols-2 gap-1.5">
+                {EMPLOYEES.map((emp) => (
+                  <button key={emp.id} onClick={() => setExecutorId(emp.id)} className={`rounded-lg bg-gradient-to-br ${emp.color} px-3 py-2 text-left transition-all ${executorId === emp.id ? 'ring-2 ring-white/40 shadow-lg' : 'opacity-50 hover:opacity-80'}`}>
+                    <p className="text-xs font-semibold text-white">{emp.name}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {teams.length === 0 ? <p className="text-[11px] text-zinc-600">No teams created yet.</p> : teams.map((team) => (
+                  <button key={team.id} onClick={() => setExecutorId(team.id)} className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all ${executorId === team.id ? 'border-violet-500/50 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                    <span className={`text-xs font-medium ${executorId === team.id ? 'text-violet-300' : 'text-zinc-400'}`}>{team.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Model */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Model</p>
+            <div className="flex gap-2">
+              {[{ id: 'haiku', label: 'Haiku', desc: 'Fast, cheap' }, { id: 'sonnet', label: 'Sonnet', desc: 'Balanced' }, { id: 'opus', label: 'Opus', desc: 'Most capable' }].map((m) => (
+                <button key={m.id} onClick={() => setModel(m.id)} className={`flex-1 rounded-lg border px-3 py-2 text-left transition-all ${model === m.id ? 'border-violet-500/50 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                  <p className={`text-xs font-medium ${model === m.id ? 'text-violet-300' : 'text-zinc-400'}`}>{m.label}</p>
+                  <p className="text-[10px] text-zinc-600">{m.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Schedule */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Schedule</p>
+            <div className="flex gap-2 mb-2">
+              {(['anytime', 'fixed', 'recurring'] as const).map((s) => (
+                <button key={s} onClick={() => setScheduleType(s)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${scheduleType === s ? 'border-violet-500/50 bg-violet-500/10 text-violet-300' : 'border-white/10 text-zinc-500 hover:border-white/20'}`}>
+                  {s === 'anytime' ? 'Anytime' : s === 'fixed' ? 'Fixed Date' : 'Recurring'}
+                </button>
+              ))}
+            </div>
+
+            {scheduleType === 'fixed' && (
+              <SchedulePicker month={month} setMonth={setMonth} day={day} setDay={setDay} year={year} setYear={setYear} hour={hour} setHour={setHour} minute={minute} setMinute={setMinute} period={period} setPeriod={setPeriod} accentColor="violet" />
+            )}
+
+            {scheduleType === 'recurring' && (
+              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] p-3">
+                <p className="text-[11px] text-cyan-300 mb-2">Run every:</p>
+                <div className="flex items-center gap-2">
+                  <input type="number" min="1" max="365" value={intervalDays} onChange={(e) => setIntervalDays(e.target.value)} className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-center text-sm text-zinc-200 focus:border-cyan-500/50 focus:outline-none" />
+                  <span className="text-xs text-zinc-400">days</span>
+                </div>
+                <p className="mt-2 text-[10px] text-zinc-500">First run enters queue immediately. Next runs auto-schedule after each completion.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 border-t border-white/10 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <button onClick={handleSubmit} disabled={!canSubmit || submitting} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 text-xs font-medium text-white transition-colors hover:bg-violet-500 disabled:opacity-30">
+            {submitting ? 'Creating...' : scheduleType === 'recurring' ? 'Create Recurring Task' : 'Send to Queue'}
+          </button>
+          <button onClick={onClose} className="flex h-9 items-center justify-center rounded-lg px-4 text-xs text-zinc-400 hover:text-zinc-200">Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Manage Recurring Modal ────────────────────────────────────────────────
+
+function ManageRecurringModal({
+  projectId,
+  tasks,
+  teams,
+  onUpdated,
+  onDeleted,
+  onClose,
+}: {
+  projectId: string
+  tasks: TaskItem[]
+  teams: TeamOption[]
+  onUpdated: (task: TaskItem) => void
+  onDeleted: (id: string) => void
+  onClose: () => void
+}) {
+  async function handleDelete(taskId: string) {
+    try {
+      // Delete the task + all future recurrences
+      await fetch(`/api/projects/${projectId}/tasks/${taskId}`, { method: 'DELETE' })
+      onDeleted(taskId)
+    } catch {}
+  }
+
+  async function handleSkip(task: TaskItem) {
+    const interval = (task.recurrenceConfig as { intervalDays?: number })?.intervalDays ?? 7
+    const currentScheduled = task.scheduledAt ? new Date(task.scheduledAt) : new Date()
+    const newScheduled = new Date(currentScheduled.getTime() + interval * 24 * 60 * 60 * 1000)
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledAt: newScheduled.toISOString() }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        onUpdated(updated)
+      }
+    } catch {}
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-100">Recurring Tasks</h2>
+            <p className="text-[11px] text-zinc-500">{tasks.length} active recurring task{tasks.length !== 1 ? 's' : ''}</p>
+          </div>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/5 hover:text-zinc-300">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
+          {tasks.length === 0 && (
+            <div className="py-8 text-center">
+              <p className="text-xs text-zinc-500">No recurring tasks</p>
+              <p className="text-[10px] text-zinc-600 mt-1">Create one with the "Create Task" button and select "Recurring"</p>
+            </div>
+          )}
+
+          {tasks.map((task) => {
+            const interval = (task.recurrenceConfig as { intervalDays?: number })?.intervalDays ?? 7
+            const executorName = getExecutorName(task, teams)
+            const intent = INTENT_LABELS[task.accumulatedContext?.intent ?? '']
+
+            return (
+              <div key={task.id} className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-zinc-200">{task.name}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] text-zinc-500">{executorName}</span>
+                      {intent && <span className={`text-[9px] font-medium ${intent.color}`}>{intent.label}</span>}
+                      <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-medium text-cyan-400">every {interval} days</span>
+                      <span className="text-[10px] text-zinc-600">{task.accumulatedContext?.model ?? 'sonnet'}</span>
+                    </div>
+                    {task.scheduledAt && (
+                      <p className="mt-1 text-[10px] text-zinc-500">
+                        Next: {new Date(task.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    <button
+                      onClick={() => handleSkip(task)}
+                      title="Skip next run"
+                      className="flex h-7 items-center gap-1 rounded-lg border border-white/10 px-2 text-[10px] text-zinc-400 hover:bg-white/5 hover:text-zinc-300"
+                    >
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 010 1.954l-7.108 4.061A1.125 1.125 0 013 16.811V8.69zM12.75 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 010 1.954l-7.108 4.061a1.125 1.125 0 01-1.683-.977V8.69z" /></svg>
+                      Skip
+                    </button>
+                    <button
+                      onClick={() => handleDelete(task.id)}
+                      title="Stop recurring"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Reorder Modal ──────────────────────────────────────────────────────────
 
 function ReorderModal({
@@ -2620,7 +3791,19 @@ function QueueCard({ task, teams, onClick }: { task: TaskItem; teams: TeamOption
         <span className="rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-zinc-500">{model}</span>
         {/* Time */}
         <span className="text-[10px] text-zinc-600">{timeAgo}</span>
-        {/* Rescheduled */}
+        {/* Badges */}
+        {task.isRecurring && (
+          <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-medium text-cyan-400">recurring</span>
+        )}
+        {task.context?.source === 'manual' && !task.isRecurring && (
+          <span className="rounded bg-zinc-500/15 px-1.5 py-0.5 text-[9px] font-medium text-zinc-400">manual</span>
+        )}
+        {task.context?.source === 'security_scan' && (
+          <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-medium text-red-400">security</span>
+        )}
+        {task.context?.source === 'code_health' && (
+          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">health</span>
+        )}
         {task.rescheduledCount > 0 && (
           <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-medium text-red-400">rescheduled</span>
         )}
@@ -2632,6 +3815,15 @@ function QueueCard({ task, teams, onClick }: { task: TaskItem; teams: TeamOption
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
           <span>{task.rescheduledReason} ({task.rescheduledCount}x)</span>
+        </div>
+      )}
+      {/* Fail reason */}
+      {task.accumulatedContext?.failReason && (
+        <div className="mt-1.5 flex items-center gap-1 text-[9px] text-red-400/80">
+          <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <span>{task.accumulatedContext.failReason}</span>
         </div>
       )}
     </button>
@@ -2784,33 +3976,68 @@ function QueueDetailModal({
 
   // Delete confirmation
   if (mode === 'delete') {
+    const isRecurringTask = task.isRecurring
+    const intervalDays = (task.recurrenceConfig as { intervalDays?: number })?.intervalDays ?? 7
+
+    async function handleSkipRecurring() {
+      const current = task.scheduledAt ? new Date(task.scheduledAt) : new Date()
+      const next = new Date(current.getTime() + intervalDays * 24 * 60 * 60 * 1000)
+      try {
+        const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scheduledAt: next.toISOString() }),
+        })
+        if (res.ok) { const updated = await res.json(); onUpdated(updated) }
+      } catch {}
+    }
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
         <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
           <div className="border-b border-white/10 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
-            <h2 className="text-sm font-semibold text-zinc-100">Remove Task</h2>
+            <h2 className="text-sm font-semibold text-zinc-100">{isRecurringTask ? 'Recurring Task' : 'Remove Task'}</h2>
           </div>
           <div className="p-6 space-y-3">
-            <p className="text-xs text-zinc-400">What would you like to do with this task?</p>
-            <button
-              onClick={handleDelete}
-              className="flex w-full h-10 items-center justify-center gap-2 rounded-lg bg-red-600 text-xs font-medium text-white transition-colors hover:bg-red-500"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-              Delete permanently
-            </button>
-            <button
-              onClick={handleBackToPending}
-              disabled={submitting}
-              className="flex w-full h-10 items-center justify-center gap-2 rounded-lg border border-white/10 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5 disabled:opacity-50"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
-              </svg>
-              {submitting ? 'Moving...' : 'Back to Pending'}
-            </button>
+            {isRecurringTask ? (
+              <>
+                <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] p-3">
+                  <p className="text-[11px] text-cyan-300">This is a recurring task. It cannot be deleted from here — manage it in the Recurring Tasks panel.</p>
+                </div>
+                <button
+                  onClick={handleSkipRecurring}
+                  className="flex w-full h-10 items-center justify-center gap-2 rounded-lg border border-cyan-500/30 text-xs font-medium text-cyan-300 transition-colors hover:bg-cyan-500/10"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 010 1.954l-7.108 4.061A1.125 1.125 0 013 16.811V8.69zM12.75 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 010 1.954l-7.108 4.061a1.125 1.125 0 01-1.683-.977V8.69z" />
+                  </svg>
+                  Skip this run (+{intervalDays} days)
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-zinc-400">What would you like to do with this task?</p>
+                <button
+                  onClick={handleDelete}
+                  className="flex w-full h-10 items-center justify-center gap-2 rounded-lg bg-red-600 text-xs font-medium text-white transition-colors hover:bg-red-500"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                  Delete permanently
+                </button>
+                <button
+                  onClick={handleBackToPending}
+                  disabled={submitting}
+                  className="flex w-full h-10 items-center justify-center gap-2 rounded-lg border border-white/10 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5 disabled:opacity-50"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                  </svg>
+                  {submitting ? 'Moving...' : 'Back to Pending'}
+                </button>
+              </>
+            )}
             <button onClick={() => setMode('view')} className="w-full text-center text-xs text-zinc-500 hover:text-zinc-300">Cancel</button>
           </div>
         </div>
@@ -3047,6 +4274,26 @@ function QueueDetailModal({
               <span className="text-xs font-medium text-zinc-200 capitalize">{task.accumulatedContext?.model ?? 'sonnet'}</span>
             </div>
           </div>
+
+          {/* Fail reason banner */}
+          {task.accumulatedContext?.failReason && (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] p-3">
+              <div className="flex items-start gap-2">
+                <svg className="h-4 w-4 shrink-0 text-red-400 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <p className="text-xs font-medium text-red-300">Task paused automatically</p>
+                  <p className="mt-0.5 text-[11px] text-red-400/80">{task.accumulatedContext.failReason}</p>
+                  {task.accumulatedContext.pausedState && (
+                    <p className="mt-1 text-[10px] text-zinc-500">
+                      Progress saved — {(task.accumulatedContext.pausedState as any).totalStepsCompleted ?? 0} steps completed. Task will continue from where it stopped when run again.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

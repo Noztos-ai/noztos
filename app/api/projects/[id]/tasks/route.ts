@@ -34,6 +34,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         executorId: true,
         context: true,
         accumulatedContext: true,
+        isRecurring: true,
+        recurrenceConfig: true,
         queuePosition: true,
         pausedAtEmployee: true,
         scheduledAt: true,
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: access.error }, { status: access.status })
   }
 
-  let body: { name?: string; instruction?: string; teamId?: string; context?: Record<string, unknown> }
+  let body: { name?: string; instruction?: string; teamId?: string; executorType?: string; executorId?: string; status?: string; scheduledAt?: string; isRecurring?: boolean; recurrenceConfig?: Record<string, unknown>; accumulatedContext?: Record<string, unknown>; context?: Record<string, unknown> }
   try {
     body = await request.json()
   } catch {
@@ -84,15 +86,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  // Auto-assign queue position if going to queue
+  let queuePosition: number | undefined
+  const targetStatus = body.status ?? 'pending'
+  if (targetStatus === 'queue') {
+    const maxPos = await prisma.task.aggregate({
+      where: { projectId: id, status: 'queue' },
+      _max: { queuePosition: true },
+    })
+    queuePosition = (maxPos._max.queuePosition ?? -1) + 1
+  }
+
   const task = await prisma.task.create({
     data: {
       projectId: id,
       userId: access.userId,
       name,
       instruction: body.instruction?.trim() || null,
-      executorType: body.teamId ? 'team' : 'no_skill',
-      executorId: body.teamId || null,
+      executorType: (body.executorType ?? (body.teamId ? 'team' : 'no_skill')) as 'no_skill' | 'skill' | 'team',
+      executorId: body.executorId ?? body.teamId ?? null,
+      status: targetStatus as 'pending' | 'queue' | 'progress' | 'completed' | 'done',
+      scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
+      isRecurring: body.isRecurring ?? false,
+      recurrenceConfig: body.recurrenceConfig ? JSON.parse(JSON.stringify(body.recurrenceConfig)) : undefined,
+      accumulatedContext: body.accumulatedContext ? JSON.parse(JSON.stringify(body.accumulatedContext)) : undefined,
       context: body.context ? JSON.parse(JSON.stringify(body.context)) : undefined,
+      queuePosition,
     },
     select: {
       id: true,

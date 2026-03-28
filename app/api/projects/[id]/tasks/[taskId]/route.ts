@@ -97,6 +97,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     select: {
       id: true, name: true, instruction: true, status: true,
       executorType: true, executorId: true, context: true, accumulatedContext: true,
+      isRecurring: true, recurrenceConfig: true,
       queuePosition: true, scheduledAt: true, originalScheduledAt: true, rescheduledReason: true, rescheduledCount: true, createdAt: true,
     },
   })

@@ -3,6 +3,8 @@ import { callAnthropic, callAnthropicWithTools, MODELS } from '@/lib/anthropic'
 import { REPO_TOOLS, executeTool } from '@/lib/tools'
 import { acquireRepoLock, releaseRepoLock } from '@/lib/repo-lock'
 import type { ContentBlock, ToolCallMessage } from '@/lib/anthropic'
+import { SECURITY_FULL_SCAN_PROMPT, SECURITY_TARGETED_PROMPT } from '@/lib/security-prompt'
+import { CODEHEALTH_FULL_SCAN_PROMPT, CODEHEALTH_TARGETED_PROMPT } from '@/lib/codehealth-prompt'
 
 // ── Task Runner ───────────────────────────────────────────────────────────
 //
@@ -78,6 +80,7 @@ interface TaskContext {
   source?: string
   report?: { question?: string; conclusion?: string }
   conversationSummary?: string
+  uploadedFile?: { name: string; content: string }
 }
 
 // ── Suggestion Parser ─────────────────────────────────────────────────────
@@ -263,17 +266,107 @@ export async function runTask(taskId: string): Promise<RunResult> {
       },
     })
 
+    // If recurring, auto-create next occurrence
+    if (task.isRecurring && task.recurrenceConfig) {
+      const config = task.recurrenceConfig as { intervalDays?: number }
+      const intervalDays = config.intervalDays ?? 7
+      const nextDate = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000)
+
+      // Get next queue position
+      const maxPos = await prisma.task.aggregate({
+        where: { projectId: task.projectId, status: 'queue' },
+        _max: { queuePosition: true },
+      })
+
+      await prisma.task.create({
+        data: {
+          projectId: task.projectId,
+          userId: task.userId,
+          name: task.name,
+          instruction: task.instruction,
+          executorType: task.executorType,
+          executorId: task.executorId,
+          status: 'queue',
+          isRecurring: true,
+          recurrenceConfig: JSON.parse(JSON.stringify(task.recurrenceConfig)),
+          scheduledAt: nextDate,
+          queuePosition: (maxPos._max.queuePosition ?? -1) + 1,
+          context: JSON.parse(JSON.stringify(task.context)),
+          accumulatedContext: JSON.parse(JSON.stringify({
+            model: accumulated.model,
+            intent: accumulated.intent,
+          })),
+        },
+      })
+    }
+
     return result
 
   } catch (err) {
     console.error(`[task-runner] Task ${taskId} failed:`, err)
 
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { status: 'pending', pausedAtEmployee: 'error' },
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    const isCreditsError = errorMessage.toLowerCase().includes('credit') ||
+      errorMessage.toLowerCase().includes('quota') ||
+      errorMessage.toLowerCase().includes('rate_limit') ||
+      errorMessage.toLowerCase().includes('overloaded') ||
+      errorMessage.includes('429') ||
+      errorMessage.includes('529')
+
+    // Build paused state with what was done so far
+    const skillLogs = await prisma.taskSkillLog.findMany({
+      where: { taskId },
+      select: { collaboratorName: true, conclusion: true, finishedAt: true },
+      orderBy: { startedAt: 'asc' },
     })
 
-    return { status: 'failed', summary: err instanceof Error ? err.message : 'Unknown error', filesTouched: [] }
+    const buildLogs = await prisma.taskBuildLog.findMany({
+      where: { taskId },
+      select: { filesTouched: true },
+    })
+
+    const completedEmployees = skillLogs
+      .filter((l) => l.finishedAt)
+      .map((l) => ({ name: l.collaboratorName, output: (l.conclusion ?? '').slice(0, 1000) }))
+
+    const filesModified = buildLogs.flatMap((b) => {
+      const files = b.filesTouched as { path: string }[]
+      return files.map((f) => f.path)
+    })
+
+    const lastActive = skillLogs.find((l) => !l.finishedAt)
+
+    const pausedState = {
+      pausedAt: new Date().toISOString(),
+      completedEmployees,
+      currentEmployee: lastActive?.collaboratorName ?? null,
+      filesModifiedBeforePause: [...new Set(filesModified)],
+      totalStepsCompleted: completedEmployees.length,
+    }
+
+    const failReason = isCreditsError
+      ? 'API credits exhausted or rate limited. Task paused automatically — will continue when credits are available.'
+      : `Task failed: ${errorMessage.slice(0, 200)}`
+
+    // Reload accumulated to avoid overwriting
+    const freshTask = await prisma.task.findUnique({ where: { id: taskId }, select: { accumulatedContext: true } })
+    const freshAccumulated = (freshTask?.accumulatedContext ?? {}) as Record<string, unknown>
+
+    await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        status: 'queue',
+        scheduledAt: null,
+        pausedAt: new Date(),
+        accumulatedContext: JSON.parse(JSON.stringify({
+          ...freshAccumulated,
+          pausedState,
+          failReason,
+        })),
+      },
+    })
+
+    return { status: 'failed', summary: failReason, filesTouched: [...new Set(filesModified)] }
 
   } finally {
     // Always release repo lock
@@ -695,6 +788,22 @@ function buildTaskPrompt(
 
   if (context.conversationSummary) {
     parts.push(`\nCONVERSATION CONTEXT:\n${context.conversationSummary}`)
+  }
+
+  if (context.uploadedFile) {
+    parts.push(`\nUPLOADED CONTEXT (${context.uploadedFile.name}):\n${context.uploadedFile.content}`)
+  }
+
+  // Security scan context
+  if (context.source === 'security_scan') {
+    const secContext = context as { scanType?: string }
+    parts.push(`\nSECURITY AUDIT CONTEXT:\n${secContext.scanType === 'targeted' ? SECURITY_TARGETED_PROMPT : SECURITY_FULL_SCAN_PROMPT}`)
+  }
+
+  // Code health context
+  if (context.source === 'code_health') {
+    const healthCtx = context as { scanType?: string }
+    parts.push(`\nCODE HEALTH CONTEXT:\n${healthCtx.scanType === 'targeted' ? CODEHEALTH_TARGETED_PROMPT : CODEHEALTH_FULL_SCAN_PROMPT}`)
   }
 
   // Resume context — task was paused and is continuing
