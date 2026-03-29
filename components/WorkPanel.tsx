@@ -55,6 +55,7 @@ interface SessionInfo {
 }
 
 export function WorkPanel({ projectId, hiredEmployees, teams }: WorkPanelProps) {
+  const [terminalOpen, setTerminalOpen] = useState(false)
   const [activeMode, setActiveMode] = useState<ChatMode>('no_skill')
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null)
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
@@ -183,25 +184,27 @@ export function WorkPanel({ projectId, hiredEmployees, teams }: WorkPanelProps) 
   const hasOpenChat = activeSessionId !== null
 
   return (
-    <div className="flex flex-1 overflow-hidden">
-      {/* Left: File tree */}
-      <div className="flex w-[35%] min-w-0 shrink-0">
-        <FileTree projectId={projectId} />
-      </div>
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Main area (file tree + chat + minimap) */}
+      <div className={`flex ${terminalOpen ? 'h-[65%]' : 'flex-1'} overflow-hidden`}>
+        {/* Left: File tree */}
+        <div className="flex w-[35%] min-w-0 shrink-0">
+          <FileTree projectId={projectId} />
+        </div>
 
-      {/* Center: Chat */}
-      <div className="flex flex-1 flex-col">
-        {hasOpenChat ? (
-          <>
-            <ChatTabs
-              projectId={projectId}
-              activeSessionId={activeSessionId}
-              sessions={sessions}
-              onSelectSession={setActiveSessionId}
-              onNewSession={handleNewSession}
-              onCloseSession={handleCloseSession}
-              onRenameSession={handleRenameSession}
-              isWorking={teamRunActive}
+        {/* Center: Chat */}
+        <div className="flex flex-1 flex-col">
+          {hasOpenChat ? (
+            <>
+              <ChatTabs
+                projectId={projectId}
+                activeSessionId={activeSessionId}
+                sessions={sessions}
+                onSelectSession={setActiveSessionId}
+                onNewSession={handleNewSession}
+                onCloseSession={handleCloseSession}
+                onRenameSession={handleRenameSession}
+                isWorking={teamRunActive}
             />
             <div className="flex flex-1 overflow-hidden">
               <ChatPanel
@@ -251,6 +254,62 @@ export function WorkPanel({ projectId, hiredEmployees, teams }: WorkPanelProps) 
         teamRunState={teamRunState}
         teamRunActive={teamRunActive}
       />
+      </div>
+
+      {/* Terminal toggle bar + panel */}
+      <div className="shrink-0 border-t border-white/10" style={{ backgroundColor: '#15151c' }}>
+        {/* Toggle bar — always visible */}
+        <button
+          onClick={() => setTerminalOpen(!terminalOpen)}
+          className="flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-white/5"
+        >
+          <svg className={`h-3 w-3 text-zinc-500 transition-transform ${terminalOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+          <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          <span className="text-[11px] font-medium text-zinc-400">Terminal</span>
+          {terminalOpen && (
+            <div className="ml-auto flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[9px] text-zinc-600">connected</span>
+            </div>
+          )}
+        </button>
+      </div>
+
+      {/* Terminal panel */}
+      {terminalOpen && (
+        <div className="flex h-[35%] flex-col border-t border-white/10" style={{ backgroundColor: '#0d0d12' }}>
+          {/* Terminal tabs */}
+          <div className="flex shrink-0 items-center border-b border-white/10 px-2" style={{ backgroundColor: '#15151c' }}>
+            <div className="flex items-center gap-1 border-r border-white/10 px-3 py-1.5">
+              <svg className="h-3 w-3 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              <span className="text-[10px] font-medium text-zinc-300">bash</span>
+            </div>
+            <button className="ml-1 flex h-6 w-6 items-center justify-center rounded text-zinc-600 hover:bg-white/5 hover:text-zinc-400" title="New terminal">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+            <div className="flex-1" />
+            <button
+              onClick={() => setTerminalOpen(false)}
+              className="flex h-6 w-6 items-center justify-center rounded text-zinc-600 hover:bg-white/5 hover:text-zinc-400"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Terminal body */}
+          <TerminalBody projectId={projectId} />
+        </div>
+      )}
     </div>
   )
 }
@@ -2482,6 +2541,179 @@ function ReminderModal({ projectId, onClose }: { projectId: string; onClose: () 
               </div>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Terminal Body ──────────────────────────────────────────────────────────
+
+function TerminalBody({ projectId }: { projectId: string }) {
+  const [sandboxStatus, setSandboxStatus] = useState<'disconnected' | 'starting' | 'running'>('disconnected')
+  const [history, setHistory] = useState<{ type: 'input' | 'stdout' | 'stderr' | 'system'; text: string }[]>([])
+  const [input, setInput] = useState('')
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [history.length])
+
+  useEffect(() => {
+    // Check sandbox status on mount
+    fetch(`/api/projects/${projectId}/terminal`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === 'running' && data.sandboxId) {
+          setSandboxStatus('running')
+          setHistory([{ type: 'system', text: `Connected to sandbox ${data.sandboxId.slice(0, 8)}... (${data.repo})` }])
+        }
+      })
+      .catch(() => {})
+  }, [projectId])
+
+  async function handleStart() {
+    setSandboxStatus('starting')
+    setHistory([{ type: 'system', text: 'Starting sandbox...' }])
+    try {
+      const res = await fetch(`/api/projects/${projectId}/terminal`, { method: 'POST' })
+      const data = await res.json()
+      if (data.sandboxId) {
+        setSandboxStatus('running')
+        setHistory((prev) => [...prev, { type: 'system', text: `Sandbox ready. ID: ${data.sandboxId.slice(0, 8)}...` }])
+        inputRef.current?.focus()
+      } else {
+        setSandboxStatus('disconnected')
+        setHistory((prev) => [...prev, { type: 'stderr', text: data.error || 'Failed to start sandbox' }])
+      }
+    } catch {
+      setSandboxStatus('disconnected')
+      setHistory((prev) => [...prev, { type: 'stderr', text: 'Failed to connect' }])
+    }
+  }
+
+  async function handleExec(cmd: string) {
+    if (!cmd.trim()) return
+    setHistory((prev) => [...prev, { type: 'input', text: cmd }])
+    setCommandHistory((prev) => [cmd, ...prev])
+    setHistoryIndex(-1)
+    setInput('')
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/terminal/exec`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd }),
+      })
+      const data = await res.json()
+
+      if (data.error) {
+        setHistory((prev) => [...prev, { type: 'stderr', text: data.error }])
+      } else {
+        if (data.stdout) setHistory((prev) => [...prev, { type: 'stdout', text: data.stdout }])
+        if (data.stderr) setHistory((prev) => [...prev, { type: 'stderr', text: data.stderr }])
+        if (!data.stdout && !data.stderr) setHistory((prev) => [...prev, { type: 'system', text: `(exit code: ${data.exitCode})` }])
+      }
+    } catch (err) {
+      setHistory((prev) => [...prev, { type: 'stderr', text: `Error: ${err instanceof Error ? err.message : 'Request failed'}` }])
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      handleExec(input)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (commandHistory.length > 0) {
+        const newIndex = Math.min(historyIndex + 1, commandHistory.length - 1)
+        setHistoryIndex(newIndex)
+        setInput(commandHistory[newIndex])
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1
+        setHistoryIndex(newIndex)
+        setInput(commandHistory[newIndex])
+      } else {
+        setHistoryIndex(-1)
+        setInput('')
+      }
+    }
+  }
+
+  if (sandboxStatus === 'disconnected') {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
+        <p className="text-[11px] text-zinc-500">No sandbox running</p>
+        <button
+          onClick={handleStart}
+          className="flex h-8 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-[11px] font-medium text-white transition-colors hover:bg-emerald-500"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+          </svg>
+          Start Sandbox
+        </button>
+      </div>
+    )
+  }
+
+  if (sandboxStatus === 'starting') {
+    return (
+      <div className="flex flex-1 items-center justify-center gap-2 p-6">
+        <svg className="h-4 w-4 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <span className="text-[11px] text-zinc-400">Starting sandbox...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden" onClick={() => inputRef.current?.focus()}>
+      <div ref={scrollRef} className="flex-1 overflow-auto p-3 font-mono text-[12px] leading-5">
+        {history.map((entry, i) => (
+          <div key={i}>
+            {entry.type === 'input' && (
+              <div className="text-zinc-400">
+                <span className="text-emerald-400">bornastar</span>
+                <span className="text-zinc-600">:</span>
+                <span className="text-sky-400">~/project</span>
+                <span className="text-zinc-600">$ </span>
+                <span className="text-zinc-200">{entry.text}</span>
+              </div>
+            )}
+            {entry.type === 'stdout' && (
+              <pre className="whitespace-pre-wrap text-zinc-300">{entry.text}</pre>
+            )}
+            {entry.type === 'stderr' && (
+              <pre className="whitespace-pre-wrap text-red-400">{entry.text}</pre>
+            )}
+            {entry.type === 'system' && (
+              <div className="text-zinc-600 italic">{entry.text}</div>
+            )}
+          </div>
+        ))}
+        {/* Active prompt */}
+        <div className="flex items-center text-zinc-400">
+          <span className="text-emerald-400">bornastar</span>
+          <span className="text-zinc-600">:</span>
+          <span className="text-sky-400">~/project</span>
+          <span className="text-zinc-600">$ </span>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 bg-transparent text-zinc-200 outline-none caret-emerald-400"
+            autoFocus
+            spellCheck={false}
+          />
         </div>
       </div>
     </div>

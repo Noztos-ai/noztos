@@ -49,7 +49,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="flex flex-col flex-1 bg-zinc-200 font-sans dark:bg-zinc-950">
+    <div className="flex flex-col flex-1 font-sans" style={{ backgroundColor: '#1a1a22' }}>
       <Header
         claudeState={badgeState}
         githubState={githubState}

@@ -106,6 +106,10 @@ model Repository {
   githubBranch    String    @default("main")
   lastSyncedSha   String?
   lastSyncedAt    DateTime?
+  // Sandbox (compute container)
+  sandboxId       String?
+  sandboxStatus   String?   // 'running' | 'stopped' | null
+  sandboxStartedAt DateTime?
   // Repo lock: "task" | "chat" | null — prevents concurrent writes
   lockedBy        String?
   lockedByTaskId  String?

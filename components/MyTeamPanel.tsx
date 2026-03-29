@@ -83,7 +83,7 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left: Employees — 50% */}
-      <div className="flex w-1/2 flex-col border-r border-white/10 p-6" style={{ backgroundColor: '#111116' }}>
+      <div className="flex w-1/2 flex-col border-r border-white/10 p-6" style={{ backgroundColor: '#1e1e28' }}>
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-200">Employees</h2>
           <button
@@ -123,7 +123,7 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
       </div>
 
       {/* Right: Teams — 50% */}
-      <div className="flex w-1/2 flex-col p-6" style={{ backgroundColor: '#0d0d12' }}>
+      <div className="flex w-1/2 flex-col p-6" style={{ backgroundColor: '#1e1e28' }}>
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-200">My Teams</h2>
           <button

@@ -2,25 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-interface FileEntry {
-  id: string
-  path: string
-  isModified: boolean
-  sizeBytes: number
-}
+interface FileEntry { id: string; path: string; isModified: boolean; sizeBytes: number }
+interface FileDetail { path: string; content: string; originalContent: string; isModified: boolean }
 
-interface FileDetail {
-  path: string
-  content: string
-  originalContent: string
-  isModified: boolean
-}
-
-interface SourceControlProps {
-  projectId: string
-}
-
-export function SourceControl({ projectId }: SourceControlProps) {
+export function SourceControl({ projectId }: { projectId: string }) {
   const [files, setFiles] = useState<FileEntry[]>([])
   const [selectedFile, setSelectedFile] = useState<FileDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,10 +16,7 @@ export function SourceControl({ projectId }: SourceControlProps) {
   const fetchFiles = useCallback(() => {
     fetch(`/api/projects/${projectId}/repository/files`)
       .then((r) => r.json())
-      .then((data) => {
-        setFiles(data.files ?? [])
-        setLoading(false)
-      })
+      .then((data) => { setFiles(data.files ?? []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [projectId])
 
@@ -42,10 +24,7 @@ export function SourceControl({ projectId }: SourceControlProps) {
 
   async function handleSelectFile(path: string) {
     const res = await fetch(`/api/projects/${projectId}/repository/files/${encodeURIComponent(path)}`)
-    if (res.ok) {
-      const data = await res.json()
-      setSelectedFile(data)
-    }
+    if (res.ok) setSelectedFile(await res.json())
   }
 
   async function handleAction(path: string, action: 'revert' | 'accept') {
@@ -58,40 +37,31 @@ export function SourceControl({ projectId }: SourceControlProps) {
     fetchFiles()
   }
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-zinc-300/50 bg-zinc-100 p-6 dark:border-zinc-700 dark:bg-zinc-900">
-        <p className="text-sm text-zinc-400">Loading files...</p>
-      </div>
-    )
-  }
-
-  if (files.length === 0) {
-    return (
-      <div className="rounded-xl border border-zinc-300/50 bg-zinc-100 p-6 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Source Control</h3>
-        <p className="mt-1 text-sm text-zinc-400">No repository connected.</p>
-      </div>
-    )
-  }
+  if (loading) return <div className="rounded-xl border border-white/10 bg-white/5 p-6"><p className="text-sm text-zinc-500">Loading files...</p></div>
+  if (files.length === 0) return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+      <h3 className="text-sm font-medium text-zinc-200">Source Control</h3>
+      <p className="mt-1 text-sm text-zinc-500">No repository connected.</p>
+    </div>
+  )
 
   return (
-    <div className="rounded-xl border border-zinc-300/50 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="rounded-xl border border-white/10 overflow-hidden" style={{ backgroundColor: '#15151c' }}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-300/50 px-4 py-3 dark:border-zinc-700">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Source Control</h3>
+          <svg className="h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+          </svg>
+          <h3 className="text-sm font-semibold text-zinc-200">Source Control</h3>
           {modifiedFiles.length > 0 && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
               {modifiedFiles.length} changed
             </span>
           )}
         </div>
         {modifiedFiles.length > 0 && (
-          <button
-            onClick={() => setShowPush(true)}
-            className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
+          <button onClick={() => setShowPush(true)} className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-500">
             Push to GitHub
           </button>
         )}
@@ -99,295 +69,151 @@ export function SourceControl({ projectId }: SourceControlProps) {
 
       <div className="flex" style={{ minHeight: '300px', maxHeight: '600px' }}>
         {/* File tree */}
-        <div className="w-72 shrink-0 overflow-y-auto border-r border-zinc-300/50 dark:border-zinc-700">
-          {/* Modified files section */}
+        <div className="w-72 shrink-0 overflow-y-auto border-r border-white/10">
           {modifiedFiles.length > 0 && (
-            <div className="border-b border-zinc-300/50 py-2 dark:border-zinc-700">
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                Changes
-              </p>
-              {modifiedFiles.map((f) => (
-                <FileRow
-                  key={f.id}
-                  file={f}
-                  isSelected={selectedFile?.path === f.path}
-                  onSelect={() => handleSelectFile(f.path)}
-                  onRevert={() => handleAction(f.path, 'revert')}
-                  onAccept={() => handleAction(f.path, 'accept')}
-                />
-              ))}
+            <div className="border-b border-white/10 py-2">
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Changes</p>
+              {modifiedFiles.map((f) => {
+                const fileName = f.path.split('/').pop() ?? f.path
+                const dirPath = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : ''
+                return (
+                  <div key={f.id} className={`group flex items-center justify-between px-3 py-1.5 transition-colors hover:bg-white/5 ${selectedFile?.path === f.path ? 'bg-white/10' : ''}`}>
+                    <button onClick={() => handleSelectFile(f.path)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                      <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-amber-300">{fileName}</p>
+                        {dirPath && <p className="truncate text-[10px] text-zinc-600">{dirPath}</p>}
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button onClick={(e) => { e.stopPropagation(); handleAction(f.path, 'revert') }} title="Revert" className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-red-500/10 hover:text-red-400">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleAction(f.path, 'accept') }} title="Accept" className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-emerald-500/10 hover:text-emerald-400">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
-
-          {/* All files */}
           <div className="py-2">
-            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Files ({files.length})
-            </p>
+            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Files ({files.length})</p>
             <div className="max-h-80 overflow-y-auto">
               {files.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => handleSelectFile(f.path)}
-                  className={`flex w-full items-center gap-2 px-3 py-1 text-left text-xs transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-800 ${
-                    selectedFile?.path === f.path ? 'bg-zinc-200 dark:bg-zinc-800' : ''
-                  }`}
-                >
-                  {f.isModified && (
-                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-                  )}
-                  <span className={`truncate ${f.isModified ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
-                    {f.path}
-                  </span>
+                <button key={f.id} onClick={() => handleSelectFile(f.path)} className={`flex w-full items-center gap-2 px-3 py-1 text-left text-xs transition-colors hover:bg-white/5 ${selectedFile?.path === f.path ? 'bg-white/10' : ''}`}>
+                  {f.isModified && <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />}
+                  <span className={`truncate ${f.isModified ? 'text-amber-300' : 'text-zinc-400'}`}>{f.path}</span>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Content / Diff area */}
+        {/* Diff area */}
         <div className="flex-1 overflow-auto">
           {selectedFile ? (
             <DiffView file={selectedFile} />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-zinc-400">Select a file to view</p>
+              <p className="text-sm text-zinc-600">Select a file to view</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Push modal */}
       {showPush && (
-        <PushModal
-          projectId={projectId}
-          modifiedCount={modifiedFiles.length}
-          onClose={() => setShowPush(false)}
-          onPushed={() => {
-            setShowPush(false)
-            setSelectedFile(null)
-            fetchFiles()
-          }}
-        />
+        <PushModal projectId={projectId} modifiedCount={modifiedFiles.length} onClose={() => setShowPush(false)} onPushed={() => { setShowPush(false); setSelectedFile(null); fetchFiles() }} />
       )}
     </div>
   )
 }
 
-// ── File Row (in changes section) ──────────────────────────────────────────
-
-function FileRow({
-  file,
-  isSelected,
-  onSelect,
-  onRevert,
-  onAccept,
-}: {
-  file: FileEntry
-  isSelected: boolean
-  onSelect: () => void
-  onRevert: () => void
-  onAccept: () => void
-}) {
-  // Get just the filename from path
-  const fileName = file.path.split('/').pop() ?? file.path
-  const dirPath = file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : ''
-
-  return (
-    <div
-      className={`group flex items-center justify-between px-3 py-1.5 transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-800 ${
-        isSelected ? 'bg-zinc-200 dark:bg-zinc-800' : ''
-      }`}
-    >
-      <button onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-        <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-        <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-amber-700 dark:text-amber-400">{fileName}</p>
-          {dirPath && (
-            <p className="truncate text-[10px] text-zinc-400">{dirPath}</p>
-          )}
-        </div>
-      </button>
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
-          onClick={(e) => { e.stopPropagation(); onRevert() }}
-          title="Revert changes"
-          className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-300 hover:text-red-500 dark:hover:bg-zinc-700 dark:hover:text-red-400"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
-          </svg>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onAccept() }}
-          title="Accept changes"
-          className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-300 hover:text-emerald-500 dark:hover:bg-zinc-700 dark:hover:text-emerald-400"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Diff View ──────────────────────────────────────────────────────────────
-
 function DiffView({ file }: { file: FileDetail }) {
   if (!file.isModified) {
-    return (
-      <pre className="p-4 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
-        {file.content}
-      </pre>
-    )
+    return <pre className="p-4 text-xs leading-5 text-zinc-400">{file.content}</pre>
   }
 
   const originalLines = file.originalContent.split('\n')
   const currentLines = file.content.split('\n')
-
-  // Simple line-by-line diff
   const maxLines = Math.max(originalLines.length, currentLines.length)
-  const diffLines: { type: 'unchanged' | 'added' | 'removed' | 'modified'; lineNum: number; original?: string; current?: string }[] = []
+  const diffLines: { type: 'unchanged' | 'added' | 'removed'; lineNum: number; text: string }[] = []
 
   for (let i = 0; i < maxLines; i++) {
     const orig = originalLines[i]
     const curr = currentLines[i]
-
-    if (orig === undefined) {
-      diffLines.push({ type: 'added', lineNum: i + 1, current: curr })
-    } else if (curr === undefined) {
-      diffLines.push({ type: 'removed', lineNum: i + 1, original: orig })
-    } else if (orig !== curr) {
-      diffLines.push({ type: 'removed', lineNum: i + 1, original: orig })
-      diffLines.push({ type: 'added', lineNum: i + 1, current: curr })
-    } else {
-      diffLines.push({ type: 'unchanged', lineNum: i + 1, current: curr })
-    }
+    if (orig === undefined) diffLines.push({ type: 'added', lineNum: i + 1, text: curr })
+    else if (curr === undefined) diffLines.push({ type: 'removed', lineNum: i + 1, text: orig })
+    else if (orig !== curr) {
+      diffLines.push({ type: 'removed', lineNum: i + 1, text: orig })
+      diffLines.push({ type: 'added', lineNum: i + 1, text: curr })
+    } else diffLines.push({ type: 'unchanged', lineNum: i + 1, text: curr })
   }
 
   return (
     <div className="p-2">
       <div className="mb-2 flex items-center gap-2 px-2">
-        <span className="text-xs font-medium text-amber-700 dark:text-amber-400">{file.path}</span>
-        <span className="text-[10px] text-zinc-400">modified</span>
+        <span className="text-xs font-medium text-amber-300">{file.path}</span>
+        <span className="text-[10px] text-zinc-600">modified</span>
       </div>
-      <pre className="text-xs leading-5">
-        {diffLines.map((line, i) => {
-          if (line.type === 'added') {
-            return (
-              <div key={i} className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
-                <span className="mr-2 inline-block w-5 text-right text-emerald-400/60">+</span>
-                {line.current}
-              </div>
-            )
-          }
-          if (line.type === 'removed') {
-            return (
-              <div key={i} className="bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-400">
-                <span className="mr-2 inline-block w-5 text-right text-red-400/60">-</span>
-                {line.original}
-              </div>
-            )
-          }
-          return (
-            <div key={i} className="text-zinc-500 dark:text-zinc-500">
-              <span className="mr-2 inline-block w-5 text-right text-zinc-400/40">{line.lineNum}</span>
-              {line.current}
-            </div>
-          )
-        })}
+      <pre className="text-xs leading-5 font-mono">
+        {diffLines.map((line, i) => (
+          <div key={i} className={
+            line.type === 'added' ? 'bg-emerald-500/10 text-emerald-300' :
+            line.type === 'removed' ? 'bg-red-500/10 text-red-300' :
+            'text-zinc-500'
+          }>
+            <span className={`mr-2 inline-block w-5 text-right ${
+              line.type === 'added' ? 'text-emerald-500/60' :
+              line.type === 'removed' ? 'text-red-500/60' : 'text-zinc-700'
+            }`}>
+              {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
+            </span>
+            {line.text}
+          </div>
+        ))}
       </pre>
     </div>
   )
 }
 
-// ── Push Modal ─────────────────────────────────────────────────────────────
-
-function PushModal({
-  projectId,
-  modifiedCount,
-  onClose,
-  onPushed,
-}: {
-  projectId: string
-  modifiedCount: number
-  onClose: () => void
-  onPushed: () => void
-}) {
-  const [message, setMessage] = useState('')
+function PushModal({ projectId, modifiedCount, onClose, onPushed }: { projectId: string; modifiedCount: number; onClose: () => void; onPushed: () => void }) {
   const [pushing, setPushing] = useState(false)
-  const [error, setError] = useState('')
+  const [commitMsg, setCommitMsg] = useState('')
 
-  async function handlePush(e: React.FormEvent) {
-    e.preventDefault()
+  async function handlePush() {
     setPushing(true)
-    setError('')
-
     try {
       const res = await fetch(`/api/projects/${projectId}/repository/push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commitMessage: message.trim() }),
+        body: JSON.stringify({ message: commitMsg || `Update ${modifiedCount} file(s)` }),
       })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error || 'Push failed')
-        setPushing(false)
-        return
-      }
-
-      onPushed()
-    } catch {
-      setError('Something went wrong')
-      setPushing(false)
-    }
+      if (res.ok) onPushed()
+    } catch {}
+    setPushing(false)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl dark:bg-zinc-900">
-        <h2 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Push to GitHub
-        </h2>
-        <p className="mb-5 text-sm text-zinc-500 dark:text-zinc-400">
-          {modifiedCount} file{modifiedCount !== 1 ? 's' : ''} changed. Write a commit message and push.
-        </p>
-
-        <form onSubmit={handlePush} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
-              {error}
-            </div>
-          )}
-
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Describe your changes..."
-            required
-            rows={3}
-            className="block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
-          />
-
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
+        <div className="border-b border-white/10 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+          <h3 className="text-sm font-semibold text-zinc-100">Push to GitHub</h3>
+          <p className="text-[11px] text-zinc-500">{modifiedCount} file{modifiedCount !== 1 ? 's' : ''} will be committed and pushed.</p>
+        </div>
+        <div className="p-6 space-y-3">
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Commit Message</p>
+            <input type="text" value={commitMsg} onChange={(e) => setCommitMsg(e.target.value)} placeholder={`Update ${modifiedCount} file(s)`} className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-violet-500/50 focus:outline-none" />
+          </div>
           <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={pushing || !message.trim()}
-              className="flex h-10 flex-1 items-center justify-center rounded-full bg-zinc-900 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
+            <button onClick={handlePush} disabled={pushing} className="flex h-9 flex-1 items-center justify-center rounded-lg bg-violet-600 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50">
               {pushing ? 'Pushing...' : 'Push'}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
-            >
-              Cancel
-            </button>
+            <button onClick={onClose} className="flex h-9 items-center justify-center rounded-lg px-4 text-xs text-zinc-400 hover:text-zinc-200">Cancel</button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

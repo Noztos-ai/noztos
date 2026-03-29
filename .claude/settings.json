@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]/route.ts)",
+      "Bash(node -e \":*)",
+      "Bash(source .env)"
+    ],
+    "additionalDirectories": [
+      "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]",
+      "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]/terminal"
+    ]
+  }
+}

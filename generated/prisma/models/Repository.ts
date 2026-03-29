@@ -32,6 +32,9 @@ export type RepositoryMinAggregateOutputType = {
   githubBranch: string | null
   lastSyncedSha: string | null
   lastSyncedAt: Date | null
+  sandboxId: string | null
+  sandboxStatus: string | null
+  sandboxStartedAt: Date | null
   lockedBy: string | null
   lockedByTaskId: string | null
   lockedAt: Date | null
@@ -46,6 +49,9 @@ export type RepositoryMaxAggregateOutputType = {
   githubBranch: string | null
   lastSyncedSha: string | null
   lastSyncedAt: Date | null
+  sandboxId: string | null
+  sandboxStatus: string | null
+  sandboxStartedAt: Date | null
   lockedBy: string | null
   lockedByTaskId: string | null
   lockedAt: Date | null
@@ -60,6 +66,9 @@ export type RepositoryCountAggregateOutputType = {
   githubBranch: number
   lastSyncedSha: number
   lastSyncedAt: number
+  sandboxId: number
+  sandboxStatus: number
+  sandboxStartedAt: number
   lockedBy: number
   lockedByTaskId: number
   lockedAt: number
@@ -76,6 +85,9 @@ export type RepositoryMinAggregateInputType = {
   githubBranch?: true
   lastSyncedSha?: true
   lastSyncedAt?: true
+  sandboxId?: true
+  sandboxStatus?: true
+  sandboxStartedAt?: true
   lockedBy?: true
   lockedByTaskId?: true
   lockedAt?: true
@@ -90,6 +102,9 @@ export type RepositoryMaxAggregateInputType = {
   githubBranch?: true
   lastSyncedSha?: true
   lastSyncedAt?: true
+  sandboxId?: true
+  sandboxStatus?: true
+  sandboxStartedAt?: true
   lockedBy?: true
   lockedByTaskId?: true
   lockedAt?: true
@@ -104,6 +119,9 @@ export type RepositoryCountAggregateInputType = {
   githubBranch?: true
   lastSyncedSha?: true
   lastSyncedAt?: true
+  sandboxId?: true
+  sandboxStatus?: true
+  sandboxStartedAt?: true
   lockedBy?: true
   lockedByTaskId?: true
   lockedAt?: true
@@ -191,6 +209,9 @@ export type RepositoryGroupByOutputType = {
   githubBranch: string
   lastSyncedSha: string | null
   lastSyncedAt: Date | null
+  sandboxId: string | null
+  sandboxStatus: string | null
+  sandboxStartedAt: Date | null
   lockedBy: string | null
   lockedByTaskId: string | null
   lockedAt: Date | null
@@ -226,6 +247,9 @@ export type RepositoryWhereInput = {
   githubBranch?: Prisma.StringFilter<"Repository"> | string
   lastSyncedSha?: Prisma.StringNullableFilter<"Repository"> | string | null
   lastSyncedAt?: Prisma.DateTimeNullableFilter<"Repository"> | Date | string | null
+  sandboxId?: Prisma.StringNullableFilter<"Repository"> | string | null
+  sandboxStatus?: Prisma.StringNullableFilter<"Repository"> | string | null
+  sandboxStartedAt?: Prisma.DateTimeNullableFilter<"Repository"> | Date | string | null
   lockedBy?: Prisma.StringNullableFilter<"Repository"> | string | null
   lockedByTaskId?: Prisma.StringNullableFilter<"Repository"> | string | null
   lockedAt?: Prisma.DateTimeNullableFilter<"Repository"> | Date | string | null
@@ -242,6 +266,9 @@ export type RepositoryOrderByWithRelationInput = {
   githubBranch?: Prisma.SortOrder
   lastSyncedSha?: Prisma.SortOrderInput | Prisma.SortOrder
   lastSyncedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  sandboxId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sandboxStatus?: Prisma.SortOrderInput | Prisma.SortOrder
+  sandboxStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedByTaskId?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -261,6 +288,9 @@ export type RepositoryWhereUniqueInput = Prisma.AtLeast<{
   githubBranch?: Prisma.StringFilter<"Repository"> | string
   lastSyncedSha?: Prisma.StringNullableFilter<"Repository"> | string | null
   lastSyncedAt?: Prisma.DateTimeNullableFilter<"Repository"> | Date | string | null
+  sandboxId?: Prisma.StringNullableFilter<"Repository"> | string | null
+  sandboxStatus?: Prisma.StringNullableFilter<"Repository"> | string | null
+  sandboxStartedAt?: Prisma.DateTimeNullableFilter<"Repository"> | Date | string | null
   lockedBy?: Prisma.StringNullableFilter<"Repository"> | string | null
   lockedByTaskId?: Prisma.StringNullableFilter<"Repository"> | string | null
   lockedAt?: Prisma.DateTimeNullableFilter<"Repository"> | Date | string | null
@@ -277,6 +307,9 @@ export type RepositoryOrderByWithAggregationInput = {
   githubBranch?: Prisma.SortOrder
   lastSyncedSha?: Prisma.SortOrderInput | Prisma.SortOrder
   lastSyncedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  sandboxId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sandboxStatus?: Prisma.SortOrderInput | Prisma.SortOrder
+  sandboxStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedByTaskId?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -297,6 +330,9 @@ export type RepositoryScalarWhereWithAggregatesInput = {
   githubBranch?: Prisma.StringWithAggregatesFilter<"Repository"> | string
   lastSyncedSha?: Prisma.StringNullableWithAggregatesFilter<"Repository"> | string | null
   lastSyncedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Repository"> | Date | string | null
+  sandboxId?: Prisma.StringNullableWithAggregatesFilter<"Repository"> | string | null
+  sandboxStatus?: Prisma.StringNullableWithAggregatesFilter<"Repository"> | string | null
+  sandboxStartedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Repository"> | Date | string | null
   lockedBy?: Prisma.StringNullableWithAggregatesFilter<"Repository"> | string | null
   lockedByTaskId?: Prisma.StringNullableWithAggregatesFilter<"Repository"> | string | null
   lockedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Repository"> | Date | string | null
@@ -310,6 +346,9 @@ export type RepositoryCreateInput = {
   githubBranch?: string
   lastSyncedSha?: string | null
   lastSyncedAt?: Date | string | null
+  sandboxId?: string | null
+  sandboxStatus?: string | null
+  sandboxStartedAt?: Date | string | null
   lockedBy?: string | null
   lockedByTaskId?: string | null
   lockedAt?: Date | string | null
@@ -326,6 +365,9 @@ export type RepositoryUncheckedCreateInput = {
   githubBranch?: string
   lastSyncedSha?: string | null
   lastSyncedAt?: Date | string | null
+  sandboxId?: string | null
+  sandboxStatus?: string | null
+  sandboxStartedAt?: Date | string | null
   lockedBy?: string | null
   lockedByTaskId?: string | null
   lockedAt?: Date | string | null
@@ -340,6 +382,9 @@ export type RepositoryUpdateInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -356,6 +401,9 @@ export type RepositoryUncheckedUpdateInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -371,6 +419,9 @@ export type RepositoryCreateManyInput = {
   githubBranch?: string
   lastSyncedSha?: string | null
   lastSyncedAt?: Date | string | null
+  sandboxId?: string | null
+  sandboxStatus?: string | null
+  sandboxStartedAt?: Date | string | null
   lockedBy?: string | null
   lockedByTaskId?: string | null
   lockedAt?: Date | string | null
@@ -384,6 +435,9 @@ export type RepositoryUpdateManyMutationInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -398,6 +452,9 @@ export type RepositoryUncheckedUpdateManyInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -417,6 +474,9 @@ export type RepositoryCountOrderByAggregateInput = {
   githubBranch?: Prisma.SortOrder
   lastSyncedSha?: Prisma.SortOrder
   lastSyncedAt?: Prisma.SortOrder
+  sandboxId?: Prisma.SortOrder
+  sandboxStatus?: Prisma.SortOrder
+  sandboxStartedAt?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
   lockedByTaskId?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
@@ -431,6 +491,9 @@ export type RepositoryMaxOrderByAggregateInput = {
   githubBranch?: Prisma.SortOrder
   lastSyncedSha?: Prisma.SortOrder
   lastSyncedAt?: Prisma.SortOrder
+  sandboxId?: Prisma.SortOrder
+  sandboxStatus?: Prisma.SortOrder
+  sandboxStartedAt?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
   lockedByTaskId?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
@@ -445,6 +508,9 @@ export type RepositoryMinOrderByAggregateInput = {
   githubBranch?: Prisma.SortOrder
   lastSyncedSha?: Prisma.SortOrder
   lastSyncedAt?: Prisma.SortOrder
+  sandboxId?: Prisma.SortOrder
+  sandboxStatus?: Prisma.SortOrder
+  sandboxStartedAt?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
   lockedByTaskId?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
@@ -509,6 +575,9 @@ export type RepositoryCreateWithoutProjectInput = {
   githubBranch?: string
   lastSyncedSha?: string | null
   lastSyncedAt?: Date | string | null
+  sandboxId?: string | null
+  sandboxStatus?: string | null
+  sandboxStartedAt?: Date | string | null
   lockedBy?: string | null
   lockedByTaskId?: string | null
   lockedAt?: Date | string | null
@@ -523,6 +592,9 @@ export type RepositoryUncheckedCreateWithoutProjectInput = {
   githubBranch?: string
   lastSyncedSha?: string | null
   lastSyncedAt?: Date | string | null
+  sandboxId?: string | null
+  sandboxStatus?: string | null
+  sandboxStartedAt?: Date | string | null
   lockedBy?: string | null
   lockedByTaskId?: string | null
   lockedAt?: Date | string | null
@@ -553,6 +625,9 @@ export type RepositoryUpdateWithoutProjectInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -567,6 +642,9 @@ export type RepositoryUncheckedUpdateWithoutProjectInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -581,6 +659,9 @@ export type RepositoryCreateWithoutFilesInput = {
   githubBranch?: string
   lastSyncedSha?: string | null
   lastSyncedAt?: Date | string | null
+  sandboxId?: string | null
+  sandboxStatus?: string | null
+  sandboxStartedAt?: Date | string | null
   lockedBy?: string | null
   lockedByTaskId?: string | null
   lockedAt?: Date | string | null
@@ -596,6 +677,9 @@ export type RepositoryUncheckedCreateWithoutFilesInput = {
   githubBranch?: string
   lastSyncedSha?: string | null
   lastSyncedAt?: Date | string | null
+  sandboxId?: string | null
+  sandboxStatus?: string | null
+  sandboxStartedAt?: Date | string | null
   lockedBy?: string | null
   lockedByTaskId?: string | null
   lockedAt?: Date | string | null
@@ -625,6 +709,9 @@ export type RepositoryUpdateWithoutFilesInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -640,6 +727,9 @@ export type RepositoryUncheckedUpdateWithoutFilesInput = {
   githubBranch?: Prisma.StringFieldUpdateOperationsInput | string
   lastSyncedSha?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSyncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sandboxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sandboxStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedByTaskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -685,6 +775,9 @@ export type RepositorySelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   githubBranch?: boolean
   lastSyncedSha?: boolean
   lastSyncedAt?: boolean
+  sandboxId?: boolean
+  sandboxStatus?: boolean
+  sandboxStartedAt?: boolean
   lockedBy?: boolean
   lockedByTaskId?: boolean
   lockedAt?: boolean
@@ -702,6 +795,9 @@ export type RepositorySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   githubBranch?: boolean
   lastSyncedSha?: boolean
   lastSyncedAt?: boolean
+  sandboxId?: boolean
+  sandboxStatus?: boolean
+  sandboxStartedAt?: boolean
   lockedBy?: boolean
   lockedByTaskId?: boolean
   lockedAt?: boolean
@@ -717,6 +813,9 @@ export type RepositorySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   githubBranch?: boolean
   lastSyncedSha?: boolean
   lastSyncedAt?: boolean
+  sandboxId?: boolean
+  sandboxStatus?: boolean
+  sandboxStartedAt?: boolean
   lockedBy?: boolean
   lockedByTaskId?: boolean
   lockedAt?: boolean
@@ -732,13 +831,16 @@ export type RepositorySelectScalar = {
   githubBranch?: boolean
   lastSyncedSha?: boolean
   lastSyncedAt?: boolean
+  sandboxId?: boolean
+  sandboxStatus?: boolean
+  sandboxStartedAt?: boolean
   lockedBy?: boolean
   lockedByTaskId?: boolean
   lockedAt?: boolean
   createdAt?: boolean
 }
 
-export type RepositoryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "githubOwner" | "githubRepo" | "githubBranch" | "lastSyncedSha" | "lastSyncedAt" | "lockedBy" | "lockedByTaskId" | "lockedAt" | "createdAt", ExtArgs["result"]["repository"]>
+export type RepositoryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "githubOwner" | "githubRepo" | "githubBranch" | "lastSyncedSha" | "lastSyncedAt" | "sandboxId" | "sandboxStatus" | "sandboxStartedAt" | "lockedBy" | "lockedByTaskId" | "lockedAt" | "createdAt", ExtArgs["result"]["repository"]>
 export type RepositoryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   files?: boolean | Prisma.Repository$filesArgs<ExtArgs>
@@ -765,6 +867,9 @@ export type $RepositoryPayload<ExtArgs extends runtime.Types.Extensions.Internal
     githubBranch: string
     lastSyncedSha: string | null
     lastSyncedAt: Date | null
+    sandboxId: string | null
+    sandboxStatus: string | null
+    sandboxStartedAt: Date | null
     lockedBy: string | null
     lockedByTaskId: string | null
     lockedAt: Date | null
@@ -1201,6 +1306,9 @@ export interface RepositoryFieldRefs {
   readonly githubBranch: Prisma.FieldRef<"Repository", 'String'>
   readonly lastSyncedSha: Prisma.FieldRef<"Repository", 'String'>
   readonly lastSyncedAt: Prisma.FieldRef<"Repository", 'DateTime'>
+  readonly sandboxId: Prisma.FieldRef<"Repository", 'String'>
+  readonly sandboxStatus: Prisma.FieldRef<"Repository", 'String'>
+  readonly sandboxStartedAt: Prisma.FieldRef<"Repository", 'DateTime'>
   readonly lockedBy: Prisma.FieldRef<"Repository", 'String'>
   readonly lockedByTaskId: Prisma.FieldRef<"Repository", 'String'>
   readonly lockedAt: Prisma.FieldRef<"Repository", 'DateTime'>
