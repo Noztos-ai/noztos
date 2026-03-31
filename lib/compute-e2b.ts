@@ -17,7 +17,7 @@ export class E2BProvider implements ComputeProvider {
     console.log('[e2b] Creating sandbox, API key present:', !!process.env.E2B_API_KEY)
     const sandbox = await Sandbox.create({
       apiKey: process.env.E2B_API_KEY,
-      timeoutMs: 300000, // 5 min sandbox lifetime
+      timeoutMs: 900000, // 15 min sandbox lifetime (matches idle timer)
     })
 
     const id = sandbox.sandboxId
@@ -41,22 +41,25 @@ export class E2BProvider implements ComputeProvider {
   }
 
   async exec(sandboxId: string, command: string): Promise<ExecResult> {
-    const sandbox = await this.getSandbox(sandboxId)
+    let sandbox = await this.getSandbox(sandboxId)
     console.log('[e2b] Executing:', command)
 
     try {
-      // Try project dir first, fallback to home
       const result = await sandbox.commands.run(command, {
         cwd: '/home/user/project',
         timeoutMs: 30000,
       })
-
-      return {
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
-      }
+      return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode }
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+
+      // Sandbox died — mark as dead so ensureSandboxRunning recreates it
+      if (errMsg.includes('SandboxNotFound') || errMsg.includes('not running') || errMsg.includes('Sandbox')) {
+        console.log('[e2b] Sandbox dead, removing from cache:', sandboxId)
+        sandboxCache.delete(sandboxId)
+        return { stdout: '', stderr: 'SANDBOX_DEAD: Sandbox expired. Retrying...', exitCode: 1 }
+      }
+
       console.error('[e2b] Exec error:', err)
       // Try without cwd
       try {

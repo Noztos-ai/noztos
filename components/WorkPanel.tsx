@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { ChatTabs } from './ChatTabs'
 import { ReportBadge } from './ChatReport'
 import type { ChatReport } from '@/lib/report-types'
@@ -1745,7 +1747,9 @@ function ChatPanel({
                   </span>
                 </div>
               )}
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-li:my-0.5 prose-headings:my-2 prose-headings:text-zinc-200 prose-a:text-violet-400 prose-code:text-violet-300 prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px] prose-pre:bg-[#1a1a24] prose-pre:border prose-pre:border-white/10 prose-strong:text-zinc-200">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              </div>
               {msg.report && (
                 <ReportBadge report={msg.report as unknown as ChatReport} projectId={projectId} sessionId={sessionId} />
               )}

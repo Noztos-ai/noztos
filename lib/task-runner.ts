@@ -358,7 +358,7 @@ async function runSkillTask(options: {
   const skillName = options.skillId ? (SKILL_NAMES[options.skillId] ?? 'Claude') : 'Claude'
 
   const systemPrompt = options.skillId
-    ? `${buildTaskSkillPrompt(options.skillId, options.canBuild)}\n\nYou are executing a task autonomously. No user interaction — complete the work based on the instructions provided.`
+    ? `${buildTaskSkillPrompt(options.skillId)}\n\nYou are executing a task autonomously. No user interaction — complete the work based on the instructions provided.`
     : `${getSuggestionsRules()}\n\nYou are a skilled developer executing a task autonomously. Complete the work based on the instructions provided.`
 
   // Conversation/review mode — read tools only (can read files, not write)

@@ -64,12 +64,13 @@ interface EtapaState {
 function getChatErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
   const lower = msg.toLowerCase()
+  console.error('[chat-engine] Error caught:', msg)
 
-  if (lower.includes('credit') || lower.includes('quota') || lower.includes('billing') || msg.includes('429')) {
-    return 'Your API credits have been exhausted or rate limited. Please check your Anthropic account billing and try again.'
+  if (lower.includes('rate_limit') || lower.includes('too many requests') || msg.includes('429')) {
+    return 'Rate limited by Anthropic — too many tokens per minute. Wait 30-60 seconds and try again. Tip: upgrade your Anthropic plan for higher limits.'
   }
-  if (lower.includes('rate_limit') || lower.includes('too many requests')) {
-    return 'Too many requests — rate limited by Anthropic. Wait a moment and try again.'
+  if (lower.includes('credit') || lower.includes('quota') || lower.includes('billing')) {
+    return 'Your API credits have been exhausted. Please check your Anthropic account billing and add credits.'
   }
   if (lower.includes('overloaded') || msg.includes('529')) {
     return 'Anthropic servers are currently overloaded. Please try again in a few minutes.'
@@ -438,32 +439,16 @@ RULES:
 async function handleNoSkill(req: ChatRequest, token: string, userMessage: ChatReply, compactSummary: string | null = null): Promise<ChatResult> {
   let content: string
 
-  // Check if project has a repo — if yes, give Claude read tools
-  const repo = await prisma.repository.findUnique({ where: { projectId: req.projectId }, select: { id: true } })
-
   try {
-    if (repo) {
-      // With read tools — Claude can read/search files when asked
-      const response = await callAnthropicWithTools({
-        encryptedToken: token,
-        systemPrompt: buildChatPrompt(true),
-        messages: [{ role: 'user', content: req.content }],
-        tools: READ_TOOLS,
-        maxTokens: 8192,
-        ...(compactSummary ? {} : {}),
-      })
-      // Process tool calls (read-only loop)
-      content = await processReadToolLoop(token, req, response)
-    } else {
-      const result = await callAnthropic({
-        encryptedToken: token,
-        systemPrompt: buildChatPrompt(false),
-        userMessage: req.content,
-        compactSummary: compactSummary ?? undefined,
-        ...getModelOptions(req),
-      })
-      content = result.text
-    }
+    // Always has repo — give Claude read tools
+    const response = await callAnthropicWithTools({
+      encryptedToken: token,
+      systemPrompt: buildChatPrompt(),
+      messages: [{ role: 'user', content: req.content }],
+      tools: READ_TOOLS,
+      maxTokens: 8192,
+    })
+    content = await processReadToolLoop(token, req, response)
   } catch (err) {
     content = getChatErrorMessage(err)
   }
@@ -493,28 +478,16 @@ async function handleSkill(req: ChatRequest, token: string, userMessage: ChatRep
 
   let content: string
 
-  const repo = await prisma.repository.findUnique({ where: { projectId: req.projectId }, select: { id: true } })
-
   try {
-    if (repo) {
-      const response = await callAnthropicWithTools({
-        encryptedToken: token,
-        systemPrompt: buildSkillChatPrompt(skillId, true),
-        messages: [{ role: 'user', content: req.content }],
-        tools: READ_TOOLS,
-        maxTokens: 8192,
-      })
-      content = await processReadToolLoop(token, req, response)
-    } else {
-      const result = await callAnthropic({
-        encryptedToken: token,
-        systemPrompt: buildSkillChatPrompt(skillId, false),
-        compactSummary: compactSummary ?? undefined,
-        ...getModelOptions(req),
-        userMessage: req.content,
-      })
-      content = result.text
-    }
+    // Always has repo — give employee read tools
+    const response = await callAnthropicWithTools({
+      encryptedToken: token,
+      systemPrompt: buildSkillChatPrompt(skillId),
+      messages: [{ role: 'user', content: req.content }],
+      tools: READ_TOOLS,
+      maxTokens: 8192,
+    })
+    content = await processReadToolLoop(token, req, response)
     if (!content.startsWith(`${skillName}:`)) content = `${skillName}: ${content}`
   } catch (err) {
     content = `${skillName}: ${getChatErrorMessage(err)}`
@@ -866,7 +839,7 @@ async function handleBuildDirect(req: ChatRequest, token: string, userMessage: C
 
   const result = await runBuildToolLoop({
     encryptedToken: token,
-    systemPrompt: buildChatPrompt(true),
+    systemPrompt: buildChatPrompt(),
     userMessage: req.content,
     repositoryId: repo.id,
     projectId: req.projectId,
@@ -915,7 +888,7 @@ async function handleBuildWithSkill(req: ChatRequest, token: string, userMessage
 
   const result = await runBuildToolLoop({
     encryptedToken: token,
-    systemPrompt: buildSkillChatPrompt(skillId, true),
+    systemPrompt: buildSkillChatPrompt(skillId),
     userMessage: req.content,
     repositoryId: repo.id,
     projectId: req.projectId,
@@ -1182,7 +1155,7 @@ async function processReadToolLoop(
   for (let i = 0; i < MAX_READ_ITERATIONS; i++) {
     const response = await callAnthropicWithTools({
       encryptedToken: token,
-      systemPrompt: buildChatPrompt(true),
+      systemPrompt: buildChatPrompt(),
       messages,
       tools: READ_TOOLS,
       maxTokens: 8192,

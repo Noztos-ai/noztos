@@ -63,28 +63,19 @@ export function getCodeHealthPrompt(mode: 'full' | 'targeted'): string {
 
 // ── Composed Prompts ──────────────────────────────────────────────────────
 
-/** System prompt for direct chat (no skill selected) */
-export function buildChatPrompt(hasRepo: boolean): string {
-  const parts = [getBasePrompt()]
-  if (hasRepo) parts.push(getBuildRules())
-  parts.push(getTaskRules())
-  return parts.join('\n\n---\n\n')
+/** System prompt for direct chat (no skill selected) — repo always present */
+export function buildChatPrompt(): string {
+  return [getBasePrompt(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
 }
 
-/** System prompt for skill chat (/ceo, /architect, etc.) */
-export function buildSkillChatPrompt(skillId: string, hasRepo: boolean): string {
-  const parts = [getBasePrompt(), getSkillPrompt(skillId)]
-  if (hasRepo) parts.push(getBuildRules())
-  parts.push(getTaskRules())
-  return parts.join('\n\n---\n\n')
+/** System prompt for skill chat (/ceo, /architect, etc.) — repo always present */
+export function buildSkillChatPrompt(skillId: string): string {
+  return [getBasePrompt(), getSkillPrompt(skillId), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
 }
 
-/** System prompt for team chat pipeline */
-export function buildTeamChatPrompt(hasRepo: boolean): string {
-  const parts = [getBasePrompt(), getTeamRules()]
-  if (hasRepo) parts.push(getBuildRules())
-  parts.push(getTaskRules())
-  return parts.join('\n\n---\n\n')
+/** System prompt for team chat pipeline — repo always present */
+export function buildTeamChatPrompt(): string {
+  return [getBasePrompt(), getTeamRules(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
 }
 
 /** System prompt for a specific employee within a team pipeline */
@@ -100,7 +91,7 @@ export function buildTeamBuilderPrompt(): string {
 // ── Task Prompts ──────────────────────────────────────────────────────────
 
 /** System prompt for task execution (skill mode) */
-export function buildTaskSkillPrompt(skillId: string, canBuild: boolean): string {
+export function buildTaskSkillPrompt(skillId: string): string {
   const parts = [getBasePrompt(), getSkillPrompt(skillId), getSuggestionsRules()]
   return parts.join('\n\n---\n\n')
 }

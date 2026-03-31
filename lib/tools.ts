@@ -133,26 +133,41 @@ export async function executeTool(
     }
   }
 
-  // Ensure sandbox is running for ALL operations
-  const sandboxId = await ensureSandboxRunning(projectId)
-  if (!sandboxId) return { result: 'Failed to start sandbox. No container available.', isError: true }
+  // Ensure sandbox is running for ALL operations — with retry on sandbox death
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const sandboxId = await ensureSandboxRunning(projectId)
+    if (!sandboxId) return { result: 'Failed to start sandbox. No container available.', isError: true }
 
-  switch (toolName) {
-    case 'read_file':
-      return readFile(sandboxId, input.path as string)
-    case 'write_file':
-      return writeFile(sandboxId, input.path as string, input.content as string)
-    case 'list_dir':
-      return listDir(sandboxId, input.path as string)
-    case 'search_files':
-      return searchFiles(sandboxId, input.query as string, input.glob as string | undefined)
-    case 'delete_file':
-      return deleteFile(sandboxId, input.path as string)
-    case 'run_command':
-      return runCommand(sandboxId, input.command as string)
-    default:
-      return { result: `Unknown tool: ${toolName}`, isError: true }
+    let result: ToolResult
+    switch (toolName) {
+      case 'read_file':
+        result = await readFile(sandboxId, input.path as string); break
+      case 'write_file':
+        result = await writeFile(sandboxId, input.path as string, input.content as string); break
+      case 'list_dir':
+        result = await listDir(sandboxId, input.path as string); break
+      case 'search_files':
+        result = await searchFiles(sandboxId, input.query as string, input.glob as string | undefined); break
+      case 'delete_file':
+        result = await deleteFile(sandboxId, input.path as string); break
+      case 'run_command':
+        result = await runCommand(sandboxId, input.command as string); break
+      default:
+        return { result: `Unknown tool: ${toolName}`, isError: true }
+    }
+
+    // If sandbox died mid-execution, force cleanup and retry once
+    if (result.isError && result.result.includes('SANDBOX_DEAD')) {
+      console.log('[tools] Sandbox dead, forcing recreation...')
+      const { prisma: db } = await import('@/lib/db')
+      await db.repository.update({ where: { projectId }, data: { sandboxId: null, sandboxStatus: 'stopped' } })
+      continue
+    }
+
+    return result
   }
+
+  return { result: 'Sandbox failed after retry. Please try again.', isError: true }
 }
 
 // ── All operations go to container ────────────────────────────────────────
