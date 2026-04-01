@@ -9,7 +9,8 @@
     "additionalDirectories": [
       "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]",
       "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]/terminal",
-      "/Users/viniciosfernandes/Desktop/projects/bornastar"
+      "/Users/viniciosfernandes/Desktop/projects/bornastar",
+      "/Users/viniciosfernandes/Desktop/projects/bornastar/app/lab"
     ]
   }
 }
