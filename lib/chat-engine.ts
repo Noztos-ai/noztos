@@ -10,9 +10,11 @@ import {
   buildTeamChatPrompt,
   buildTeamMemberPrompt,
   buildTeamBuilderPrompt,
+  buildClassifiedPrompt,
   getSkillPrompt,
   SKILL_NAMES,
 } from '@/lib/prompts'
+import { classifyMessage, getModeFileName, type ConversationMessage } from '@/lib/classifier'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -434,21 +436,146 @@ RULES:
   return { userMessage, replies: [reply] }
 }
 
+// ── Prefetch Context ───────────────────────────────────────────────────────
+
+async function prefetchContext(req: ChatRequest, keywords: string[]): Promise<string> {
+  if (keywords.length === 0) return ''
+
+  const repo = await prisma.repository.findUnique({
+    where: { projectId: req.projectId },
+    select: { id: true },
+  })
+  if (!repo) return ''
+
+  // Step 1: Search each keyword — collect file paths and score by relevance
+  const fileScores = new Map<string, number>()
+
+  for (const keyword of keywords.slice(0, 3)) {
+    const result = await executeTool(repo.id, 'search_files', { query: keyword }, req.projectId)
+    if (result.isError || !result.result.trim()) continue
+
+    // Parse file paths from grep output: ./path/file.ts:12:content
+    for (const line of result.result.split('\n')) {
+      const match = line.match(/^\.?\/?([^:]+\.[a-z]+):\d+:/)
+      if (!match) continue
+      const filePath = match[1].replace(/^\//, '')
+
+      // Skip test files, configs, lock files — not useful for context
+      if (/\.(lock|log|map)$/.test(filePath)) continue
+      if (/(node_modules|__pycache__|\.next|dist\/|\.test\.|\.spec\.)/.test(filePath)) continue
+
+      let score = fileScores.get(filePath) || 0
+
+      // Prefer TypeScript/JavaScript — they're the actual codebase
+      if (/\.(ts|tsx)$/.test(filePath)) score += 2
+      else if (/\.(js|jsx)$/.test(filePath)) score += 1
+
+      // Bonus when the file PATH itself mentions the keyword (e.g. auth in lib/auth.ts)
+      if (filePath.toLowerCase().includes(keyword.toLowerCase())) score += 3
+
+      // Bonus for core source directories
+      if (/^(lib|app|src|middleware|components|hooks|utils)\//.test(filePath)) score += 1
+
+      fileScores.set(filePath, score + 1)
+    }
+  }
+
+  // Step 2: Top 5 files ranked by score
+  const topFiles = Array.from(fileScores.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([path]) => path)
+
+  console.log(`[prefetch] keywords: [${keywords.join(', ')}] → top files: [${topFiles.join(', ')}]`)
+
+  if (topFiles.length === 0) return ''
+
+  // Step 3: Build structured context
+  const sections: string[] = []
+
+  // Project structure overview
+  const rootListing = await executeTool(repo.id, 'list_dir', { path: '' }, req.projectId)
+  if (!rootListing.isError && rootListing.result.trim()) {
+    sections.push(`## Project structure\n${rootListing.result}`)
+  }
+
+  // Full content of each relevant file
+  for (const filePath of topFiles) {
+    const file = await executeTool(repo.id, 'read_file', { path: filePath }, req.projectId)
+    if (!file.isError && file.result.trim()) {
+      sections.push(`## ${filePath}\n\`\`\`\n${file.result}\n\`\`\``)
+    }
+  }
+
+  return sections.join('\n\n')
+}
+
+// ── Recent Messages for Classifier Context ────────────────────────────────
+
+async function getRecentMessagesForClassifier(req: ChatRequest, limit = 4): Promise<ConversationMessage[]> {
+  if (!req.sessionId && !req.projectId) return []
+
+  try {
+    const where = req.sessionId
+      ? { sessionId: req.sessionId }
+      : { projectId: req.projectId }
+
+    const messages = await prisma.chatMessage.findMany({
+      where: { ...where, sender: { in: ['user', 'claude'] } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: { sender: true, content: true },
+    })
+
+    return messages
+      .reverse()
+      .map(m => ({
+        role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: m.content,
+      }))
+  } catch {
+    return []
+  }
+}
+
 // ── No Skill ───────────────────────────────────────────────────────────────
 
 async function handleNoSkill(req: ChatRequest, token: string, userMessage: ChatReply, compactSummary: string | null = null): Promise<ChatResult> {
   let content: string
 
   try {
-    // Always has repo — give Claude read tools
-    const response = await callAnthropicWithTools({
-      encryptedToken: token,
-      systemPrompt: buildChatPrompt(),
-      messages: [{ role: 'user', content: req.content }],
-      tools: READ_TOOLS,
-      maxTokens: 8192,
-    })
-    content = await processReadToolLoop(token, req, response)
+    // Fetch recent messages so Haiku has conversation context for keyword extraction
+    const recentMessages = await getRecentMessagesForClassifier(req)
+    // Classify the message to pick the right mode prompt + keywords
+    const classification = await classifyMessage(req.content, token, recentMessages)
+    const modeFile = getModeFileName(classification.mode)
+    const systemPrompt = buildClassifiedPrompt(modeFile, classification.execution)
+    console.log(`[prompt] Mode: ${classification.mode} → File: ${modeFile || 'none'} | Execution: ${classification.execution} | Keywords: [${classification.keywords.join(', ')}] | Prompt size: ${systemPrompt.length} chars`)
+
+    if (classification.execution) {
+      // Execution mode — Claude explores freely with tool loop
+      const response = await callAnthropicWithTools({
+        encryptedToken: token,
+        systemPrompt,
+        messages: [{ role: 'user', content: req.content }],
+        tools: READ_TOOLS,
+        maxTokens: 8192,
+      })
+      content = await processReadToolLoop(token, req, response, systemPrompt)
+    } else {
+      // Read-only mode — pre-fetch context with keywords, one Claude call
+      const context = await prefetchContext(req, classification.keywords)
+      const userMessage = context
+        ? `${req.content}\n\n---\nRelevant code from the repository:\n${context}`
+        : req.content
+      const result = await callAnthropic({
+        encryptedToken: token,
+        systemPrompt,
+        userMessage,
+        maxTokens: 8192,
+      })
+      content = result.text
+    }
   } catch (err) {
     content = getChatErrorMessage(err)
   }
@@ -479,15 +606,23 @@ async function handleSkill(req: ChatRequest, token: string, userMessage: ChatRep
   let content: string
 
   try {
+    // Classify + build prompt with skill + mode
+    const recentMessages = await getRecentMessagesForClassifier(req)
+    const classification = await classifyMessage(req.content, token, recentMessages)
+    const modeFile = getModeFileName(classification.mode)
+    const systemPrompt = buildClassifiedPrompt(modeFile, classification.execution)
+    const fullPrompt = [getSkillPrompt(skillId), systemPrompt].join('\n\n---\n\n')
+    console.log(`[prompt] Skill: ${skillName} | Mode: ${classification.mode} → File: ${modeFile || 'none'} | Execution: ${classification.execution} | Prompt size: ${fullPrompt.length} chars`)
+
     // Always has repo — give employee read tools
     const response = await callAnthropicWithTools({
       encryptedToken: token,
-      systemPrompt: buildSkillChatPrompt(skillId),
+      systemPrompt: fullPrompt,
       messages: [{ role: 'user', content: req.content }],
       tools: READ_TOOLS,
       maxTokens: 8192,
     })
-    content = await processReadToolLoop(token, req, response)
+    content = await processReadToolLoop(token, req, response, fullPrompt)
     if (!content.startsWith(`${skillName}:`)) content = `${skillName}: ${content}`
   } catch (err) {
     content = `${skillName}: ${getChatErrorMessage(err)}`
@@ -837,9 +972,12 @@ async function handleBuildDirect(req: ChatRequest, token: string, userMessage: C
     return { userMessage, replies: [reply] }
   }
 
+  // Build mode — always execution, use after-execution prompt
+  const buildPrompt = buildClassifiedPrompt(null, true)
+
   const result = await runBuildToolLoop({
     encryptedToken: token,
-    systemPrompt: buildChatPrompt(),
+    systemPrompt: buildPrompt,
     userMessage: req.content,
     repositoryId: repo.id,
     projectId: req.projectId,
@@ -886,9 +1024,12 @@ async function handleBuildWithSkill(req: ChatRequest, token: string, userMessage
     return { userMessage, replies: [reply] }
   }
 
+  // Build with skill — execution mode + skill prompt
+  const buildPrompt = [getSkillPrompt(skillId), buildClassifiedPrompt(null, true)].join('\n\n---\n\n')
+
   const result = await runBuildToolLoop({
     encryptedToken: token,
-    systemPrompt: buildSkillChatPrompt(skillId),
+    systemPrompt: buildPrompt,
     userMessage: req.content,
     repositoryId: repo.id,
     projectId: req.projectId,
@@ -1117,6 +1258,7 @@ async function processReadToolLoop(
   token: string,
   req: ChatRequest,
   initialResponse: { content: ContentBlock[]; stopReason: string },
+  systemPrompt?: string,
 ): Promise<string> {
   const messages: ToolCallMessage[] = [{ role: 'user', content: req.content }]
   const allText: string[] = []
@@ -1155,7 +1297,7 @@ async function processReadToolLoop(
   for (let i = 0; i < MAX_READ_ITERATIONS; i++) {
     const response = await callAnthropicWithTools({
       encryptedToken: token,
-      systemPrompt: buildChatPrompt(),
+      systemPrompt: systemPrompt || buildChatPrompt(),
       messages,
       tools: READ_TOOLS,
       maxTokens: 8192,

@@ -61,21 +61,44 @@ export function getCodeHealthPrompt(mode: 'full' | 'targeted'): string {
   return load(join(PROMPTS_DIR, `codehealth-${mode}.md`))
 }
 
+// ── When Prompts ─────────────────────────────────────────────────────────
+
+const WHEN_FILES = [
+  'when-explaining-what.md',
+  'when-explaining-how.md',
+  'when-comparing.md',
+  'when-discussing-code.md',
+  'when-planning.md',
+  'when-improving-code.md',
+  'when-refactoring.md',
+  'when-debugging.md',
+  'when-testing.md',
+  'when-devops.md',
+  'when-documentation.md',
+  'when-after-execution.md',
+]
+
+const MODES_DIR = join(PROMPTS_DIR, 'modes')
+
+export function getAllWhens(): string {
+  return WHEN_FILES.map(f => load(join(MODES_DIR, f))).join('\n\n')
+}
+
 // ── Composed Prompts ──────────────────────────────────────────────────────
 
 /** System prompt for direct chat (no skill selected) — repo always present */
 export function buildChatPrompt(): string {
-  return [getBasePrompt(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
+  return [getBasePrompt(), getAllWhens(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
 }
 
 /** System prompt for skill chat (/ceo, /architect, etc.) — repo always present */
 export function buildSkillChatPrompt(skillId: string): string {
-  return [getBasePrompt(), getSkillPrompt(skillId), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
+  return [getBasePrompt(), getSkillPrompt(skillId), getAllWhens(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
 }
 
 /** System prompt for team chat pipeline — repo always present */
 export function buildTeamChatPrompt(): string {
-  return [getBasePrompt(), getTeamRules(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
+  return [getBasePrompt(), getTeamRules(), getAllWhens(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
 }
 
 /** System prompt for a specific employee within a team pipeline */
@@ -104,6 +127,32 @@ export function buildTaskTeamMemberPrompt(skillId: string): string {
 /** System prompt for task execution (builder) */
 export function buildTaskBuilderPrompt(): string {
   return [getBasePrompt(), getBuilderPrompt(), getSuggestionsRules()].join('\n\n---\n\n')
+}
+
+// ── Classified Prompt Builder ─────────────────────────────────────────────
+
+/**
+ * Build system prompt based on classifier result.
+ * base.md + classified mode + after-execution (if executing)
+ */
+export function buildClassifiedPrompt(modeFileName: string | null, isExecution: boolean): string {
+  const parts = [getBasePrompt()]
+
+  // Add the classified mode prompt
+  if (modeFileName) {
+    parts.push(load(join(MODES_DIR, modeFileName)))
+  }
+
+  // Add after-execution prompt when building/executing
+  if (isExecution) {
+    parts.push(load(join(MODES_DIR, 'when-after-execution.md')))
+  }
+
+  // Always add build rules and task rules
+  parts.push(getBuildRules())
+  parts.push(getTaskRules())
+
+  return parts.join('\n\n---\n\n')
 }
 
 // ── Skill Name Map ────────────────────────────────────────────────────────

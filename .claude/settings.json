@@ -4,13 +4,28 @@
       "Bash(ls /Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]/route.ts)",
       "Bash(node -e \":*)",
       "Bash(source .env)",
-      "Bash(node -e \"try { require\\(''@e2b/code-interpreter''\\); console.log\\(''E2B OK''\\) } catch\\(e\\) { console.log\\(''E2B FAIL:'', e.message\\) }\")"
+      "Bash(node -e \"try { require\\(''@e2b/code-interpreter''\\); console.log\\(''E2B OK''\\) } catch\\(e\\) { console.log\\(''E2B FAIL:'', e.message\\) }\")",
+      "Bash(sed -n '47,89p' base.md)",
+      "Bash(sed -n '90,151p' base.md)",
+      "Bash(sed -n '152,194p' base.md)",
+      "Bash(sed -n '195,345p' base.md)",
+      "Bash(sed -n '346,396p' base.md)",
+      "Bash(ls -la /Users/viniciosfernandes/Desktop/projects/bornastar/prompts/when-*.md)",
+      "Read(//Users/viniciosfernandes/Desktop/projects/bornastar/prompts/**)",
+      "Bash(ls /Users/viniciosfernandes/Desktop/projects/bornastar/middleware.ts*)",
+      "Bash(node -e ':*)",
+      "Bash(ls /Users/viniciosfernandes/Desktop/projects/bornastar/proxy*)",
+      "Bash(ls /Users/viniciosfernandes/Desktop/projects/bornastar/next.config*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "additionalDirectories": [
       "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]",
       "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]/terminal",
       "/Users/viniciosfernandes/Desktop/projects/bornastar",
-      "/Users/viniciosfernandes/Desktop/projects/bornastar/app/lab"
+      "/Users/viniciosfernandes/Desktop/projects/bornastar/app/lab",
+      "/Users/viniciosfernandes/Desktop/projects/prompt-lab/app/api",
+      "/Users/viniciosfernandes/Desktop/projects/prompt-lab",
+      "/Users/viniciosfernandes/Desktop/projects/bornastar/prompts"
     ]
   }
 }

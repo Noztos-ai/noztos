@@ -1,6 +1,3 @@
-// This is your Prisma schema file.
-// Learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,9 +7,328 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Enums
-// ─────────────────────────────────────────────────────────────────────────────
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  passwordHash   String
+  name           String
+  company        String?
+  role           String?
+  avatarUrl      String?
+  anthropicToken String?
+  slackToken     String?
+  emailVerified  Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  lastActive     DateTime      @updatedAt
+  githubToken    String?
+  chatMessages   ChatMessage[]
+  projects       Project[]
+  tasks          Task[]
+
+  @@map("users")
+}
+
+model Project {
+  id             String          @id @default(cuid())
+  userId         String
+  name           String
+  repositoryPath String?
+  slackChannel   String?
+  slackWebhook   String?
+  createdAt      DateTime        @default(now())
+  lastActivityAt DateTime?
+  queueStatus    String          @default("paused")
+  buildSessions  BuildSession[]
+  chatMessages   ChatMessage[]
+  chatSessions   ChatSession[]
+  collaborators  Collaborator[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository     Repository?
+  resourceUsage  ResourceUsage[]
+  slackLogs      SlackLog[]
+  tasks          Task[]
+  teamRuns       TeamRun[]
+  teams          Team[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Repository {
+  id               String     @id @default(cuid())
+  projectId        String     @unique
+  githubOwner      String
+  githubRepo       String
+  githubBranch     String     @default("main")
+  lastSyncedSha    String?
+  lastSyncedAt     DateTime?
+  createdAt        DateTime   @default(now())
+  lockedAt         DateTime?
+  lockedBy         String?
+  lockedByTaskId   String?
+  sandboxId        String?
+  sandboxStartedAt DateTime?
+  sandboxStatus    String?
+  files            RepoFile[]
+  project          Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("repositories")
+}
+
+model RepoFile {
+  id              String     @id @default(cuid())
+  repositoryId    String
+  path            String
+  content         String
+  originalContent String
+  isModified      Boolean    @default(false)
+  isBinary        Boolean    @default(false)
+  sizeBytes       Int        @default(0)
+  blobSha         String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  repository      Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, path])
+  @@index([repositoryId, isModified])
+  @@map("repo_files")
+}
+
+model Collaborator {
+  id                String         @id @default(cuid())
+  projectId         String?
+  name              String
+  description       String
+  skillMd           String         @default("")
+  isPlatformDefault Boolean        @default(false)
+  phase             Phase
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  project           Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskSkillLogs     TaskSkillLog[]
+
+  @@unique([name, projectId])
+  @@index([projectId, isActive])
+  @@map("collaborators")
+}
+
+model Team {
+  id                        String   @id @default(cuid())
+  projectId                 String
+  name                      String
+  collaboratorOrder         Json     @default("[]")
+  hasBuilder                Boolean  @default(false)
+  builderPosition           Int?
+  rejectionRules            Json     @default("{}")
+  restartFromCollaboratorId String?
+  createdAt                 DateTime @default(now())
+  tasks                     Task[]
+  project                   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("teams")
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  projectId String
+  userId    String
+  name      String        @default("New Chat")
+  status    String        @default("open")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id            String       @id @default(cuid())
+  projectId     String
+  userId        String
+  content       String
+  sender        String
+  activeSkillId String?
+  mode          String       @default("no_skill")
+  createdAt     DateTime     @default(now())
+  sessionId     String?
+  report        Json?
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  session       ChatSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@index([projectId, createdAt])
+  @@map("chat_messages")
+}
+
+model Task {
+  id                  String           @id @default(cuid())
+  projectId           String
+  userId              String
+  name                String
+  instruction         String?
+  context             Json             @default("{}")
+  accumulatedContext  Json             @default("{}")
+  canModifyRepo       Boolean          @default(false)
+  executorType        ExecutorType     @default(no_skill)
+  executorId          String?
+  status              TaskStatus       @default(pending)
+  isRecurring         Boolean          @default(false)
+  recurrenceConfig    Json?
+  scheduledAt         DateTime?
+  pausedAt            DateTime?
+  pausedAtIteration   Int?
+  pausedAtEmployee    String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  queuePosition       Int?
+  originalScheduledAt DateTime?
+  rescheduledCount    Int              @default(0)
+  rescheduledReason   String?
+  resourceUsage       ResourceUsage[]
+  slackLogs           SlackLog[]
+  buildLogs           TaskBuildLog[]
+  iterations          TaskIteration[]
+  skillLogs           TaskSkillLog[]
+  suggestions         TaskSuggestion[]
+  team                Team?            @relation(fields: [executorId], references: [id])
+  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@map("tasks")
+}
+
+model TaskIteration {
+  id                       String         @id @default(cuid())
+  taskId                   String
+  iterationNumber          Int
+  rejectionReason          String?
+  rejectedByCollaboratorId String?
+  createdAt                DateTime       @default(now())
+  buildLogs                TaskBuildLog[]
+  task                     Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  skillLogs                TaskSkillLog[]
+
+  @@index([taskId])
+  @@map("task_iterations")
+}
+
+model TaskSkillLog {
+  id               String         @id @default(cuid())
+  taskId           String
+  iterationId      String?
+  collaboratorId   String?
+  collaboratorName String
+  inputReceived    String?
+  thoughts         String?
+  conclusion       String?
+  passedForward    String?
+  approved         Boolean?
+  rejectionReason  String?
+  startedAt        DateTime       @default(now())
+  finishedAt       DateTime?
+  collaborator     Collaborator?  @relation(fields: [collaboratorId], references: [id])
+  iteration        TaskIteration? @relation(fields: [iterationId], references: [id])
+  task             Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_skill_logs")
+}
+
+model TaskBuildLog {
+  id                 String         @id @default(cuid())
+  taskId             String
+  iterationId        String?
+  filesTouched       Json           @default("[]")
+  linesAdded         Int            @default(0)
+  linesRemoved       Int            @default(0)
+  technicalDecisions String?
+  rawLog             String?
+  createdAt          DateTime       @default(now())
+  iteration          TaskIteration? @relation(fields: [iterationId], references: [id])
+  task               Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_build_logs")
+}
+
+model TaskSuggestion {
+  id              String   @id @default(cuid())
+  taskId          String
+  suggestionText  String
+  reason          String?
+  accepted        Boolean  @default(false)
+  generatedTaskId String?
+  createdAt       DateTime @default(now())
+  task            Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_suggestions")
+}
+
+model SlackLog {
+  id          String   @id @default(cuid())
+  projectId   String
+  taskId      String?
+  messageSent String
+  channel     String
+  delivered   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        Task?    @relation(fields: [taskId], references: [id])
+
+  @@index([projectId, delivered])
+  @@map("slack_logs")
+}
+
+model ResourceUsage {
+  id         String   @id @default(cuid())
+  userId     String
+  projectId  String
+  taskId     String?
+  cpuSeconds Float    @default(0)
+  gpuSeconds Float    @default(0)
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task       Task?    @relation(fields: [taskId], references: [id])
+
+  @@index([userId, projectId])
+  @@map("resource_usage")
+}
+
+model TeamRun {
+  id             String   @id @default(cuid())
+  projectId      String
+  userId         String
+  teamConfigJson Json
+  userMessage    String
+  status         String   @default("running")
+  plan           Json     @default("{}")
+  state          Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@map("team_runs")
+}
+
+model BuildSession {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  buildWith String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, active])
+  @@map("build_sessions")
+}
 
 enum Phase {
   planner
@@ -31,454 +347,4 @@ enum ExecutorType {
   no_skill
   skill
   team
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Users
-// ─────────────────────────────────────────────────────────────────────────────
-
-model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  passwordHash   String
-  name           String
-  company        String?
-  role           String?
-  avatarUrl      String?
-  // Stored AES-encrypted via lib/crypto.ts — never plain text
-  anthropicToken String?
-  slackToken     String?
-  githubToken    String?
-  emailVerified  Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  lastActive     DateTime @updatedAt
-
-  projects     Project[]
-  chatMessages ChatMessage[]
-  tasks        Task[]
-
-  @@map("users")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Projects
-// ─────────────────────────────────────────────────────────────────────────────
-
-model Project {
-  id             String   @id @default(cuid())
-  userId         String
-  name           String
-  repositoryPath String?
-  slackChannel   String?
-  slackWebhook   String?
-  // Queue control: "running" | "paused" — controls task queue execution
-  queueStatus    String   @default("paused")
-  lastActivityAt DateTime?
-  createdAt      DateTime @default(now())
-
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  repository    Repository?
-  collaborators Collaborator[]
-  teams         Team[]
-  chatSessions  ChatSession[]
-  chatMessages  ChatMessage[]
-  tasks         Task[]
-  slackLogs     SlackLog[]
-  resourceUsage ResourceUsage[]
-  teamRuns      TeamRun[]
-  buildSessions BuildSession[]
-
-  @@index([userId])
-  @@map("projects")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Repositories — cloned GitHub repos stored in our DB
-//
-// 1:1 with Project. Files stored as RepoFile rows.
-// ─────────────────────────────────────────────────────────────────────────────
-
-model Repository {
-  id              String    @id @default(cuid())
-  projectId       String    @unique
-  githubOwner     String
-  githubRepo      String
-  githubBranch    String    @default("main")
-  lastSyncedSha   String?
-  lastSyncedAt    DateTime?
-  // Sandbox (compute container)
-  sandboxId       String?
-  sandboxStatus   String?   // 'running' | 'stopped' | null
-  sandboxStartedAt DateTime?
-  // Repo lock: "task" | "chat" | null — prevents concurrent writes
-  lockedBy        String?
-  lockedByTaskId  String?
-  lockedAt        DateTime?
-  createdAt       DateTime  @default(now())
-
-  project Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  files   RepoFile[]
-
-  @@map("repositories")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Repo files — one row per file in the cloned repo
-//
-// originalContent: snapshot at last sync (for diffing)
-// isModified:      true when Claude has written to the file
-// ─────────────────────────────────────────────────────────────────────────────
-
-model RepoFile {
-  id              String   @id @default(cuid())
-  repositoryId    String
-  path            String
-  content         String
-  originalContent String
-  isModified      Boolean  @default(false)
-  isBinary        Boolean  @default(false)
-  sizeBytes       Int      @default(0)
-  blobSha         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  @@unique([repositoryId, path])
-  @@index([repositoryId, isModified])
-  @@map("repo_files")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Collaborators
-//
-// Lifecycle:
-//   projectId = null, isPlatformDefault = true  → global seed template
-//   projectId = <id>, isPlatformDefault = true  → per-project copy of default
-//   projectId = <id>, isPlatformDefault = false → user-created collaborator
-//
-// Seed creates global templates (projectId = null).
-// Project creation copies them into per-project rows (see Task 4).
-// SKILL.md for platform defaults is never exposed to the UI.
-// ─────────────────────────────────────────────────────────────────────────────
-
-model Collaborator {
-  id                String   @id @default(cuid())
-  // null = global platform default template
-  projectId         String?
-  name              String
-  description       String
-  // The SKILL.md content — never shown to users for platform defaults
-  skillMd           String   @default("")
-  isPlatformDefault Boolean  @default(false)
-  phase             Phase
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-
-  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  taskSkillLogs TaskSkillLog[]
-
-  // Unique per (name, projectId) — allows same name across projects
-  @@unique([name, projectId])
-  @@index([projectId, isActive])
-  @@map("collaborators")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Teams
-//
-// collaboratorOrder: CollaboratorOrder JSON — { collaboratorIds: string[] }
-// rejectionRules:    RejectionRules JSON  — { canReject: Record<id,bool>, restartFromCollaboratorId: string }
-// ─────────────────────────────────────────────────────────────────────────────
-
-model Team {
-  id                        String   @id @default(cuid())
-  projectId                 String
-  name                      String
-  collaboratorOrder         Json     @default("[]")
-  hasBuilder                Boolean  @default(false)
-  builderPosition           Int?
-  rejectionRules            Json     @default("{}")
-  restartFromCollaboratorId String?
-  createdAt                 DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]
-
-  @@index([projectId])
-  @@map("teams")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Chat sessions — multiple chats per project (like tabs)
-//
-// status: "open" | "closed"
-// ─────────────────────────────────────────────────────────────────────────────
-
-model ChatSession {
-  id        String   @id @default(cuid())
-  projectId String
-  userId    String
-  name      String   @default("New Chat")
-  status    String   @default("open")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  project  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  messages ChatMessage[]
-
-  @@index([projectId, status])
-  @@map("chat_sessions")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Chat messages
-// ─────────────────────────────────────────────────────────────────────────────
-
-model ChatMessage {
-  id            String   @id @default(cuid())
-  projectId     String
-  userId        String
-  sessionId     String?
-  content       String
-  // "user" | "claude" | "<skill_name>" — dynamic, kept as String not enum
-  sender        String
-  activeSkillId String?
-  // "no_skill" | "skill" | "team"
-  mode          String   @default("no_skill")
-  // Structured report attached to conclusion messages (JSON)
-  report        Json?
-  createdAt     DateTime @default(now())
-
-  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session ChatSession?  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId, createdAt])
-  @@index([projectId, createdAt])
-  @@map("chat_messages")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tasks
-//
-// context:            TaskContext JSON — immutable original context from chat
-// accumulatedContext: TaskContext JSON — grows as task passes through team
-// recurrenceConfig:   RecurrenceConfig JSON — only set when isRecurring = true
-// ─────────────────────────────────────────────────────────────────────────────
-
-model Task {
-  id                 String       @id @default(cuid())
-  projectId          String
-  userId             String
-  name               String
-  instruction        String?
-  context            Json         @default("{}")
-  accumulatedContext Json         @default("{}")
-  canModifyRepo      Boolean      @default(false)
-  executorType       ExecutorType @default(no_skill)
-  executorId         String?
-  status             TaskStatus   @default(pending)
-  isRecurring        Boolean      @default(false)
-  recurrenceConfig   Json?
-  scheduledAt          DateTime?
-  originalScheduledAt  DateTime?
-  rescheduledReason    String?
-  rescheduledCount     Int       @default(0)
-  queuePosition        Int?
-  pausedAt           DateTime?
-  pausedAtIteration  Int?
-  pausedAtEmployee   String?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-
-  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team          Team?            @relation(fields: [executorId], references: [id])
-  iterations    TaskIteration[]
-  skillLogs     TaskSkillLog[]
-  buildLogs     TaskBuildLog[]
-  suggestions   TaskSuggestion[]
-  slackLogs     SlackLog[]
-  resourceUsage ResourceUsage[]
-
-  @@index([projectId, status])
-  @@map("tasks")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Task iterations — one per rejection/approval cycle
-// ─────────────────────────────────────────────────────────────────────────────
-
-model TaskIteration {
-  id                       String   @id @default(cuid())
-  taskId                   String
-  iterationNumber          Int
-  rejectionReason          String?
-  rejectedByCollaboratorId String?
-  createdAt                DateTime @default(now())
-
-  task      Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  skillLogs TaskSkillLog[]
-  buildLogs TaskBuildLog[]
-
-  @@index([taskId])
-  @@map("task_iterations")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Task skill logs — one per collaborator per iteration
-// ─────────────────────────────────────────────────────────────────────────────
-
-model TaskSkillLog {
-  id               String         @id @default(cuid())
-  taskId           String
-  iterationId      String?
-  collaboratorId   String?
-  collaboratorName String
-  inputReceived    String?
-  thoughts         String?
-  conclusion       String?
-  passedForward    String?
-  approved         Boolean?
-  rejectionReason  String?
-  startedAt        DateTime       @default(now())
-  finishedAt       DateTime?
-
-  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  iteration    TaskIteration? @relation(fields: [iterationId], references: [id])
-  collaborator Collaborator?  @relation(fields: [collaboratorId], references: [id])
-
-  @@index([taskId])
-  @@map("task_skill_logs")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Task build logs — one per builder execution per iteration
-//
-// filesTouched: FilesTouched[] JSON array
-// ─────────────────────────────────────────────────────────────────────────────
-
-model TaskBuildLog {
-  id                 String         @id @default(cuid())
-  taskId             String
-  iterationId        String?
-  filesTouched       Json           @default("[]")
-  linesAdded         Int            @default(0)
-  linesRemoved       Int            @default(0)
-  technicalDecisions String?
-  rawLog             String?
-  createdAt          DateTime       @default(now())
-
-  task      Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  iteration TaskIteration? @relation(fields: [iterationId], references: [id])
-
-  @@index([taskId])
-  @@map("task_build_logs")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Task suggestions — Claude-identified follow-ups
-// ─────────────────────────────────────────────────────────────────────────────
-
-model TaskSuggestion {
-  id              String   @id @default(cuid())
-  taskId          String
-  suggestionText  String
-  reason          String?
-  accepted        Boolean  @default(false)
-  generatedTaskId String?
-  createdAt       DateTime @default(now())
-
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([taskId])
-  @@map("task_suggestions")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Slack logs
-// ─────────────────────────────────────────────────────────────────────────────
-
-model SlackLog {
-  id          String   @id @default(cuid())
-  projectId   String
-  taskId      String?
-  messageSent String
-  channel     String
-  delivered   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task    Task?   @relation(fields: [taskId], references: [id])
-
-  @@index([projectId, delivered])
-  @@map("slack_logs")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resource usage — for future billing tracking
-// ─────────────────────────────────────────────────────────────────────────────
-
-model ResourceUsage {
-  id         String   @id @default(cuid())
-  userId     String
-  projectId  String
-  taskId     String?
-  cpuSeconds Float    @default(0)
-  gpuSeconds Float    @default(0)
-  createdAt  DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task    Task?   @relation(fields: [taskId], references: [id])
-
-  @@index([userId, projectId])
-  @@map("resource_usage")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Team runs — persists the state of a team pipeline execution
-//
-// status: "running" | "completed" | "failed" | "timed_out"
-// plan:   JSON — the etapas plan { etapas: [{ name, objective, members }] }
-// state:  JSON — current progress { etapas: [{ status, members: [{ name, status, redirectedTo? }] }] }
-// ─────────────────────────────────────────────────────────────────────────────
-
-model TeamRun {
-  id            String   @id @default(cuid())
-  projectId     String
-  userId        String
-  teamConfigJson Json
-  userMessage   String
-  status        String   @default("running")
-  plan          Json     @default("{}")
-  state         Json     @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([projectId, status])
-  @@map("team_runs")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Build sessions — gate that prevents code execution without confirmation
-//
-// buildWith: "claude" | employee ID | team ID
-// active:    true while build is authorized, false when done or cancelled
-// ─────────────────────────────────────────────────────────────────────────────
-
-model BuildSession {
-  id         String   @id @default(cuid())
-  projectId  String
-  userId     String
-  buildWith  String
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([projectId, active])
-  @@map("build_sessions")
 }

@@ -15,7 +15,8 @@ import { PrismaClient, Phase } from '../generated/prisma/client'
 // Or:  npx prisma db seed (configured in package.json)
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-const adapter = new PrismaPg(pool)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adapter = new PrismaPg(pool as any)
 const prisma = new PrismaClient({ adapter })
 
 interface PlatformCollaborator {
