@@ -20,7 +20,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
   }
 
-  let body: { name?: string; instruction?: string; teamId?: string; executorType?: string; executorId?: string | null; status?: string; scheduledAt?: string | null; accumulatedContext?: Record<string, unknown> }
+  let body: { name?: string; instruction?: string; teamId?: string; executorType?: string; executorId?: string | null; status?: string; scheduledAt?: string | null; accumulatedContext?: Record<string, unknown>; permissionMode?: 'leitura' | 'planejamento' | 'edicao' }
   try {
     body = await request.json()
   } catch {
@@ -60,6 +60,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (body.executorType) data.executorType = body.executorType
   if (body.executorId !== undefined) data.executorId = body.executorId
   if (body.accumulatedContext) data.accumulatedContext = JSON.parse(JSON.stringify(body.accumulatedContext))
+  if (body.permissionMode) data.permissionMode = body.permissionMode
 
   // Auto-assign queue position when moving to queue
   if (body.status === 'queue') {

@@ -34,10 +34,10 @@ export type UserMinAggregateOutputType = {
   avatarUrl: string | null
   anthropicToken: string | null
   slackToken: string | null
-  githubToken: string | null
   emailVerified: boolean | null
   createdAt: Date | null
   lastActive: Date | null
+  githubToken: string | null
 }
 
 export type UserMaxAggregateOutputType = {
@@ -50,10 +50,10 @@ export type UserMaxAggregateOutputType = {
   avatarUrl: string | null
   anthropicToken: string | null
   slackToken: string | null
-  githubToken: string | null
   emailVerified: boolean | null
   createdAt: Date | null
   lastActive: Date | null
+  githubToken: string | null
 }
 
 export type UserCountAggregateOutputType = {
@@ -66,10 +66,10 @@ export type UserCountAggregateOutputType = {
   avatarUrl: number
   anthropicToken: number
   slackToken: number
-  githubToken: number
   emailVerified: number
   createdAt: number
   lastActive: number
+  githubToken: number
   _all: number
 }
 
@@ -84,10 +84,10 @@ export type UserMinAggregateInputType = {
   avatarUrl?: true
   anthropicToken?: true
   slackToken?: true
-  githubToken?: true
   emailVerified?: true
   createdAt?: true
   lastActive?: true
+  githubToken?: true
 }
 
 export type UserMaxAggregateInputType = {
@@ -100,10 +100,10 @@ export type UserMaxAggregateInputType = {
   avatarUrl?: true
   anthropicToken?: true
   slackToken?: true
-  githubToken?: true
   emailVerified?: true
   createdAt?: true
   lastActive?: true
+  githubToken?: true
 }
 
 export type UserCountAggregateInputType = {
@@ -116,10 +116,10 @@ export type UserCountAggregateInputType = {
   avatarUrl?: true
   anthropicToken?: true
   slackToken?: true
-  githubToken?: true
   emailVerified?: true
   createdAt?: true
   lastActive?: true
+  githubToken?: true
   _all?: true
 }
 
@@ -205,10 +205,10 @@ export type UserGroupByOutputType = {
   avatarUrl: string | null
   anthropicToken: string | null
   slackToken: string | null
-  githubToken: string | null
   emailVerified: boolean
   createdAt: Date
   lastActive: Date
+  githubToken: string | null
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
   _max: UserMaxAggregateOutputType | null
@@ -242,12 +242,12 @@ export type UserWhereInput = {
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   anthropicToken?: Prisma.StringNullableFilter<"User"> | string | null
   slackToken?: Prisma.StringNullableFilter<"User"> | string | null
-  githubToken?: Prisma.StringNullableFilter<"User"> | string | null
   emailVerified?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeFilter<"User"> | Date | string
-  projects?: Prisma.ProjectListRelationFilter
+  githubToken?: Prisma.StringNullableFilter<"User"> | string | null
   chatMessages?: Prisma.ChatMessageListRelationFilter
+  projects?: Prisma.ProjectListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
 }
 
@@ -261,12 +261,12 @@ export type UserOrderByWithRelationInput = {
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   anthropicToken?: Prisma.SortOrderInput | Prisma.SortOrder
   slackToken?: Prisma.SortOrderInput | Prisma.SortOrder
-  githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
   emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
-  projects?: Prisma.ProjectOrderByRelationAggregateInput
+  githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
   chatMessages?: Prisma.ChatMessageOrderByRelationAggregateInput
+  projects?: Prisma.ProjectOrderByRelationAggregateInput
   tasks?: Prisma.TaskOrderByRelationAggregateInput
 }
 
@@ -283,12 +283,12 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   anthropicToken?: Prisma.StringNullableFilter<"User"> | string | null
   slackToken?: Prisma.StringNullableFilter<"User"> | string | null
-  githubToken?: Prisma.StringNullableFilter<"User"> | string | null
   emailVerified?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeFilter<"User"> | Date | string
-  projects?: Prisma.ProjectListRelationFilter
+  githubToken?: Prisma.StringNullableFilter<"User"> | string | null
   chatMessages?: Prisma.ChatMessageListRelationFilter
+  projects?: Prisma.ProjectListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
 }, "id" | "email">
 
@@ -302,10 +302,10 @@ export type UserOrderByWithAggregationInput = {
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   anthropicToken?: Prisma.SortOrderInput | Prisma.SortOrder
   slackToken?: Prisma.SortOrderInput | Prisma.SortOrder
-  githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
   emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
+  githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
   _min?: Prisma.UserMinOrderByAggregateInput
@@ -324,10 +324,10 @@ export type UserScalarWhereWithAggregatesInput = {
   avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   anthropicToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   slackToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
-  githubToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   emailVerified?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
+  githubToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
 }
 
 export type UserCreateInput = {
@@ -340,12 +340,12 @@ export type UserCreateInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
-  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
+  githubToken?: string | null
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
 }
 
@@ -359,12 +359,12 @@ export type UserUncheckedCreateInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
-  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
+  githubToken?: string | null
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
 }
 
@@ -378,12 +378,12 @@ export type UserUpdateInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
 }
 
@@ -397,12 +397,12 @@ export type UserUncheckedUpdateInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
 }
 
@@ -416,10 +416,10 @@ export type UserCreateManyInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
+  githubToken?: string | null
 }
 
 export type UserUpdateManyMutationInput = {
@@ -432,10 +432,10 @@ export type UserUpdateManyMutationInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type UserUncheckedUpdateManyInput = {
@@ -448,10 +448,10 @@ export type UserUncheckedUpdateManyInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type UserCountOrderByAggregateInput = {
@@ -464,10 +464,10 @@ export type UserCountOrderByAggregateInput = {
   avatarUrl?: Prisma.SortOrder
   anthropicToken?: Prisma.SortOrder
   slackToken?: Prisma.SortOrder
-  githubToken?: Prisma.SortOrder
   emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
+  githubToken?: Prisma.SortOrder
 }
 
 export type UserMaxOrderByAggregateInput = {
@@ -480,10 +480,10 @@ export type UserMaxOrderByAggregateInput = {
   avatarUrl?: Prisma.SortOrder
   anthropicToken?: Prisma.SortOrder
   slackToken?: Prisma.SortOrder
-  githubToken?: Prisma.SortOrder
   emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
+  githubToken?: Prisma.SortOrder
 }
 
 export type UserMinOrderByAggregateInput = {
@@ -496,10 +496,10 @@ export type UserMinOrderByAggregateInput = {
   avatarUrl?: Prisma.SortOrder
   anthropicToken?: Prisma.SortOrder
   slackToken?: Prisma.SortOrder
-  githubToken?: Prisma.SortOrder
   emailVerified?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
+  githubToken?: Prisma.SortOrder
 }
 
 export type UserScalarRelationFilter = {
@@ -575,10 +575,10 @@ export type UserCreateWithoutProjectsInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
+  githubToken?: string | null
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
 }
@@ -593,10 +593,10 @@ export type UserUncheckedCreateWithoutProjectsInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
+  githubToken?: string | null
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
 }
@@ -627,10 +627,10 @@ export type UserUpdateWithoutProjectsInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
 }
@@ -645,10 +645,10 @@ export type UserUncheckedUpdateWithoutProjectsInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
 }
@@ -663,10 +663,10 @@ export type UserCreateWithoutChatMessagesInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
+  githubToken?: string | null
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
 }
@@ -681,10 +681,10 @@ export type UserUncheckedCreateWithoutChatMessagesInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
+  githubToken?: string | null
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
 }
@@ -715,10 +715,10 @@ export type UserUpdateWithoutChatMessagesInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
 }
@@ -733,10 +733,10 @@ export type UserUncheckedUpdateWithoutChatMessagesInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
 }
@@ -751,12 +751,12 @@ export type UserCreateWithoutTasksInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
-  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
+  githubToken?: string | null
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutTasksInput = {
@@ -769,12 +769,12 @@ export type UserUncheckedCreateWithoutTasksInput = {
   avatarUrl?: string | null
   anthropicToken?: string | null
   slackToken?: string | null
-  githubToken?: string | null
   emailVerified?: boolean
   createdAt?: Date | string
   lastActive?: Date | string
-  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
+  githubToken?: string | null
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutTasksInput = {
@@ -803,12 +803,12 @@ export type UserUpdateWithoutTasksInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTasksInput = {
@@ -821,12 +821,12 @@ export type UserUncheckedUpdateWithoutTasksInput = {
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -835,14 +835,14 @@ export type UserUncheckedUpdateWithoutTasksInput = {
  */
 
 export type UserCountOutputType = {
-  projects: number
   chatMessages: number
+  projects: number
   tasks: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  projects?: boolean | UserCountOutputTypeCountProjectsArgs
   chatMessages?: boolean | UserCountOutputTypeCountChatMessagesArgs
+  projects?: boolean | UserCountOutputTypeCountProjectsArgs
   tasks?: boolean | UserCountOutputTypeCountTasksArgs
 }
 
@@ -859,15 +859,15 @@ export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensi
 /**
  * UserCountOutputType without action
  */
-export type UserCountOutputTypeCountProjectsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.ProjectWhereInput
+export type UserCountOutputTypeCountChatMessagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ChatMessageWhereInput
 }
 
 /**
  * UserCountOutputType without action
  */
-export type UserCountOutputTypeCountChatMessagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.ChatMessageWhereInput
+export type UserCountOutputTypeCountProjectsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ProjectWhereInput
 }
 
 /**
@@ -888,12 +888,12 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
-  githubToken?: boolean
   emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
-  projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
+  githubToken?: boolean
   chatMessages?: boolean | Prisma.User$chatMessagesArgs<ExtArgs>
+  projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   tasks?: boolean | Prisma.User$tasksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
@@ -908,10 +908,10 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
-  githubToken?: boolean
   emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
+  githubToken?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -924,10 +924,10 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
-  githubToken?: boolean
   emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
+  githubToken?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectScalar = {
@@ -940,16 +940,16 @@ export type UserSelectScalar = {
   avatarUrl?: boolean
   anthropicToken?: boolean
   slackToken?: boolean
-  githubToken?: boolean
   emailVerified?: boolean
   createdAt?: boolean
   lastActive?: boolean
+  githubToken?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "passwordHash" | "name" | "company" | "role" | "avatarUrl" | "anthropicToken" | "slackToken" | "githubToken" | "emailVerified" | "createdAt" | "lastActive", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "passwordHash" | "name" | "company" | "role" | "avatarUrl" | "anthropicToken" | "slackToken" | "emailVerified" | "createdAt" | "lastActive" | "githubToken", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   chatMessages?: boolean | Prisma.User$chatMessagesArgs<ExtArgs>
+  projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   tasks?: boolean | Prisma.User$tasksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -959,8 +959,8 @@ export type UserIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
 export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "User"
   objects: {
-    projects: Prisma.$ProjectPayload<ExtArgs>[]
     chatMessages: Prisma.$ChatMessagePayload<ExtArgs>[]
+    projects: Prisma.$ProjectPayload<ExtArgs>[]
     tasks: Prisma.$TaskPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -973,10 +973,10 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     avatarUrl: string | null
     anthropicToken: string | null
     slackToken: string | null
-    githubToken: string | null
     emailVerified: boolean
     createdAt: Date
     lastActive: Date
+    githubToken: string | null
   }, ExtArgs["result"]["user"]>
   composites: {}
 }
@@ -1371,8 +1371,8 @@ readonly fields: UserFieldRefs;
  */
 export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  projects<T extends Prisma.User$projectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$projectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   chatMessages<T extends Prisma.User$chatMessagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$chatMessagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ChatMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  projects<T extends Prisma.User$projectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$projectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tasks<T extends Prisma.User$tasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1412,10 +1412,10 @@ export interface UserFieldRefs {
   readonly avatarUrl: Prisma.FieldRef<"User", 'String'>
   readonly anthropicToken: Prisma.FieldRef<"User", 'String'>
   readonly slackToken: Prisma.FieldRef<"User", 'String'>
-  readonly githubToken: Prisma.FieldRef<"User", 'String'>
   readonly emailVerified: Prisma.FieldRef<"User", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly lastActive: Prisma.FieldRef<"User", 'DateTime'>
+  readonly githubToken: Prisma.FieldRef<"User", 'String'>
 }
     
 
@@ -1809,30 +1809,6 @@ export type UserDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Internal
 }
 
 /**
- * User.projects
- */
-export type User$projectsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the Project
-   */
-  select?: Prisma.ProjectSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the Project
-   */
-  omit?: Prisma.ProjectOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.ProjectInclude<ExtArgs> | null
-  where?: Prisma.ProjectWhereInput
-  orderBy?: Prisma.ProjectOrderByWithRelationInput | Prisma.ProjectOrderByWithRelationInput[]
-  cursor?: Prisma.ProjectWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.ProjectScalarFieldEnum | Prisma.ProjectScalarFieldEnum[]
-}
-
-/**
  * User.chatMessages
  */
 export type User$chatMessagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1854,6 +1830,30 @@ export type User$chatMessagesArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.ChatMessageScalarFieldEnum | Prisma.ChatMessageScalarFieldEnum[]
+}
+
+/**
+ * User.projects
+ */
+export type User$projectsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Project
+   */
+  select?: Prisma.ProjectSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Project
+   */
+  omit?: Prisma.ProjectOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ProjectInclude<ExtArgs> | null
+  where?: Prisma.ProjectWhereInput
+  orderBy?: Prisma.ProjectOrderByWithRelationInput | Prisma.ProjectOrderByWithRelationInput[]
+  cursor?: Prisma.ProjectWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ProjectScalarFieldEnum | Prisma.ProjectScalarFieldEnum[]
 }
 
 /**

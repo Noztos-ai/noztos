@@ -16,7 +16,9 @@
       "Bash(node -e ':*)",
       "Bash(ls /Users/viniciosfernandes/Desktop/projects/bornastar/proxy*)",
       "Bash(ls /Users/viniciosfernandes/Desktop/projects/bornastar/next.config*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Read(//Users/viniciosfernandes/Desktop/projects/**)",
+      "Bash(git clone:*)"
     ],
     "additionalDirectories": [
       "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]",

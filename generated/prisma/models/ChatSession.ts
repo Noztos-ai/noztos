@@ -30,6 +30,7 @@ export type ChatSessionMinAggregateOutputType = {
   userId: string | null
   name: string | null
   status: string | null
+  permissionMode: $Enums.PermissionMode | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -40,6 +41,7 @@ export type ChatSessionMaxAggregateOutputType = {
   userId: string | null
   name: string | null
   status: string | null
+  permissionMode: $Enums.PermissionMode | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -50,6 +52,7 @@ export type ChatSessionCountAggregateOutputType = {
   userId: number
   name: number
   status: number
+  permissionMode: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -62,6 +65,7 @@ export type ChatSessionMinAggregateInputType = {
   userId?: true
   name?: true
   status?: true
+  permissionMode?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -72,6 +76,7 @@ export type ChatSessionMaxAggregateInputType = {
   userId?: true
   name?: true
   status?: true
+  permissionMode?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -82,6 +87,7 @@ export type ChatSessionCountAggregateInputType = {
   userId?: true
   name?: true
   status?: true
+  permissionMode?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -165,6 +171,7 @@ export type ChatSessionGroupByOutputType = {
   userId: string
   name: string
   status: string
+  permissionMode: $Enums.PermissionMode
   createdAt: Date
   updatedAt: Date
   _count: ChatSessionCountAggregateOutputType | null
@@ -196,10 +203,11 @@ export type ChatSessionWhereInput = {
   userId?: Prisma.StringFilter<"ChatSession"> | string
   name?: Prisma.StringFilter<"ChatSession"> | string
   status?: Prisma.StringFilter<"ChatSession"> | string
+  permissionMode?: Prisma.EnumPermissionModeFilter<"ChatSession"> | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFilter<"ChatSession"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ChatSession"> | Date | string
-  project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
   messages?: Prisma.ChatMessageListRelationFilter
+  project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
 }
 
 export type ChatSessionOrderByWithRelationInput = {
@@ -208,10 +216,11 @@ export type ChatSessionOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  permissionMode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  project?: Prisma.ProjectOrderByWithRelationInput
   messages?: Prisma.ChatMessageOrderByRelationAggregateInput
+  project?: Prisma.ProjectOrderByWithRelationInput
 }
 
 export type ChatSessionWhereUniqueInput = Prisma.AtLeast<{
@@ -223,10 +232,11 @@ export type ChatSessionWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringFilter<"ChatSession"> | string
   name?: Prisma.StringFilter<"ChatSession"> | string
   status?: Prisma.StringFilter<"ChatSession"> | string
+  permissionMode?: Prisma.EnumPermissionModeFilter<"ChatSession"> | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFilter<"ChatSession"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ChatSession"> | Date | string
-  project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
   messages?: Prisma.ChatMessageListRelationFilter
+  project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
 }, "id">
 
 export type ChatSessionOrderByWithAggregationInput = {
@@ -235,6 +245,7 @@ export type ChatSessionOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  permissionMode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.ChatSessionCountOrderByAggregateInput
@@ -251,6 +262,7 @@ export type ChatSessionScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringWithAggregatesFilter<"ChatSession"> | string
   name?: Prisma.StringWithAggregatesFilter<"ChatSession"> | string
   status?: Prisma.StringWithAggregatesFilter<"ChatSession"> | string
+  permissionMode?: Prisma.EnumPermissionModeWithAggregatesFilter<"ChatSession"> | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ChatSession"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ChatSession"> | Date | string
 }
@@ -260,10 +272,11 @@ export type ChatSessionCreateInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
-  project: Prisma.ProjectCreateNestedOneWithoutChatSessionsInput
   messages?: Prisma.ChatMessageCreateNestedManyWithoutSessionInput
+  project: Prisma.ProjectCreateNestedOneWithoutChatSessionsInput
 }
 
 export type ChatSessionUncheckedCreateInput = {
@@ -272,6 +285,7 @@ export type ChatSessionUncheckedCreateInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
   messages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutSessionInput
@@ -282,10 +296,11 @@ export type ChatSessionUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  project?: Prisma.ProjectUpdateOneRequiredWithoutChatSessionsNestedInput
   messages?: Prisma.ChatMessageUpdateManyWithoutSessionNestedInput
+  project?: Prisma.ProjectUpdateOneRequiredWithoutChatSessionsNestedInput
 }
 
 export type ChatSessionUncheckedUpdateInput = {
@@ -294,6 +309,7 @@ export type ChatSessionUncheckedUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   messages?: Prisma.ChatMessageUncheckedUpdateManyWithoutSessionNestedInput
@@ -305,6 +321,7 @@ export type ChatSessionCreateManyInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -314,6 +331,7 @@ export type ChatSessionUpdateManyMutationInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -324,6 +342,7 @@ export type ChatSessionUncheckedUpdateManyInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -344,6 +363,7 @@ export type ChatSessionCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  permissionMode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -354,6 +374,7 @@ export type ChatSessionMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  permissionMode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -364,6 +385,7 @@ export type ChatSessionMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  permissionMode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -415,6 +437,10 @@ export type ChatSessionUncheckedUpdateManyWithoutProjectNestedInput = {
   deleteMany?: Prisma.ChatSessionScalarWhereInput | Prisma.ChatSessionScalarWhereInput[]
 }
 
+export type EnumPermissionModeFieldUpdateOperationsInput = {
+  set?: $Enums.PermissionMode
+}
+
 export type ChatSessionCreateNestedOneWithoutMessagesInput = {
   create?: Prisma.XOR<Prisma.ChatSessionCreateWithoutMessagesInput, Prisma.ChatSessionUncheckedCreateWithoutMessagesInput>
   connectOrCreate?: Prisma.ChatSessionCreateOrConnectWithoutMessagesInput
@@ -436,6 +462,7 @@ export type ChatSessionCreateWithoutProjectInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
   messages?: Prisma.ChatMessageCreateNestedManyWithoutSessionInput
@@ -446,6 +473,7 @@ export type ChatSessionUncheckedCreateWithoutProjectInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
   messages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutSessionInput
@@ -486,6 +514,7 @@ export type ChatSessionScalarWhereInput = {
   userId?: Prisma.StringFilter<"ChatSession"> | string
   name?: Prisma.StringFilter<"ChatSession"> | string
   status?: Prisma.StringFilter<"ChatSession"> | string
+  permissionMode?: Prisma.EnumPermissionModeFilter<"ChatSession"> | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFilter<"ChatSession"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ChatSession"> | Date | string
 }
@@ -495,6 +524,7 @@ export type ChatSessionCreateWithoutMessagesInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
   project: Prisma.ProjectCreateNestedOneWithoutChatSessionsInput
@@ -506,6 +536,7 @@ export type ChatSessionUncheckedCreateWithoutMessagesInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -531,6 +562,7 @@ export type ChatSessionUpdateWithoutMessagesInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneRequiredWithoutChatSessionsNestedInput
@@ -542,6 +574,7 @@ export type ChatSessionUncheckedUpdateWithoutMessagesInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -551,6 +584,7 @@ export type ChatSessionCreateManyProjectInput = {
   userId: string
   name?: string
   status?: string
+  permissionMode?: $Enums.PermissionMode
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -560,6 +594,7 @@ export type ChatSessionUpdateWithoutProjectInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   messages?: Prisma.ChatMessageUpdateManyWithoutSessionNestedInput
@@ -570,6 +605,7 @@ export type ChatSessionUncheckedUpdateWithoutProjectInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   messages?: Prisma.ChatMessageUncheckedUpdateManyWithoutSessionNestedInput
@@ -580,6 +616,7 @@ export type ChatSessionUncheckedUpdateManyWithoutProjectInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.StringFieldUpdateOperationsInput | string
+  permissionMode?: Prisma.EnumPermissionModeFieldUpdateOperationsInput | $Enums.PermissionMode
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -621,10 +658,11 @@ export type ChatSessionSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   userId?: boolean
   name?: boolean
   status?: boolean
+  permissionMode?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   messages?: boolean | Prisma.ChatSession$messagesArgs<ExtArgs>
+  project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.ChatSessionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["chatSession"]>
 
@@ -634,6 +672,7 @@ export type ChatSessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   userId?: boolean
   name?: boolean
   status?: boolean
+  permissionMode?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
@@ -645,6 +684,7 @@ export type ChatSessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   userId?: boolean
   name?: boolean
   status?: boolean
+  permissionMode?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
@@ -656,14 +696,15 @@ export type ChatSessionSelectScalar = {
   userId?: boolean
   name?: boolean
   status?: boolean
+  permissionMode?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ChatSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "userId" | "name" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["chatSession"]>
+export type ChatSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "userId" | "name" | "status" | "permissionMode" | "createdAt" | "updatedAt", ExtArgs["result"]["chatSession"]>
 export type ChatSessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   messages?: boolean | Prisma.ChatSession$messagesArgs<ExtArgs>
+  project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   _count?: boolean | Prisma.ChatSessionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ChatSessionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -676,8 +717,8 @@ export type ChatSessionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.
 export type $ChatSessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ChatSession"
   objects: {
-    project: Prisma.$ProjectPayload<ExtArgs>
     messages: Prisma.$ChatMessagePayload<ExtArgs>[]
+    project: Prisma.$ProjectPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -685,6 +726,7 @@ export type $ChatSessionPayload<ExtArgs extends runtime.Types.Extensions.Interna
     userId: string
     name: string
     status: string
+    permissionMode: $Enums.PermissionMode
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["chatSession"]>
@@ -1081,8 +1123,8 @@ readonly fields: ChatSessionFieldRefs;
  */
 export interface Prisma__ChatSessionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  project<T extends Prisma.ProjectDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProjectDefaultArgs<ExtArgs>>): Prisma.Prisma__ProjectClient<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   messages<T extends Prisma.ChatSession$messagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ChatSession$messagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ChatMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  project<T extends Prisma.ProjectDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProjectDefaultArgs<ExtArgs>>): Prisma.Prisma__ProjectClient<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1117,6 +1159,7 @@ export interface ChatSessionFieldRefs {
   readonly userId: Prisma.FieldRef<"ChatSession", 'String'>
   readonly name: Prisma.FieldRef<"ChatSession", 'String'>
   readonly status: Prisma.FieldRef<"ChatSession", 'String'>
+  readonly permissionMode: Prisma.FieldRef<"ChatSession", 'PermissionMode'>
   readonly createdAt: Prisma.FieldRef<"ChatSession", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"ChatSession", 'DateTime'>
 }

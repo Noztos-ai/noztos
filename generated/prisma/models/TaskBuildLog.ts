@@ -248,8 +248,8 @@ export type TaskBuildLogWhereInput = {
   technicalDecisions?: Prisma.StringNullableFilter<"TaskBuildLog"> | string | null
   rawLog?: Prisma.StringNullableFilter<"TaskBuildLog"> | string | null
   createdAt?: Prisma.DateTimeFilter<"TaskBuildLog"> | Date | string
-  task?: Prisma.XOR<Prisma.TaskScalarRelationFilter, Prisma.TaskWhereInput>
   iteration?: Prisma.XOR<Prisma.TaskIterationNullableScalarRelationFilter, Prisma.TaskIterationWhereInput> | null
+  task?: Prisma.XOR<Prisma.TaskScalarRelationFilter, Prisma.TaskWhereInput>
 }
 
 export type TaskBuildLogOrderByWithRelationInput = {
@@ -262,8 +262,8 @@ export type TaskBuildLogOrderByWithRelationInput = {
   technicalDecisions?: Prisma.SortOrderInput | Prisma.SortOrder
   rawLog?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
-  task?: Prisma.TaskOrderByWithRelationInput
   iteration?: Prisma.TaskIterationOrderByWithRelationInput
+  task?: Prisma.TaskOrderByWithRelationInput
 }
 
 export type TaskBuildLogWhereUniqueInput = Prisma.AtLeast<{
@@ -279,8 +279,8 @@ export type TaskBuildLogWhereUniqueInput = Prisma.AtLeast<{
   technicalDecisions?: Prisma.StringNullableFilter<"TaskBuildLog"> | string | null
   rawLog?: Prisma.StringNullableFilter<"TaskBuildLog"> | string | null
   createdAt?: Prisma.DateTimeFilter<"TaskBuildLog"> | Date | string
-  task?: Prisma.XOR<Prisma.TaskScalarRelationFilter, Prisma.TaskWhereInput>
   iteration?: Prisma.XOR<Prisma.TaskIterationNullableScalarRelationFilter, Prisma.TaskIterationWhereInput> | null
+  task?: Prisma.XOR<Prisma.TaskScalarRelationFilter, Prisma.TaskWhereInput>
 }, "id">
 
 export type TaskBuildLogOrderByWithAggregationInput = {
@@ -323,8 +323,8 @@ export type TaskBuildLogCreateInput = {
   technicalDecisions?: string | null
   rawLog?: string | null
   createdAt?: Date | string
-  task: Prisma.TaskCreateNestedOneWithoutBuildLogsInput
   iteration?: Prisma.TaskIterationCreateNestedOneWithoutBuildLogsInput
+  task: Prisma.TaskCreateNestedOneWithoutBuildLogsInput
 }
 
 export type TaskBuildLogUncheckedCreateInput = {
@@ -347,8 +347,8 @@ export type TaskBuildLogUpdateInput = {
   technicalDecisions?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rawLog?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  task?: Prisma.TaskUpdateOneRequiredWithoutBuildLogsNestedInput
   iteration?: Prisma.TaskIterationUpdateOneWithoutBuildLogsNestedInput
+  task?: Prisma.TaskUpdateOneRequiredWithoutBuildLogsNestedInput
 }
 
 export type TaskBuildLogUncheckedUpdateInput = {
@@ -746,8 +746,8 @@ export type TaskBuildLogSelect<ExtArgs extends runtime.Types.Extensions.Internal
   technicalDecisions?: boolean
   rawLog?: boolean
   createdAt?: boolean
-  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
   iteration?: boolean | Prisma.TaskBuildLog$iterationArgs<ExtArgs>
+  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["taskBuildLog"]>
 
 export type TaskBuildLogSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -760,8 +760,8 @@ export type TaskBuildLogSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   technicalDecisions?: boolean
   rawLog?: boolean
   createdAt?: boolean
-  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
   iteration?: boolean | Prisma.TaskBuildLog$iterationArgs<ExtArgs>
+  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["taskBuildLog"]>
 
 export type TaskBuildLogSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -774,8 +774,8 @@ export type TaskBuildLogSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   technicalDecisions?: boolean
   rawLog?: boolean
   createdAt?: boolean
-  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
   iteration?: boolean | Prisma.TaskBuildLog$iterationArgs<ExtArgs>
+  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["taskBuildLog"]>
 
 export type TaskBuildLogSelectScalar = {
@@ -792,23 +792,23 @@ export type TaskBuildLogSelectScalar = {
 
 export type TaskBuildLogOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "taskId" | "iterationId" | "filesTouched" | "linesAdded" | "linesRemoved" | "technicalDecisions" | "rawLog" | "createdAt", ExtArgs["result"]["taskBuildLog"]>
 export type TaskBuildLogInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
   iteration?: boolean | Prisma.TaskBuildLog$iterationArgs<ExtArgs>
+  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
 }
 export type TaskBuildLogIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
   iteration?: boolean | Prisma.TaskBuildLog$iterationArgs<ExtArgs>
+  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
 }
 export type TaskBuildLogIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
   iteration?: boolean | Prisma.TaskBuildLog$iterationArgs<ExtArgs>
+  task?: boolean | Prisma.TaskDefaultArgs<ExtArgs>
 }
 
 export type $TaskBuildLogPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "TaskBuildLog"
   objects: {
-    task: Prisma.$TaskPayload<ExtArgs>
     iteration: Prisma.$TaskIterationPayload<ExtArgs> | null
+    task: Prisma.$TaskPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1214,8 +1214,8 @@ readonly fields: TaskBuildLogFieldRefs;
  */
 export interface Prisma__TaskBuildLogClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  task<T extends Prisma.TaskDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TaskDefaultArgs<ExtArgs>>): Prisma.Prisma__TaskClient<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   iteration<T extends Prisma.TaskBuildLog$iterationArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TaskBuildLog$iterationArgs<ExtArgs>>): Prisma.Prisma__TaskIterationClient<runtime.Types.Result.GetResult<Prisma.$TaskIterationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  task<T extends Prisma.TaskDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TaskDefaultArgs<ExtArgs>>): Prisma.Prisma__TaskClient<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.

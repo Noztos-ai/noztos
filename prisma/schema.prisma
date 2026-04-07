@@ -130,15 +130,16 @@ model Team {
 }
 
 model ChatSession {
-  id        String        @id @default(cuid())
-  projectId String
-  userId    String
-  name      String        @default("New Chat")
-  status    String        @default("open")
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  messages  ChatMessage[]
-  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  projectId      String
+  userId         String
+  name           String         @default("New Chat")
+  status         String         @default("open")
+  permissionMode PermissionMode @default(leitura)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  messages       ChatMessage[]
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, status])
   @@map("chat_sessions")
@@ -173,6 +174,7 @@ model Task {
   context             Json             @default("{}")
   accumulatedContext  Json             @default("{}")
   canModifyRepo       Boolean          @default(false)
+  permissionMode      PermissionMode   @default(edicao)
   executorType        ExecutorType     @default(no_skill)
   executorId          String?
   status              TaskStatus       @default(pending)
@@ -347,4 +349,10 @@ enum ExecutorType {
   no_skill
   skill
   team
+}
+
+enum PermissionMode {
+  leitura
+  planejamento
+  edicao
 }

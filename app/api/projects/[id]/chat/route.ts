@@ -55,6 +55,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     sessionId?: string
     model?: string
     thinkingBudget?: number
+    permissionMode?: 'leitura' | 'planejamento' | 'edicao'
   }
   try {
     body = await request.json()
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     sessionId: body.sessionId,
     model: body.model,
     thinkingBudget: body.thinkingBudget,
+    permissionMode: body.permissionMode ?? 'leitura',
   }
 
   if (body.mode === 'team') {

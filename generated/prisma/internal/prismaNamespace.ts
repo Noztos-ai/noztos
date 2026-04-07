@@ -1727,10 +1727,10 @@ export const UserScalarFieldEnum = {
   avatarUrl: 'avatarUrl',
   anthropicToken: 'anthropicToken',
   slackToken: 'slackToken',
-  githubToken: 'githubToken',
   emailVerified: 'emailVerified',
   createdAt: 'createdAt',
-  lastActive: 'lastActive'
+  lastActive: 'lastActive',
+  githubToken: 'githubToken'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -1743,9 +1743,9 @@ export const ProjectScalarFieldEnum = {
   repositoryPath: 'repositoryPath',
   slackChannel: 'slackChannel',
   slackWebhook: 'slackWebhook',
-  queueStatus: 'queueStatus',
+  createdAt: 'createdAt',
   lastActivityAt: 'lastActivityAt',
-  createdAt: 'createdAt'
+  queueStatus: 'queueStatus'
 } as const
 
 export type ProjectScalarFieldEnum = (typeof ProjectScalarFieldEnum)[keyof typeof ProjectScalarFieldEnum]
@@ -1759,13 +1759,13 @@ export const RepositoryScalarFieldEnum = {
   githubBranch: 'githubBranch',
   lastSyncedSha: 'lastSyncedSha',
   lastSyncedAt: 'lastSyncedAt',
-  sandboxId: 'sandboxId',
-  sandboxStatus: 'sandboxStatus',
-  sandboxStartedAt: 'sandboxStartedAt',
+  createdAt: 'createdAt',
+  lockedAt: 'lockedAt',
   lockedBy: 'lockedBy',
   lockedByTaskId: 'lockedByTaskId',
-  lockedAt: 'lockedAt',
-  createdAt: 'createdAt'
+  sandboxId: 'sandboxId',
+  sandboxStartedAt: 'sandboxStartedAt',
+  sandboxStatus: 'sandboxStatus'
 } as const
 
 export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof typeof RepositoryScalarFieldEnum]
@@ -1824,6 +1824,7 @@ export const ChatSessionScalarFieldEnum = {
   userId: 'userId',
   name: 'name',
   status: 'status',
+  permissionMode: 'permissionMode',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1835,13 +1836,13 @@ export const ChatMessageScalarFieldEnum = {
   id: 'id',
   projectId: 'projectId',
   userId: 'userId',
-  sessionId: 'sessionId',
   content: 'content',
   sender: 'sender',
   activeSkillId: 'activeSkillId',
   mode: 'mode',
-  report: 'report',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  sessionId: 'sessionId',
+  report: 'report'
 } as const
 
 export type ChatMessageScalarFieldEnum = (typeof ChatMessageScalarFieldEnum)[keyof typeof ChatMessageScalarFieldEnum]
@@ -1856,21 +1857,22 @@ export const TaskScalarFieldEnum = {
   context: 'context',
   accumulatedContext: 'accumulatedContext',
   canModifyRepo: 'canModifyRepo',
+  permissionMode: 'permissionMode',
   executorType: 'executorType',
   executorId: 'executorId',
   status: 'status',
   isRecurring: 'isRecurring',
   recurrenceConfig: 'recurrenceConfig',
   scheduledAt: 'scheduledAt',
-  originalScheduledAt: 'originalScheduledAt',
-  rescheduledReason: 'rescheduledReason',
-  rescheduledCount: 'rescheduledCount',
-  queuePosition: 'queuePosition',
   pausedAt: 'pausedAt',
   pausedAtIteration: 'pausedAtIteration',
   pausedAtEmployee: 'pausedAtEmployee',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  queuePosition: 'queuePosition',
+  originalScheduledAt: 'originalScheduledAt',
+  rescheduledCount: 'rescheduledCount',
+  rescheduledReason: 'rescheduledReason'
 } as const
 
 export type TaskScalarFieldEnum = (typeof TaskScalarFieldEnum)[keyof typeof TaskScalarFieldEnum]
@@ -2117,6 +2119,20 @@ export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'J
  * Reference to a field of type 'QueryMode'
  */
 export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
+ * Reference to a field of type 'PermissionMode'
+ */
+export type EnumPermissionModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PermissionMode'>
+    
+
+
+/**
+ * Reference to a field of type 'PermissionMode[]'
+ */
+export type ListEnumPermissionModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PermissionMode[]'>
     
 
 

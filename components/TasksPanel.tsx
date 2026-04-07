@@ -3300,6 +3300,7 @@ function CreateTaskModal({
   const [executorType, setExecutorType] = useState<'skill' | 'team'>('skill')
   const [executorId, setExecutorId] = useState('')
   const [model, setModel] = useState('sonnet')
+  const [permissionMode, setPermissionMode] = useState<'leitura' | 'planejamento' | 'edicao'>('edicao')
   const [scheduleType, setScheduleType] = useState<'anytime' | 'fixed' | 'recurring'>('anytime')
   const [intervalDays, setIntervalDays] = useState('7')
   const [submitting, setSubmitting] = useState(false)
@@ -3342,6 +3343,7 @@ function CreateTaskModal({
         scheduledAt: getScheduledAt(),
         isRecurring: scheduleType === 'recurring',
         recurrenceConfig: scheduleType === 'recurring' ? { intervalDays: parseInt(intervalDays) || 7 } : undefined,
+        permissionMode,
         accumulatedContext: { model, intent: taskIntent },
         context: {
           source: 'manual',
@@ -3449,6 +3451,23 @@ function CreateTaskModal({
               {[{ id: 'haiku', label: 'Haiku', desc: 'Fast, cheap' }, { id: 'sonnet', label: 'Sonnet', desc: 'Balanced' }, { id: 'opus', label: 'Opus', desc: 'Most capable' }].map((m) => (
                 <button key={m.id} onClick={() => setModel(m.id)} className={`flex-1 rounded-lg border px-3 py-2 text-left transition-all ${model === m.id ? 'border-violet-500/50 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}>
                   <p className={`text-xs font-medium ${model === m.id ? 'text-violet-300' : 'text-zinc-400'}`}>{m.label}</p>
+                  <p className="text-[10px] text-zinc-600">{m.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Permission Mode */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Mode</p>
+            <div className="flex gap-2">
+              {([
+                { id: 'leitura', label: 'Leitura', desc: 'Só lê e analisa' },
+                { id: 'planejamento', label: 'Planejamento', desc: 'Planeja, não executa' },
+                { id: 'edicao', label: 'Edição', desc: 'Acesso total' },
+              ] as const).map((m) => (
+                <button key={m.id} onClick={() => setPermissionMode(m.id)} className={`flex-1 rounded-lg border px-3 py-2 text-left transition-all ${permissionMode === m.id ? 'border-violet-500/50 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                  <p className={`text-xs font-medium ${permissionMode === m.id ? 'text-violet-300' : 'text-zinc-400'}`}>{m.label}</p>
                   <p className="text-[10px] text-zinc-600">{m.desc}</p>
                 </button>
               ))}

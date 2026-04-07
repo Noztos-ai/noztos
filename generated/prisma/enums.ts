@@ -35,3 +35,12 @@ export const ExecutorType = {
 } as const
 
 export type ExecutorType = (typeof ExecutorType)[keyof typeof ExecutorType]
+
+
+export const PermissionMode = {
+  leitura: 'leitura',
+  planejamento: 'planejamento',
+  edicao: 'edicao'
+} as const
+
+export type PermissionMode = (typeof PermissionMode)[keyof typeof PermissionMode]

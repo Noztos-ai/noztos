@@ -37,7 +37,8 @@ export type ThinkingLevel = keyof typeof THINKING_PRESETS
 
 interface CallOptions {
   encryptedToken: string
-  systemPrompt: string
+  systemPrompt?: string    // legacy single block (still supported)
+  systemParts?: string[]   // preferred: multiple blocks, each cached separately
   userMessage: string
   model?: string
   maxTokens?: number
@@ -69,17 +70,18 @@ export async function callAnthropic(options: CallOptions): Promise<{
     throw new Error('Failed to decrypt Anthropic token')
   }
 
-  // Build system prompt with caching
+  // Build system prompt with caching.
+  // Multi-block (systemParts): each part gets its own cache_control so
+  // Anthropic can cache block 0 (base.md) independently of block 1 (mode).
+  // A mode change still hits cache for base.md — saves real tokens per turn.
   const systemBlocks: { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }[] = []
 
-  // System prompt — always cached
-  systemBlocks.push({
-    type: 'text',
-    text: options.systemPrompt,
-    cache_control: { type: 'ephemeral' },
-  })
+  const parts = options.systemParts ?? (options.systemPrompt ? [options.systemPrompt] : [])
+  for (const part of parts) {
+    systemBlocks.push({ type: 'text', text: part, cache_control: { type: 'ephemeral' } })
+  }
 
-  // Compact summary — cached if present
+  // Compact summary — cached after all system parts
   if (options.compactSummary) {
     systemBlocks.push({
       type: 'text',
@@ -175,7 +177,8 @@ interface ToolCallMessage {
 
 interface ToolCallOptions {
   encryptedToken: string
-  systemPrompt: string
+  systemPrompt?: string    // legacy single block
+  systemParts?: string[]   // preferred: multiple blocks, each cached separately
   messages: ToolCallMessage[]
   tools: ToolDefinition[]
   model?: string
@@ -202,10 +205,12 @@ export async function callAnthropicWithTools(options: ToolCallOptions): Promise<
   const apiKey = decrypt(options.encryptedToken)
   if (!apiKey) throw new Error('Failed to decrypt Anthropic token')
 
-  // System prompt as cached blocks (same format as callAnthropic)
-  const systemBlocks: { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }[] = [
-    { type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } },
-  ]
+  // System prompt as cached blocks — multi-block when systemParts provided
+  const systemBlocks: { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }[] = []
+  const toolParts = options.systemParts ?? (options.systemPrompt ? [options.systemPrompt] : [])
+  for (const part of toolParts) {
+    systemBlocks.push({ type: 'text', text: part, cache_control: { type: 'ephemeral' } })
+  }
 
   const body: Record<string, unknown> = {
     model: options.model ?? DEFAULT_MODEL,

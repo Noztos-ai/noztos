@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import { callAnthropic, callAnthropicWithTools, MODELS } from '@/lib/anthropic'
 import { createBuildSession, endBuildSession, REPO_TOOLS, READ_TOOLS, executeTool } from '@/lib/tools'
-import type { ContentBlock, ToolCallMessage } from '@/lib/anthropic'
+import type { ContentBlock, ToolCallMessage, ToolDefinition } from '@/lib/anthropic'
 import type { ChatReport, ReportEtapa, ReportStep, ReportBuildDetails, ReportToolCall } from '@/lib/report-types'
 import { getRepoLockStatus, getLockerTaskName, acquireRepoLock, releaseRepoLock, touchProjectActivity } from '@/lib/repo-lock'
 import {
@@ -11,10 +11,46 @@ import {
   buildTeamMemberPrompt,
   buildTeamBuilderPrompt,
   buildClassifiedPrompt,
+  buildEnvironmentBlock,
+  getBasePrompt,
   getSkillPrompt,
+  getModePrompt,
   SKILL_NAMES,
+  type PermissionMode,
 } from '@/lib/prompts'
 import { classifyMessage, getModeFileName, type ConversationMessage } from '@/lib/classifier'
+import { maybeExtractSessionMemory, getSessionMemory } from '@/lib/session-memory'
+import { analyzeContext, logContextSuggestions } from '@/lib/context-analysis'
+
+// ── File Read Cache ────────────────────────────────────────────────────────
+// Deduplicates file reads within the same session. When the same file is
+// requested again within TTL, we skip the E2B round-trip and return cached
+// content — same pattern as Claude Code's FileStateCache.
+
+const FILE_READ_CACHE = new Map<string, { content: string; expiresAt: number }>()
+const FILE_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
+function getCachedFile(sessionId: string, filePath: string): string | null {
+  const key = `${sessionId}:${filePath}`
+  const entry = FILE_READ_CACHE.get(key)
+  if (!entry || Date.now() > entry.expiresAt) {
+    FILE_READ_CACHE.delete(key)
+    return null
+  }
+  return entry.content
+}
+
+function setCachedFile(sessionId: string, filePath: string, content: string): void {
+  const key = `${sessionId}:${filePath}`
+  FILE_READ_CACHE.set(key, { content, expiresAt: Date.now() + FILE_CACHE_TTL_MS })
+  // Prune expired entries when cache grows large
+  if (FILE_READ_CACHE.size > 300) {
+    const now = Date.now()
+    for (const [k, v] of FILE_READ_CACHE) {
+      if (now > v.expiresAt) FILE_READ_CACHE.delete(k)
+    }
+  }
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +72,7 @@ interface ChatRequest {
   sessionId?: string
   model?: string
   thinkingBudget?: number
+  permissionMode?: PermissionMode
 }
 
 interface ChatReply {
@@ -49,6 +86,8 @@ interface ChatReply {
 interface ChatResult {
   userMessage: ChatReply
   replies: ChatReply[]
+  permissionRequired?: boolean
+  permissionReason?: string
 }
 
 // TeamRun state shape (stored as JSON in DB)
@@ -311,12 +350,14 @@ export async function processChatSync(req: ChatRequest): Promise<ChatResult> {
 
   const userMessage = await saveMessage(req, 'user', req.content)
 
-  // If build is authorized, use build handlers (with file tools)
-  if (req.isBuild) {
-    if (req.mode === 'skill') {
-      return handleBuildWithSkill(req, user.anthropicToken, userMessage, compactSummary)
-    }
-    return handleBuildDirect(req, user.anthropicToken, userMessage, compactSummary)
+  // Edição mode: unified edit loop (prefetch + REPO_TOOLS + 30 iterations + report)
+  if (req.permissionMode === 'edicao') {
+    return handleEdit(req, user.anthropicToken, userMessage, compactSummary)
+  }
+
+  // Planejamento mode: Haiku classifies freely + when-planning-output.md always accompanies
+  if (req.permissionMode === 'planejamento') {
+    return handlePlan(req, user.anthropicToken, userMessage, compactSummary)
   }
 
   if (req.mode === 'skill') {
@@ -492,19 +533,38 @@ async function prefetchContext(req: ChatRequest, keywords: string[]): Promise<st
 
   // Step 3: Build structured context
   const sections: string[] = []
+  const sessionId = req.sessionId ?? req.projectId
 
-  // Project structure overview
-  const rootListing = await executeTool(repo.id, 'list_dir', { path: '' }, req.projectId)
-  if (!rootListing.isError && rootListing.result.trim()) {
-    sections.push(`## Project structure\n${rootListing.result}`)
+  // Project structure overview (cached per session)
+  const structureCacheKey = '__project_structure__'
+  let structure = getCachedFile(sessionId, structureCacheKey)
+  if (!structure) {
+    const rootListing = await executeTool(repo.id, 'list_dir', { path: '' }, req.projectId)
+    if (!rootListing.isError && rootListing.result.trim()) {
+      structure = rootListing.result
+      setCachedFile(sessionId, structureCacheKey, structure)
+    }
   }
+  if (structure) sections.push(`## Project structure\n${structure}`)
 
-  // Full content of each relevant file
+  // Full content of each relevant file — skip if already cached this session
+  let cacheHits = 0
   for (const filePath of topFiles) {
+    const cached = getCachedFile(sessionId, filePath)
+    if (cached) {
+      sections.push(`## ${filePath}\n\`\`\`\n${cached}\n\`\`\``)
+      cacheHits++
+      continue
+    }
     const file = await executeTool(repo.id, 'read_file', { path: filePath }, req.projectId)
     if (!file.isError && file.result.trim()) {
+      setCachedFile(sessionId, filePath, file.result)
       sections.push(`## ${filePath}\n\`\`\`\n${file.result}\n\`\`\``)
     }
+  }
+
+  if (cacheHits > 0) {
+    console.log(`[prefetch] ${cacheHits}/${topFiles.length} files served from cache`)
   }
 
   return sections.join('\n\n')
@@ -538,6 +598,250 @@ async function getRecentMessagesForClassifier(req: ChatRequest, limit = 4): Prom
   }
 }
 
+// ── Permission Mode Helpers ────────────────────────────────────────────────
+
+/**
+ * Returns the correct tool pool based on permission mode.
+ * Build sessions always get REPO_TOOLS regardless of mode.
+ */
+function getToolsForMode(permissionMode?: PermissionMode, isBuild?: boolean): ToolDefinition[] {
+  if (isBuild) return REPO_TOOLS as unknown as ToolDefinition[]
+  return (permissionMode === 'edicao' ? REPO_TOOLS : READ_TOOLS) as unknown as ToolDefinition[]
+}
+
+const PERMISSION_REQUEST_REGEX = /\[REQUEST_EDIT_PERMISSION:\s*(.+?)\]/i
+
+/**
+ * Detect if Claude is requesting edit permission in leitura mode.
+ * Returns { required: true, reason, cleaned } if found.
+ */
+function detectPermissionRequest(content: string): { required: boolean; reason: string; cleaned: string } {
+  const match = content.match(PERMISSION_REQUEST_REGEX)
+  if (!match) return { required: false, reason: '', cleaned: content }
+  return {
+    required: true,
+    reason: match[1].trim(),
+    cleaned: content.replace(PERMISSION_REQUEST_REGEX, '').trim(),
+  }
+}
+
+// ── Edit Mode (unified loop) ───────────────────────────────────────────────
+//
+// Best of both worlds:
+//   - Prefetch semantic context (from Ask) → Claude starts with relevant code
+//   - systemParts with cache blocks (from Ask) → cheaper API calls
+//   - 30 iterations (from Build) → enough for complex changes
+//   - Per-file step logging (from Build) → real-time visibility
+//   - Final report (from Build) → traceability
+//   - Repo lock while editing → prevents conflicts
+//   - No separate build session authorization — permission mode handles it
+
+async function handleEdit(req: ChatRequest, token: string, userMessage: ChatReply, _compactSummary: string | null = null): Promise<ChatResult> {
+  const buildStart = Date.now()
+
+  const repo = await prisma.repository.findUnique({ where: { projectId: req.projectId } })
+  if (!repo) {
+    const reply = await saveMessage(req, 'system', 'No repository connected. Clone a repo first.')
+    return { userMessage, replies: [reply] }
+  }
+
+  // Check repo lock
+  const lockStatus = await getRepoLockStatus(req.projectId)
+  if (lockStatus.locked && lockStatus.lockedBy === 'task') {
+    const taskName = await getLockerTaskName(req.projectId)
+    const reply = await saveMessage(req, 'system',
+      `Cannot edit — a task is currently running${taskName ? ` ("${taskName}")` : ''} and has the repository locked. Wait for it to finish or pause it in the Tasks tab.`
+    )
+    return { userMessage, replies: [reply] }
+  }
+
+  await acquireRepoLock(req.projectId, 'chat')
+
+  try {
+    // Classify + build prompt (same as Ask — mode-aware, cached blocks)
+    const recentMessages = await getRecentMessagesForClassifier(req)
+    const classification = await classifyMessage(req.content, token, recentMessages)
+    const modeFile = getModeFileName(classification.mode)
+    // isExecution=true → loads when-after-execution.md with edit-specific rules
+    const systemParts = [...buildClassifiedPrompt(modeFile, true), buildEnvironmentBlock(req.model, req.permissionMode)]
+    console.log(`[edit] Mode: ${classification.mode} | Parts: ${systemParts.length} | Prompt: ${systemParts.reduce((s, p) => s + p.length, 0)} chars`)
+
+    // Prefetch semantic context — Claude starts with relevant code already in hand
+    const context = await prefetchContext(req, classification.keywords)
+    const userContent = context
+      ? `${req.content}\n\n---\nRelevant code from the repository:\n${context}`
+      : req.content
+
+    // Run unified edit tool loop
+    const result = await runEditToolLoop({
+      encryptedToken: token,
+      systemParts,
+      userContent,
+      repositoryId: repo.id,
+      projectId: req.projectId,
+      chatReq: req,
+    })
+
+    const report: ChatReport = {
+      type: 'build',
+      mode: req.mode === 'skill' ? 'skill' : 'no_skill',
+      timestamp: new Date().toISOString(),
+      question: req.content,
+      build: {
+        executor: req.activeSkillId ? (SKILL_NAMES[req.activeSkillId] ?? req.activeSkillId) : 'Claude',
+        filesChanged: result.fileActions,
+        toolCalls: result.toolCalls,
+        reasoning: req.content.length > 1000 ? req.content.slice(0, 1000) + '...' : req.content,
+        summary: result.summary,
+        iterationCount: result.iterationCount,
+      },
+      conclusion: result.summary,
+      model: req.model,
+      totalDurationMs: Date.now() - buildStart,
+    }
+
+    const reply = await saveMessage(req, 'claude', result.summary, report)
+    return { userMessage, replies: [reply] }
+  } finally {
+    await releaseRepoLock(req.projectId, 'chat')
+  }
+}
+
+// ── Edit Tool Loop ─────────────────────────────────────────────────────────
+
+const MAX_EDIT_ITERATIONS = 30
+
+async function runEditToolLoop(options: {
+  encryptedToken: string
+  systemParts: string[]
+  userContent: string
+  repositoryId: string
+  projectId: string
+  chatReq: ChatRequest
+}): Promise<{ summary: string; fileActions: { path: string; action: 'write' | 'delete' }[]; toolCalls: ReportToolCall[]; iterationCount: number }> {
+  const messages: ToolCallMessage[] = [{ role: 'user', content: options.userContent }]
+  const allText: string[] = []
+  const fileActions: { path: string; action: 'write' | 'delete' }[] = []
+  const reportToolCalls: ReportToolCall[] = []
+  let iterationCount = 0
+
+  for (let i = 0; i < MAX_EDIT_ITERATIONS; i++) {
+    iterationCount++
+    const response = await callAnthropicWithTools({
+      encryptedToken: options.encryptedToken,
+      systemParts: options.systemParts,
+      messages,
+      tools: REPO_TOOLS as unknown as ToolDefinition[],
+      maxTokens: 8192,
+    })
+
+    for (const block of response.content) {
+      if (block.type === 'text') allText.push(block.text)
+    }
+
+    if (response.stopReason === 'end_turn' || response.stopReason === 'max_tokens') break
+
+    const toolUseBlocks = response.content.filter(
+      (b): b is Extract<ContentBlock, { type: 'tool_use' }> => b.type === 'tool_use'
+    )
+    if (toolUseBlocks.length === 0) break
+
+    messages.push({ role: 'assistant', content: response.content })
+
+    const toolResults: { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }[] = []
+
+    for (const toolCall of toolUseBlocks) {
+      // Log every tool call as a step — visible in real-time in chat
+      await saveMessage(options.chatReq, 'step', JSON.stringify({ type: 'tool_call', label: toolStepLabel(toolCall.name, toolCall.input) }))
+
+      const result = await executeTool(options.repositoryId, toolCall.name, toolCall.input, options.projectId)
+      toolResults.push({ type: 'tool_result', tool_use_id: toolCall.id, content: result.result, is_error: result.isError || undefined })
+
+      const toolPath = toolCall.input.path as string | undefined
+      reportToolCalls.push({ tool: toolCall.name, path: toolPath, action: `${toolCall.name}${toolPath ? ` → ${toolPath}` : ''}` })
+
+      if (toolCall.name === 'write_file' || toolCall.name === 'edit_file' || toolCall.name === 'delete_file') {
+        const filePath = toolCall.input.path as string
+        const action = toolCall.name === 'delete_file' ? 'delete' : 'write'
+        fileActions.push({ path: filePath, action })
+      }
+    }
+
+    messages.push({ role: 'user', content: toolResults as unknown as ContentBlock[] })
+  }
+
+  return {
+    summary: allText.join('\n\n') || 'Done.',
+    fileActions,
+    toolCalls: reportToolCalls,
+    iterationCount,
+  }
+}
+
+// ── Plan Mode ──────────────────────────────────────────────────────────────
+//
+// Always forces when-planning.md into the prompt regardless of Haiku's classification.
+// Uses READ_TOOLS — Claude reads the codebase to produce an accurate plan.
+// Never executes writes. No permission request needed — Plan mode never acts.
+
+async function handlePlan(req: ChatRequest, token: string, userMessage: ChatReply, _compactSummary: string | null = null): Promise<ChatResult> {
+  let content: string
+
+  try {
+    const recentMessages = await getRecentMessagesForClassifier(req)
+    const classification = await classifyMessage(req.content, token, recentMessages)
+
+    // Block 0: base.md — shared cache
+    // Block 1: classified mode (Haiku decides) + when-planning-output.md always
+    // Same pattern as Edit: mode tells Claude how to approach, planning-output tells how to format the result
+    const base = getBasePrompt()
+    const modeFile = getModeFileName(classification.mode)
+    const modePrompt = modeFile ? getModePrompt(modeFile) : null
+    const planningOutput = getModePrompt('when-planning-output.md')
+    const block1Parts = [...(modePrompt ? [modePrompt] : []), planningOutput].join('\n\n---\n\n')
+    const systemParts = [base, block1Parts, buildEnvironmentBlock(req.model, req.permissionMode)]
+
+    console.log(`[plan] Classified: ${classification.mode} | Keywords: [${classification.keywords.join(', ')}] | Prompt: ${systemParts.reduce((s, p) => s + p.length, 0)} chars`)
+
+    // Prefetch semantic context + READ_TOOLS — Claude reads to plan accurately
+    const context = await prefetchContext(req, classification.keywords)
+    const userContent = context
+      ? `${req.content}\n\n---\nRelevant code from the repository:\n${context}`
+      : req.content
+
+    const response = await callAnthropicWithTools({
+      encryptedToken: token,
+      systemParts,
+      messages: [{ role: 'user', content: userContent }],
+      tools: READ_TOOLS as unknown as ToolDefinition[],
+      maxTokens: 8192,
+    })
+    content = await processReadToolLoop(token, req, response, systemParts, READ_TOOLS as unknown as ToolDefinition[])
+  } catch (err) {
+    content = getChatErrorMessage(err)
+  }
+
+  const { cleanedResponse, created } = await detectAndCreateTask(content, req)
+  const replies: ChatReply[] = []
+  replies.push(await saveMessage(req, 'claude', cleanedResponse))
+  if (created === 'task') {
+    replies.push(await saveMessage(req, 'system', 'Task created — manage it in the Tasks tab.'))
+  }
+
+  if (req.sessionId) {
+    const allMessages = await prisma.chatMessage.findMany({
+      where: { sessionId: req.sessionId },
+      select: { content: true, sender: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    const ctxStats = analyzeContext(allMessages)
+    logContextSuggestions(ctxStats, req.sessionId)
+    maybeExtractSessionMemory(req.sessionId, req.projectId, req.userId, allMessages, token)
+  }
+
+  return { userMessage, replies }
+}
+
 // ── No Skill ───────────────────────────────────────────────────────────────
 
 async function handleNoSkill(req: ChatRequest, token: string, userMessage: ChatReply, compactSummary: string | null = null): Promise<ChatResult> {
@@ -549,35 +853,36 @@ async function handleNoSkill(req: ChatRequest, token: string, userMessage: ChatR
     // Classify the message to pick the right mode prompt + keywords
     const classification = await classifyMessage(req.content, token, recentMessages)
     const modeFile = getModeFileName(classification.mode)
-    const systemPrompt = buildClassifiedPrompt(modeFile, classification.execution)
-    console.log(`[prompt] Mode: ${classification.mode} → File: ${modeFile || 'none'} | Execution: ${classification.execution} | Keywords: [${classification.keywords.join(', ')}] | Prompt size: ${systemPrompt.length} chars`)
+    const systemParts = [...buildClassifiedPrompt(modeFile, classification.execution), buildEnvironmentBlock(req.model, req.permissionMode)]
+    const totalPromptSize = systemParts.reduce((s, p) => s + p.length, 0)
+    console.log(`[prompt] Mode: ${classification.mode} → File: ${modeFile || 'none'} | Permission: ${req.permissionMode ?? 'leitura'} | Parts: ${systemParts.length} | Prompt size: ${totalPromptSize} chars`)
 
-    if (classification.execution) {
-      // Execution mode — Claude explores freely with tool loop
-      const response = await callAnthropicWithTools({
-        encryptedToken: token,
-        systemPrompt,
-        messages: [{ role: 'user', content: req.content }],
-        tools: READ_TOOLS,
-        maxTokens: 8192,
-      })
-      content = await processReadToolLoop(token, req, response, systemPrompt)
-    } else {
-      // Read-only mode — pre-fetch context with keywords, one Claude call
-      const context = await prefetchContext(req, classification.keywords)
-      const userMessage = context
-        ? `${req.content}\n\n---\nRelevant code from the repository:\n${context}`
-        : req.content
-      const result = await callAnthropic({
-        encryptedToken: token,
-        systemPrompt,
-        userMessage,
-        maxTokens: 8192,
-      })
-      content = result.text
-    }
+    const tools = getToolsForMode(req.permissionMode, req.isBuild)
+
+    // Always: prefetch semantic context + give Claude tools to expand if needed.
+    // Claude decides whether to use the tools — if the prefetch is enough, it answers directly.
+    const context = await prefetchContext(req, classification.keywords)
+    const userContent = context
+      ? `${req.content}\n\n---\nRelevant code from the repository:\n${context}`
+      : req.content
+
+    const response = await callAnthropicWithTools({
+      encryptedToken: token,
+      systemParts,
+      messages: [{ role: 'user', content: userContent }],
+      tools,
+      maxTokens: 8192,
+    })
+    content = await processReadToolLoop(token, req, response, systemParts, tools)
   } catch (err) {
     content = getChatErrorMessage(err)
+  }
+
+  // Check if Claude is requesting edit permission (leitura mode)
+  const permCheck = detectPermissionRequest(content)
+  if (permCheck.required) {
+    const savedUser = await saveMessage(req, 'claude', permCheck.cleaned)
+    return { userMessage, replies: [savedUser], permissionRequired: true, permissionReason: permCheck.reason }
   }
 
   // Check if Claude proactively suggested a task/reminder
@@ -588,6 +893,18 @@ async function handleNoSkill(req: ChatRequest, token: string, userMessage: ChatR
     replies.push(await saveMessage(req, 'system', 'Task created — manage it in the Tasks tab.'))
   } else if (created === 'reminder') {
     replies.push(await saveMessage(req, 'system', 'Reminder created — find it in the Tasks tab.'))
+  }
+
+  // Fire-and-forget: context analysis + session memory — never blocks the response
+  if (req.sessionId) {
+    const allMessages = await prisma.chatMessage.findMany({
+      where: { sessionId: req.sessionId },
+      select: { content: true, sender: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    const ctxStats = analyzeContext(allMessages)
+    logContextSuggestions(ctxStats, req.sessionId)
+    maybeExtractSessionMemory(req.sessionId, req.projectId, req.userId, allMessages, token)
   }
 
   return { userMessage, replies }
@@ -610,22 +927,39 @@ async function handleSkill(req: ChatRequest, token: string, userMessage: ChatRep
     const recentMessages = await getRecentMessagesForClassifier(req)
     const classification = await classifyMessage(req.content, token, recentMessages)
     const modeFile = getModeFileName(classification.mode)
-    const systemPrompt = buildClassifiedPrompt(modeFile, classification.execution)
-    const fullPrompt = [getSkillPrompt(skillId), systemPrompt].join('\n\n---\n\n')
-    console.log(`[prompt] Skill: ${skillName} | Mode: ${classification.mode} → File: ${modeFile || 'none'} | Execution: ${classification.execution} | Prompt size: ${fullPrompt.length} chars`)
+    const [base, ...modeParts] = buildClassifiedPrompt(modeFile, classification.execution)
+    // base.md stays as block [0] alone — shared cache hit across ALL skills.
+    // skill prompt is block [1] — only this block changes on skill switch.
+    const systemParts = [base, getSkillPrompt(skillId), ...modeParts, buildEnvironmentBlock(req.model, req.permissionMode)]
+    const totalSize = systemParts.reduce((s, p) => s + p.length, 0)
+    console.log(`[prompt] Skill: ${skillName} | Mode: ${classification.mode} → File: ${modeFile || 'none'} | Permission: ${req.permissionMode ?? 'leitura'} | Parts: ${systemParts.length} | Prompt size: ${totalSize} chars`)
 
-    // Always has repo — give employee read tools
+    const tools = getToolsForMode(req.permissionMode, req.isBuild)
+
+    // Always: prefetch semantic context + give Claude tools to expand if needed.
+    const context = await prefetchContext(req, classification.keywords)
+    const userContent = context
+      ? `${req.content}\n\n---\nRelevant code from the repository:\n${context}`
+      : req.content
+
     const response = await callAnthropicWithTools({
       encryptedToken: token,
-      systemPrompt: fullPrompt,
-      messages: [{ role: 'user', content: req.content }],
-      tools: READ_TOOLS,
+      systemParts,
+      messages: [{ role: 'user', content: userContent }],
+      tools,
       maxTokens: 8192,
     })
-    content = await processReadToolLoop(token, req, response, fullPrompt)
+    content = await processReadToolLoop(token, req, response, systemParts, tools)
     if (!content.startsWith(`${skillName}:`)) content = `${skillName}: ${content}`
   } catch (err) {
     content = `${skillName}: ${getChatErrorMessage(err)}`
+  }
+
+  // Check if Claude is requesting edit permission (leitura mode)
+  const permCheck = detectPermissionRequest(content)
+  if (permCheck.required) {
+    const savedUser = await saveMessage(req, skillName, permCheck.cleaned)
+    return { userMessage, replies: [savedUser], permissionRequired: true, permissionReason: permCheck.reason }
   }
 
   // Check if employee proactively suggested a task/reminder
@@ -973,7 +1307,7 @@ async function handleBuildDirect(req: ChatRequest, token: string, userMessage: C
   }
 
   // Build mode — always execution, use after-execution prompt
-  const buildPrompt = buildClassifiedPrompt(null, true)
+  const buildPrompt = buildClassifiedPrompt(null, true).join('\n\n---\n\n')
 
   const result = await runBuildToolLoop({
     encryptedToken: token,
@@ -1025,7 +1359,7 @@ async function handleBuildWithSkill(req: ChatRequest, token: string, userMessage
   }
 
   // Build with skill — execution mode + skill prompt
-  const buildPrompt = [getSkillPrompt(skillId), buildClassifiedPrompt(null, true)].join('\n\n---\n\n')
+  const buildPrompt = [getSkillPrompt(skillId), ...buildClassifiedPrompt(null, true)].join('\n\n---\n\n')
 
   const result = await runBuildToolLoop({
     encryptedToken: token,
@@ -1203,7 +1537,8 @@ export async function getContextUsage(sessionId: string, modelKey: string = 'son
 }
 
 /**
- * Compact the conversation — summarize old messages, save as special message.
+ * Compact the conversation — uses session memory as structured context when available,
+ * falls back to full conversation summary otherwise.
  */
 export async function compactConversation(
   sessionId: string,
@@ -1213,25 +1548,46 @@ export async function compactConversation(
   modelKey: string = 'sonnet'
 ): Promise<string> {
   const messages = await prisma.chatMessage.findMany({
-    where: { sessionId, sender: { notIn: ['plan', 'step', 'compact'] } },
+    where: { sessionId, sender: { notIn: ['plan', 'step', 'compact', 'session_memory'] } },
     select: { content: true, sender: true },
     orderBy: { createdAt: 'asc' },
   })
 
-  const allText = messages.map((m) => `${m.sender}: ${m.content}`).join('\n\n')
-
   const modelId = MODELS[modelKey as keyof typeof MODELS]?.id
+
+  // Try session-memory-assisted compaction first
+  const sessionMemory = await getSessionMemory(sessionId)
 
   let summary: string
   try {
-    const result = await callAnthropic({
-      encryptedToken,
-      systemPrompt: 'You are a conversation compactor. Summarize the conversation below, keeping ALL technical decisions, code changes, file paths, architecture choices, errors encountered, and action items. Remove small talk and redundant back-and-forth. Be thorough — this summary replaces the original messages as context for future conversation.',
-      userMessage: allText,
-      model: modelId,
-    })
-    summary = result.text
+    if (sessionMemory) {
+      // Session memory path: structured notes + recent messages
+      // This is smarter — session memory already captured decisions and context
+      const recentMessages = messages.slice(-20) // last 20 messages
+      const recentText = recentMessages.map((m) => `${m.sender}: ${m.content}`).join('\n\n')
+
+      const result = await callAnthropic({
+        encryptedToken,
+        systemPrompt: 'You are a conversation compactor. You have structured session notes and recent messages. Produce a concise but complete context summary that preserves: all technical decisions, file paths, function names, errors and fixes, current state, and next steps. This summary replaces the conversation history as context.',
+        userMessage: `## Structured Session Notes\n\n${sessionMemory}\n\n---\n\n## Recent Messages\n\n${recentText}`,
+        model: modelId,
+      })
+      summary = result.text
+      console.log('[compact] Used session memory assisted compaction')
+    } else {
+      // Fallback: full conversation summary
+      const allText = messages.map((m) => `${m.sender}: ${m.content}`).join('\n\n')
+      const result = await callAnthropic({
+        encryptedToken,
+        systemPrompt: 'You are a conversation compactor. Summarize the conversation below, keeping ALL technical decisions, code changes, file paths, architecture choices, errors encountered, and action items. Remove small talk and redundant back-and-forth. Be thorough — this summary replaces the original messages as context for future conversation.',
+        userMessage: allText,
+        model: modelId,
+      })
+      summary = result.text
+      console.log('[compact] Used full conversation compaction (no session memory)')
+    }
   } catch {
+    const allText = messages.map((m) => m.content).join('\n')
     summary = allText.slice(-5000) // fallback: keep last ~5000 chars
   }
 
@@ -1250,6 +1606,35 @@ export async function compactConversation(
   return summary
 }
 
+// ── Tool Step Label ────────────────────────────────────────────────────────
+
+function toolStepLabel(toolName: string, input: Record<string, unknown>): string {
+  switch (toolName) {
+    case 'read_file':
+      return `Reading \`${input.path}\``
+    case 'list_dir':
+      return `Listing \`${input.path || '/'}\``
+    case 'search_files':
+      return `Searching for \`${input.query}\`${input.glob ? ` in \`${input.glob}\`` : ''}`
+    case 'glob':
+      return `Finding files matching \`${input.pattern}\``
+    case 'web_fetch':
+      return `Fetching \`${input.url}\``
+    case 'run_command_readonly':
+      return `Running \`${input.command}\``
+    case 'edit_file':
+      return `Editing \`${input.path}\``
+    case 'write_file':
+      return `Writing \`${input.path}\``
+    case 'delete_file':
+      return `Deleting \`${input.path}\``
+    case 'run_command':
+      return `Running \`${input.command}\``
+    default:
+      return `Using ${toolName}`
+  }
+}
+
 // ── Read-only tool loop (for conversation modes) ──────────────────────────
 
 const MAX_READ_ITERATIONS = 10
@@ -1258,8 +1643,16 @@ async function processReadToolLoop(
   token: string,
   req: ChatRequest,
   initialResponse: { content: ContentBlock[]; stopReason: string },
-  systemPrompt?: string,
+  systemParts?: string | string[],
+  tools?: ToolDefinition[],
 ): Promise<string> {
+  const activeTools = tools ?? (READ_TOOLS as unknown as ToolDefinition[])
+  // Normalize: accept legacy string or new string[]
+  const parts: string[] = Array.isArray(systemParts)
+    ? systemParts
+    : systemParts
+    ? [systemParts]
+    : buildClassifiedPrompt(null, false)
   const messages: ToolCallMessage[] = [{ role: 'user', content: req.content }]
   const allText: string[] = []
 
@@ -1288,6 +1681,7 @@ async function processReadToolLoop(
 
   const toolResults: { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }[] = []
   for (const toolCall of toolUseBlocks) {
+    await saveMessage(req, 'step', JSON.stringify({ type: 'tool_call', label: toolStepLabel(toolCall.name, toolCall.input) }))
     const result = await executeTool(repo.id, toolCall.name, toolCall.input, req.projectId)
     toolResults.push({ type: 'tool_result', tool_use_id: toolCall.id, content: result.result, is_error: result.isError || undefined })
   }
@@ -1297,9 +1691,9 @@ async function processReadToolLoop(
   for (let i = 0; i < MAX_READ_ITERATIONS; i++) {
     const response = await callAnthropicWithTools({
       encryptedToken: token,
-      systemPrompt: systemPrompt || buildChatPrompt(),
+      systemParts: parts,
       messages,
-      tools: READ_TOOLS,
+      tools: activeTools,
       maxTokens: 8192,
     })
 
@@ -1318,6 +1712,7 @@ async function processReadToolLoop(
 
     const newResults: { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }[] = []
     for (const toolCall of newToolBlocks) {
+      await saveMessage(req, 'step', JSON.stringify({ type: 'tool_call', label: toolStepLabel(toolCall.name, toolCall.input) }))
       const result = await executeTool(repo.id, toolCall.name, toolCall.input, req.projectId)
       newResults.push({ type: 'tool_result', tool_use_id: toolCall.id, content: result.result, is_error: result.isError || undefined })
     }
