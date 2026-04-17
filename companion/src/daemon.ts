@@ -1,4 +1,3 @@
-import WebSocket from 'ws'
 import { EventEmitter } from 'node:events'
 import { loadConfig } from './config.js'
 import { detectClaudeAuth, getClaudeVersion } from './auth-detect.js'
@@ -7,26 +6,27 @@ import { listProjects } from './project-manager.js'
 import type { CompanionCommand, CompanionMessage, ClaudeStreamEvent } from './types.js'
 
 // The daemon is the long-running background process that:
-//   1. Connects to the Bornastar server via WebSocket (outbound)
-//   2. Receives commands from the web UI (prompts, interrupts, etc.)
+//   1. Registers with the Bornastar server (POST /api/companion/register)
+//   2. Listens for commands via SSE (GET /api/companion/events)
 //   3. Spawns Claude Code CLI sessions per project
-//   4. Relays stream-json events back to the server → browser
+//   4. Relays stream-json events back via POST /api/companion/response
 //
-// The connection is OUTBOUND (daemon → server), so no port-forwarding
-// or firewall issues. Server matches the companion's auth token to the
-// user's browser session and relays messages bidirectionally.
+// All connections are OUTBOUND (daemon → server) over standard HTTPS,
+// so no port-forwarding, firewall, or WebSocket upgrade needed.
+// Works with stock Next.js API routes.
 
 const RECONNECT_DELAY_MS = 5_000
-const HEARTBEAT_INTERVAL_MS = 30_000
+const HEARTBEAT_INTERVAL_MS = 25_000
 
 export class Daemon extends EventEmitter {
-  private ws: WebSocket | null = null
   private serverUrl: string
   private authToken: string
   private bridges: Map<string, ClaudeBridge> = new Map()
+  private eventSource: EventSource | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private shouldReconnect = true
+  private abortController: AbortController | null = null
 
   constructor(serverUrl: string, authToken: string) {
     super()
@@ -36,79 +36,132 @@ export class Daemon extends EventEmitter {
 
   async start(): Promise<void> {
     this.shouldReconnect = true
-    this.connect()
+    await this.register()
+    this.connectEvents()
+    this.startHeartbeat()
   }
 
   stop(): void {
     this.shouldReconnect = false
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
-    // Kill all active Claude sessions
+    if (this.abortController) this.abortController.abort()
     for (const [, bridge] of this.bridges) {
       bridge.kill()
     }
     this.bridges.clear()
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
+    this.unregister().catch(() => {})
   }
 
-  private connect(): void {
-    const url = `${this.serverUrl.replace(/^http/, 'ws')}/api/companion/ws?token=${this.authToken}`
-    this.ws = new WebSocket(url)
+  // ── Server communication (SSE + POST) ─────────────────────────────
 
-    this.ws.on('open', () => {
-      this.emit('connected')
-      this.startHeartbeat()
-      // Send initial state: auth info + project list
-      this.sendAuthStatus()
-      this.sendProjectList()
-    })
-
-    this.ws.on('message', (data) => {
-      try {
-        const cmd = JSON.parse(data.toString()) as CompanionCommand
-        this.handleCommand(cmd)
-      } catch {
-        // Ignore malformed messages
-      }
-    })
-
-    this.ws.on('close', () => {
-      this.emit('disconnected')
-      this.stopHeartbeat()
-      if (this.shouldReconnect) {
-        this.reconnectTimer = setTimeout(() => this.connect(), RECONNECT_DELAY_MS)
-      }
-    })
-
-    this.ws.on('error', (err) => {
+  private async post(path: string, body: unknown): Promise<Response | null> {
+    try {
+      return await fetch(`${this.serverUrl}${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `session=${this.authToken}`,
+        },
+        body: JSON.stringify(body),
+      })
+    } catch (err) {
       this.emit('error', err)
-    })
-  }
-
-  private send(msg: CompanionMessage): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg))
+      return null
     }
   }
 
-  private sendAuthStatus(): void {
+  private async register(): Promise<void> {
     const auth = detectClaudeAuth()
     const version = getClaudeVersion()
-    this.send({
-      type: 'auth_status',
-      payload: { ...auth, version },
+    const projects = listProjects()
+    const res = await this.post('/api/companion/register', {
+      authInfo: { ...auth, version },
+      projects,
     })
+    if (res?.ok) {
+      this.emit('registered')
+    } else {
+      this.emit('error', new Error(`Registration failed: ${res?.status ?? 'network error'}`))
+    }
   }
 
-  private sendProjectList(): void {
-    this.send({
-      type: 'project_list',
-      payload: listProjects(),
-    })
+  private async unregister(): Promise<void> {
+    try {
+      await fetch(`${this.serverUrl}/api/companion/register`, {
+        method: 'DELETE',
+        headers: { Cookie: `session=${this.authToken}` },
+      })
+    } catch {}
   }
+
+  private async send(msg: CompanionMessage): Promise<void> {
+    await this.post('/api/companion/response', msg)
+  }
+
+  // ── SSE listener (receives commands from browser) ─────────────────
+
+  private connectEvents(): void {
+    this.abortController = new AbortController()
+    const url = `${this.serverUrl}/api/companion/events`
+
+    // Use fetch-based SSE (Node.js doesn't have native EventSource).
+    // We read the stream line by line and parse SSE `data:` frames.
+    const connect = async () => {
+      try {
+        const res = await fetch(url, {
+          headers: { Cookie: `session=${this.authToken}` },
+          signal: this.abortController!.signal,
+        })
+
+        if (!res.ok || !res.body) {
+          throw new Error(`SSE connect failed: ${res.status}`)
+        }
+
+        this.emit('connected')
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              try {
+                const cmd = JSON.parse(data) as CompanionCommand
+                this.handleCommand(cmd)
+              } catch {
+                // Non-JSON data line (heartbeat comment, etc.)
+              }
+            }
+            // SSE comments (`: heartbeat`) are silently ignored
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        this.emit('error', err)
+      }
+
+      // Stream ended or errored — reconnect if we should
+      this.emit('disconnected')
+      if (this.shouldReconnect) {
+        this.reconnectTimer = setTimeout(() => {
+          this.register().then(() => this.connectEvents()).catch(() => {})
+        }, RECONNECT_DELAY_MS)
+      }
+    }
+
+    connect()
+  }
+
+  // ── Command handlers ──────────────────────────────────────────────
 
   private handleCommand(cmd: CompanionCommand): void {
     switch (cmd.type) {
@@ -118,9 +171,11 @@ export class Daemon extends EventEmitter {
       case 'interrupt':
         this.handleInterrupt(cmd)
         break
+      case 'resume':
+        this.handlePrompt(cmd)
+        break
       case 'status':
-        this.sendAuthStatus()
-        this.sendProjectList()
+        this.sendStatus()
         break
       case 'clone':
         this.handleClone(cmd)
@@ -131,25 +186,37 @@ export class Daemon extends EventEmitter {
     }
   }
 
+  private async sendStatus(): Promise<void> {
+    const auth = detectClaudeAuth()
+    const version = getClaudeVersion()
+    await this.send({
+      type: 'auth_status',
+      payload: { ...auth, version },
+    })
+    await this.send({
+      type: 'project_list',
+      payload: listProjects(),
+    })
+  }
+
   private async handlePrompt(cmd: CompanionCommand): Promise<void> {
     if (!cmd.projectId || !cmd.prompt) return
 
     const config = loadConfig()
     const project = config.projects.find((p) => p.id === cmd.projectId)
     if (!project) {
-      this.send({
+      await this.send({
         type: 'error',
         payload: { message: `Project ${cmd.projectId} not found` },
       })
       return
     }
 
-    // Reuse existing bridge for this project or create new
     let bridge = this.bridges.get(project.id)
     if (bridge?.isRunning()) {
-      this.send({
+      await this.send({
         type: 'error',
-        payload: { message: 'Agent is already running for this project. Interrupt first.' },
+        payload: { message: 'Agent is already running. Interrupt first.' },
       })
       return
     }
@@ -188,7 +255,7 @@ export class Daemon extends EventEmitter {
     try {
       await bridge.prompt(cmd.prompt)
     } catch (err) {
-      this.send({
+      await this.send({
         type: 'error',
         payload: { projectId: project.id, message: (err as Error).message },
       })
@@ -208,10 +275,10 @@ export class Daemon extends EventEmitter {
     try {
       const { cloneRepo } = await import('./project-manager.js')
       const project = cloneRepo(cmd.repoUrl, cmd.targetPath)
-      this.send({ type: 'project_added', payload: project })
-      this.sendProjectList()
+      await this.send({ type: 'project_added', payload: project })
+      await this.sendStatus()
     } catch (err) {
-      this.send({
+      await this.send({
         type: 'error',
         payload: { message: `Clone failed: ${(err as Error).message}` },
       })
@@ -223,28 +290,24 @@ export class Daemon extends EventEmitter {
     try {
       const { createProject } = await import('./project-manager.js')
       const project = createProject(cmd.targetPath, { template: cmd.template })
-      this.send({ type: 'project_added', payload: project })
-      this.sendProjectList()
+      await this.send({ type: 'project_added', payload: project })
+      await this.sendStatus()
     } catch (err) {
-      this.send({
+      await this.send({
         type: 'error',
         payload: { message: `Create failed: ${(err as Error).message}` },
       })
     }
   }
 
-  private startHeartbeat(): void {
-    this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.ping()
-      }
-    }, HEARTBEAT_INTERVAL_MS)
-  }
+  // ── Heartbeat (keeps server-side companion status alive) ──────────
 
-  private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer)
-      this.heartbeatTimer = null
-    }
+  private startHeartbeat(): void {
+    this.heartbeatTimer = setInterval(async () => {
+      await this.post('/api/companion/register', {
+        authInfo: detectClaudeAuth(),
+        projects: listProjects(),
+      })
+    }, HEARTBEAT_INTERVAL_MS)
   }
 }
