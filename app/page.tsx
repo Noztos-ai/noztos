@@ -1,63 +1,48 @@
 import { cookies } from 'next/headers'
 import { getSessionUserId } from '@/lib/session'
 import { prisma } from '@/lib/db'
-import { getGitHubUser } from '@/lib/github'
 import { Header } from '@/components/Header'
 import { ProjectList } from '@/components/ProjectList'
-import type { BadgeState } from '@/components/ClaudeBadge'
-import type { GitHubBadgeState } from '@/components/GitHubBadge'
+import { CompanionSetup } from '@/components/CompanionSetup'
 
 export default async function Home() {
   const cookieStore = await cookies()
   const sessionValue = cookieStore.get('session')?.value
   const userId = getSessionUserId(sessionValue)
 
-  let badgeState: BadgeState = 'no_key'
-  let githubState: GitHubBadgeState = 'not_connected'
-  let githubUsername = ''
   let projects: { id: string; name: string; createdAt: Date }[] = []
   let userName = ''
+  let hasCompanionToken = false
 
   if (userId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        name: true,
-        anthropicToken: true,
-        githubToken: true,
-        projects: {
-          select: { id: true, name: true, createdAt: true },
-          orderBy: { createdAt: 'desc' },
+    const [user, tokenCount] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          name: true,
+          projects: {
+            select: { id: true, name: true, createdAt: true },
+            orderBy: { createdAt: 'desc' },
+          },
         },
-      },
-    })
-    badgeState = user?.anthropicToken ? 'active' : 'no_key'
+      }),
+      prisma.companionToken.count({ where: { userId } }),
+    ])
+
     projects = user?.projects ?? []
     userName = user?.name ?? ''
-
-    if (user?.githubToken) {
-      try {
-        const ghUser = await getGitHubUser(user.githubToken)
-        if (ghUser) {
-          githubState = 'connected'
-          githubUsername = ghUser.login
-        }
-      } catch {
-        // Token expired or invalid
-      }
-    }
+    hasCompanionToken = tokenCount > 0
   }
 
   return (
     <div className="flex flex-col flex-1 font-sans" style={{ backgroundColor: '#1a1a22' }}>
-      <Header
-        claudeState={badgeState}
-        githubState={githubState}
-        githubUsername={githubUsername}
-        userName={userName}
-      />
+      <Header userName={userName} />
       <main className="flex flex-1 w-full max-w-4xl mx-auto flex-col px-6 py-8">
-        <ProjectList projects={projects} />
+        {!hasCompanionToken ? (
+          <CompanionSetup />
+        ) : (
+          <ProjectList projects={projects} />
+        )}
       </main>
     </div>
   )

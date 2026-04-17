@@ -23,6 +23,8 @@ const MAX_QUEUE_SIZE = 500
 interface CompanionConnection {
   connectedAt: number
   lastHeartbeat: number
+  tokenId?: string
+  machineName?: string
   authInfo?: { email?: string; plan?: string; version?: string }
   projects?: Array<{ id: string; path: string; name: string }>
 }
@@ -64,10 +66,12 @@ class RelayChannel {
     return evts
   }
 
-  setCompanionConnected(info?: CompanionConnection['authInfo']): void {
+  setCompanionConnected(info?: CompanionConnection['authInfo'], tokenId?: string, machineName?: string): void {
     this.companion = {
       connectedAt: Date.now(),
       lastHeartbeat: Date.now(),
+      tokenId,
+      machineName,
       authInfo: info,
     }
   }

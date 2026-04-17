@@ -73,7 +73,7 @@ export async function listCompanionTokens(userId: string) {
  *
  * Returns { userId } if valid, null if not.
  */
-export async function verifyAuth(request?: NextRequest): Promise<{ userId: string } | null> {
+export async function verifyAuth(request?: NextRequest): Promise<{ userId: string; tokenId?: string; tokenName?: string } | null> {
   // Method 1: Bearer token / companion token header
   if (request) {
     const authHeader = request.headers.get('authorization')
@@ -85,18 +85,17 @@ export async function verifyAuth(request?: NextRequest): Promise<{ userId: strin
     if (bearerToken?.startsWith(TOKEN_PREFIX)) {
       const record = await prisma.companionToken.findUnique({
         where: { token: bearerToken },
-        select: { id: true, userId: true, expiresAt: true },
+        select: { id: true, userId: true, name: true, expiresAt: true },
       })
       if (!record) return null
       if (record.expiresAt && record.expiresAt < new Date()) return null
 
-      // Update lastUsedAt (fire-and-forget, don't block the response)
       prisma.companionToken.update({
         where: { id: record.id },
         data: { lastUsedAt: new Date() },
       }).catch(() => {})
 
-      return { userId: record.userId }
+      return { userId: record.userId, tokenId: record.id, tokenName: record.name }
     }
   }
 

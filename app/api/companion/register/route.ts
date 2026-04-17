@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   }
 
   const channel = getChannel(auth.userId)
-  channel.setCompanionConnected(authInfo)
+  channel.setCompanionConnected(authInfo, auth.tokenId, auth.tokenName)
   if (projects) {
     if (channel.companion) channel.companion.projects = projects
   }
