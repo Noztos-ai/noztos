@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGitHubModal } from './GitHubModal'
 
-export function CreateProjectButton() {
+export function CreateProjectButton({ label }: { label?: string } = {}) {
   const router = useRouter()
   const { openGitHub } = useGitHubModal()
   const [creating, setCreating] = useState(false)
@@ -54,7 +54,7 @@ export function CreateProjectButton() {
       disabled={creating}
       className="flex h-10 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
     >
-      {creating ? 'Cloning...' : 'New Project'}
+      {creating ? 'Cloning...' : (label ?? 'New Project')}
     </button>
   )
 }

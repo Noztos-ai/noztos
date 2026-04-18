@@ -52,18 +52,70 @@ export function ProjectList({ projects }: ProjectListProps) {
 
   if (projects.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-        <div className="rounded-full bg-white/5 p-4">
-          <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-          </svg>
+      <div className="flex h-full flex-1 flex-col items-center justify-center gap-5 text-center">
+        <style>{`
+          @keyframes terminal-blink { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+          @keyframes type-msg { 0% { width: 0 } 20% { width: 100% } 100% { width: 100% } }
+          @keyframes fade-in-3 { 0%,28% { opacity: 0 } 32% { opacity: 1 } }
+          @keyframes fade-in-4 { 0%,42% { opacity: 0 } 46% { opacity: 1 } }
+          @keyframes fade-in-5 { 0%,56% { opacity: 0 } 60% { opacity: 1 } }
+          @keyframes fade-in-6 { 0%,70% { opacity: 0 } 74% { opacity: 1 } }
+          @keyframes pulse-glow { 0%,100% { opacity: 0.3 } 50% { opacity: 0.8 } }
+          .t-blink { animation: terminal-blink 1s step-end infinite; }
+          .t-type { animation: type-msg 10s steps(30, end) infinite; overflow: hidden; white-space: nowrap; }
+          .t-fade-3 { animation: fade-in-3 10s ease-out infinite; }
+          .t-fade-4 { animation: fade-in-4 10s ease-out infinite; }
+          .t-fade-5 { animation: fade-in-5 10s ease-out infinite; }
+          .t-fade-6 { animation: fade-in-6 10s ease-out infinite; }
+          .glow { animation: pulse-glow 4s ease-in-out infinite; }
+        `}</style>
+
+        {/* Mini terminal animation */}
+        <div className="relative">
+          <div className="glow absolute -inset-6 rounded-2xl" style={{ background: 'radial-gradient(ellipse at center, rgba(0,120,212,0.06) 0%, transparent 70%)' }} />
+
+          <div className="relative w-72 overflow-hidden rounded-lg border border-[#2B2B2B]" style={{ backgroundColor: '#181818' }}>
+            <div className="flex items-center gap-1.5 border-b border-[#2B2B2B] px-3 py-1.5">
+              <div className="h-2 w-2 rounded-full bg-[#FF5F57]" />
+              <div className="h-2 w-2 rounded-full bg-[#FFBD2E]" />
+              <div className="h-2 w-2 rounded-full bg-[#28C840]" />
+              <span className="ml-2 text-[9px] text-zinc-600">bornastar</span>
+            </div>
+
+            <div className="space-y-2 px-3 py-3 font-mono text-[10px] leading-relaxed">
+              <div className="flex justify-end">
+                <div className="t-type rounded-md bg-[#313131] px-2 py-1 text-zinc-300">
+                  start my next project
+                </div>
+              </div>
+
+              <div className="t-fade-3">
+                <span className="italic text-zinc-600">cloning repo...</span>
+              </div>
+
+              <div className="t-fade-4 flex items-center gap-1">
+                <span className="text-zinc-400">workspace ready.</span>
+                <span className="font-semibold text-white">let&apos;s build.</span>
+              </div>
+
+              <div className="t-fade-5 flex items-center gap-1">
+                <span className="text-[#28C840]">✓</span>
+                <span className="text-zinc-400">agents standing by.</span>
+              </div>
+
+              <div className="t-fade-6">
+                <span className="t-blink text-zinc-500">_</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-zinc-300">No projects yet</p>
+          <p className="mt-1 text-[12px] text-zinc-500">Select a repository to get started.</p>
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-zinc-200">No projects yet</h2>
-          <p className="mt-1 text-sm text-zinc-500">Select a GitHub repository to get started.</p>
-        </div>
-        <div className="mt-2">
-          <CreateProjectButton />
+          <CreateProjectButton label="Let's start" />
         </div>
       </div>
     )
