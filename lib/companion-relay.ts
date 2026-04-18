@@ -106,18 +106,23 @@ export function getChannel(userId: string): RelayChannel {
 export function getCompanionStatus(userId: string): {
   connected: boolean
   connectedAt?: number
+  lastSeen?: number
   authInfo?: CompanionConnection['authInfo']
   projects?: CompanionConnection['projects']
+  machineName?: string
 } {
   const ch = channels.get(userId)
-  if (!ch?.companion || !ch.isCompanionConnected()) {
+  if (!ch?.companion) {
     return { connected: false }
   }
+  const connected = ch.isCompanionConnected()
   return {
-    connected: true,
+    connected,
     connectedAt: ch.companion.connectedAt,
+    lastSeen: ch.companion.lastHeartbeat,
     authInfo: ch.companion.authInfo,
     projects: ch.companion.projects,
+    machineName: ch.companion.machineName,
   }
 }
 

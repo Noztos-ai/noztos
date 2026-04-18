@@ -10,13 +10,14 @@ export async function POST(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { authInfo, projects } = body as {
+  const { authInfo, projects, machineName } = body as {
     authInfo?: { email?: string; plan?: string; version?: string }
     projects?: Array<{ id: string; path: string; name: string }>
+    machineName?: string
   }
 
   const channel = getChannel(auth.userId)
-  channel.setCompanionConnected(authInfo, auth.tokenId, auth.tokenName)
+  channel.setCompanionConnected(authInfo, auth.tokenId, machineName ?? auth.tokenName)
   if (projects) {
     if (channel.companion) channel.companion.projects = projects
   }

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { Header } from '@/components/Header'
 import { ProjectList } from '@/components/ProjectList'
 import { CompanionSetup } from '@/components/CompanionSetup'
+import { DashboardSidebar } from '@/components/DashboardSidebar'
 
 export default async function Home() {
   const cookieStore = await cookies()
@@ -37,13 +38,18 @@ export default async function Home() {
   return (
     <div className="flex flex-col flex-1 font-sans" style={{ backgroundColor: '#1a1a22' }}>
       <Header userName={userName} />
-      <main className="flex flex-1 w-full max-w-4xl mx-auto flex-col px-6 py-8">
-        {!hasCompanionToken ? (
-          <CompanionSetup />
-        ) : (
-          <ProjectList projects={projects} />
-        )}
-      </main>
+      <div className="flex flex-1 overflow-hidden">
+        {hasCompanionToken && <DashboardSidebar />}
+        <main className="flex flex-1 flex-col px-6 py-8 overflow-y-auto">
+          <div className="w-full max-w-4xl mx-auto flex-1">
+            {!hasCompanionToken ? (
+              <CompanionSetup />
+            ) : (
+              <ProjectList projects={projects} />
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

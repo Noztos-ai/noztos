@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { hostname } from 'node:os'
 import { loadConfig } from './config.js'
 import { detectClaudeAuth, getClaudeVersion } from './auth-detect.js'
 import { ClaudeBridge } from './claude-bridge.js'
@@ -78,6 +79,7 @@ export class Daemon extends EventEmitter {
     const res = await this.post('/api/companion/register', {
       authInfo: { ...auth, version },
       projects,
+      machineName: hostname(),
     })
     if (res?.ok) {
       this.emit('registered')
