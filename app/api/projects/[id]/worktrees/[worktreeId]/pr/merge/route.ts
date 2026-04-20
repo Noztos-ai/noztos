@@ -7,14 +7,17 @@ import {
   loadProjectGitContext,
   mergePullRequest,
 } from '@/lib/git'
+import { LocalProvider } from '@/lib/compute-local'
 
 interface RouteContext { params: Promise<{ id: string; worktreeId: string }> }
 
-// POST — merge the PR associated with this worktree's branch. Body:
-//   { method?: 'merge'|'squash'|'rebase'; deleteBranch?: boolean }
+// POST — merge the worktree's branch.
 //
-// We look up the PR number server-side so the client just hits this with
-// the worktree id and doesn't need to track the PR state separately.
+// Two paths:
+//   GitHub project  → finds the open PR and merges it via the GitHub API.
+//   Local project   → runs `git merge <branch>` directly on the local repo.
+//
+// Body: { method?: 'merge'|'squash'|'rebase'; deleteBranch?: boolean }
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id, worktreeId } = await context.params
   const auth = await verifyProjectAccess(id)
@@ -31,6 +34,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const ctx = await loadProjectGitContext(id)
   if (!ctx) return NextResponse.json({ error: 'No repository' }, { status: 503 })
+
+  // ── Local project: no GitHub repo attached ────────────────────────────
+  if (!ctx.githubOwner) {
+    if (!wt.branchName) return NextResponse.json({ error: 'worktree has no branch' }, { status: 400 })
+    const compute = new LocalProvider()
+    const mergeRes = await compute.exec(
+      ctx.sandboxId,
+      `cd ${ctx.sandboxId} && git merge ${wt.branchName} --no-ff -m "Merge branch '${wt.branchName}'" 2>&1`,
+    )
+    if (mergeRes.exitCode !== 0) {
+      return NextResponse.json({ error: mergeRes.stderr || mergeRes.stdout || 'merge failed' }, { status: 500 })
+    }
+    return NextResponse.json({ ok: true, local: true })
+  }
+
+  // ── GitHub project: merge via GitHub API ──────────────────────────────
   if (!ctx.githubToken) return NextResponse.json({ error: 'GitHub not connected', code: 'no_auth' }, { status: 401 })
 
   const pr = await findPullRequestForBranch(ctx.githubOwner, ctx.githubRepo, wt.branchName, ctx.githubToken)

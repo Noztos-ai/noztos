@@ -33,6 +33,7 @@ interface GitStatus {
   mainProtectionChecked: number
   pr: PullRequest | null
   githubConnected: boolean
+  isLocalProject: boolean
 }
 
 interface PullRequest {
@@ -88,6 +89,14 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
   // Inline "Add" input — only shows when the user clicks + Add. Mirrors
   // Conductor: no persistent input at the bottom.
   const [todoInputOpen, setTodoInputOpen] = useState(false)
+
+  // Local merge state — set after a successful local-only merge.
+  const [localMerged, setLocalMerged] = useState(false)
+  // Publish to GitHub modal state.
+  const [showPublishModal, setShowPublishModal] = useState(false)
+  const [publishRepoName, setPublishRepoName] = useState('')
+  const [publishIsPrivate, setPublishIsPrivate] = useState(false)
+  const [publishing, setPublishing] = useState(false)
 
   // Commit message modal state.
   const [showCommitModal, setShowCommitModal] = useState(false)
@@ -372,9 +381,31 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
         body: JSON.stringify({ method: 'merge' }),
       })
       if (!res.ok) { const t = await res.json().catch(() => ({})); throw new Error(t.error || 'merge failed') }
-      await refreshStatus()
+      const data = await res.json().catch(() => ({}))
+      if (data.local) {
+        setLocalMerged(true)
+        setPublishRepoName(status?.branch?.replace(/[^a-z0-9-]/gi, '-').toLowerCase() ?? '')
+      } else {
+        await refreshStatus()
+      }
     } catch (e) { setError(e instanceof Error ? e.message : 'Merge failed') }
     finally { setBusy(null) }
+  }
+
+  async function publishToGitHub() {
+    if (!publishRepoName.trim()) return
+    setPublishing(true)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/repository/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repoName: publishRepoName.trim(), isPrivate: publishIsPrivate }),
+      })
+      if (!res.ok) { const t = await res.json().catch(() => ({})); throw new Error(t.error || 'publish failed') }
+      setShowPublishModal(false)
+      await refreshStatus()
+    } catch (e) { setError(e instanceof Error ? e.message : 'Publish failed') }
+    finally { setPublishing(false) }
   }
 
   async function updateBranch() {
@@ -394,6 +425,8 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
   // ── Render ───────────────────────────────────────────────────────────────
   const pr = status?.pr ?? null
   const isMain = !worktreeId
+  const isLocalProject = status?.isLocalProject ?? false
+  const isLocalWorktree = isLocalProject && !isMain
   const hasUncommitted = (status?.uncommitted ?? 0) > 0
   const hasUnpushed = (status?.commitsAhead ?? 0) > 0
   const isBehind = (status?.commitsBehind ?? 0) > 0
@@ -410,7 +443,8 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
   const isReadyToMerge = hasOpenPr && pr && (pr.derivedStatus === 'approved' || (pr.derivedStatus === 'open' && pr.mergeable_state === 'clean'))
   // Git section is hidden when nothing is happening git-wise. Mirrors Conductor.
   const showGitSection = !!status && (
-    hasUncommitted || hasUnpushed || isBehind || hasOpenPr || isMerged || !status.githubConnected || (isMain && status.mainProtected)
+    hasUncommitted || hasUnpushed || isBehind || hasOpenPr || isMerged || isLocalWorktree ||
+    (!status.githubConnected && !isLocalProject) || (isMain && status.mainProtected)
   )
   // Ready-to-merge and Merged states show a prominent banner already —
   // the "Git status" heading under it with an empty list looks awkward.
@@ -420,7 +454,7 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
   const hasNoPrRow = !hasOpenPr && !isMerged && !isMain
   const hasMainProtectedRow = !!(isMain && status?.mainProtected && (hasUncommitted || hasUnpushed))
   const showGitHeading = !!status && (
-    !status.githubConnected ||
+    (!status.githubConnected && !isLocalProject) ||
     hasUncommitted ||
     (!isMain && isBehind) ||
     hasPrRow ||
@@ -428,7 +462,8 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
     hasMainProtectedRow ||
     isReadyToMerge ||
     isMerged ||
-    isClosed
+    isClosed ||
+    isLocalWorktree
   )
 
   // When a PR is open, the draft title/body shouldn't be user-editable
@@ -492,6 +527,39 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
               />
             )
           })()}
+
+          {isLocalWorktree && !localMerged && (
+            <Row
+              indicator="green"
+              label="Ready to merge locally"
+              action={<button onClick={mergePR} disabled={busy !== null} className="rounded border border-[#2B2B2B] px-2 py-1 text-[11px] font-medium text-zinc-300 hover:border-[#3A3A3A] hover:bg-white/[0.03] disabled:opacity-40">Merge</button>}
+            />
+          )}
+
+          {isLocalWorktree && localMerged && (
+            <Row
+              indicator="purple"
+              label="Merged locally"
+              action={
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => { setLocalMerged(false); onArchive?.() }}
+                    className="rounded border border-[#2B2B2B] px-2 py-1 text-[11px] font-medium text-zinc-300 hover:border-[#3A3A3A] hover:bg-white/[0.03]"
+                  >
+                    Archive
+                  </button>
+                  {status?.githubConnected && (
+                    <button
+                      onClick={() => setShowPublishModal(true)}
+                      className="rounded border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-[11px] font-medium text-indigo-300 hover:bg-indigo-500/20"
+                    >
+                      Publish to GitHub
+                    </button>
+                  )}
+                </div>
+              }
+            />
+          )}
 
           {isReadyToMerge && pr && (
             <Row
@@ -574,7 +642,7 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
             />
           )}
 
-          {status && !status.githubConnected && (
+          {status && !status.githubConnected && !isLocalProject && (
             <Row indicator="red" label="GitHub not connected" action={<a href="/api/auth/github/start" className="rounded border border-[#2B2B2B] px-2 py-1 text-[11px] font-medium text-zinc-300 hover:border-[#3A3A3A] hover:bg-white/[0.03] disabled:opacity-40">Connect</a>} />
           )}
 
@@ -688,7 +756,7 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
               a live merged banner is competing for attention. Once the
               merged banner is dismissed (Continue), this reappears so
               new work can be turned into a follow-up PR. */}
-          {!hasOpenPr && !isMain && !isMerged && !isClosed && status && (
+          {!hasOpenPr && !isMain && !isMerged && !isClosed && !isLocalWorktree && status && (
             <Row
               indicator="gray"
               label="No PR open"
@@ -785,6 +853,41 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowCommitModal(false)} className="rounded border border-[#3A3A3A] px-3 py-1 text-[11px] text-zinc-300 hover:bg-white/5">Cancel</button>
               <button onClick={commitAndPush} disabled={!commitMessage.trim()} className="rounded bg-emerald-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-emerald-500 disabled:opacity-40">Commit and push</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPublishModal && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
+          <div className="w-[380px] rounded-md border border-[#2B2B2B] p-4 shadow-xl" style={{ backgroundColor: '#252526' }}>
+            <div className="mb-1 text-[13px] font-medium text-zinc-200">Publish to GitHub</div>
+            <div className="mb-3 text-[11px] text-zinc-500">Creates a new repository under your account and pushes all branches.</div>
+            <div className="mb-3">
+              <label className="mb-1 block text-[11px] text-zinc-400">Repository name</label>
+              <input
+                autoFocus
+                value={publishRepoName}
+                onChange={(e) => setPublishRepoName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') publishToGitHub() }}
+                placeholder="my-project"
+                className="w-full rounded border border-[#3A3A3A] bg-[#1F1F1F] px-2 py-1.5 text-[12px] text-zinc-200 outline-none focus:border-zinc-500"
+              />
+            </div>
+            <label className="mb-4 flex cursor-pointer items-center gap-2 text-[11px] text-zinc-400">
+              <input
+                type="checkbox"
+                checked={publishIsPrivate}
+                onChange={(e) => setPublishIsPrivate(e.target.checked)}
+                className="rounded border-zinc-600"
+              />
+              Private repository
+            </label>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowPublishModal(false)} className="rounded border border-[#3A3A3A] px-3 py-1 text-[11px] text-zinc-300 hover:bg-white/5">Cancel</button>
+              <button onClick={publishToGitHub} disabled={!publishRepoName.trim() || publishing} className="rounded bg-indigo-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-40">
+                {publishing ? 'Publishing…' : 'Publish'}
+              </button>
             </div>
           </div>
         </div>

@@ -75,6 +75,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     mainProtectionChecked: protection.checkedAt,
     pr,
     githubConnected: !!ctx.githubToken,
+    isLocalProject: !ctx.githubOwner,
     ciStatus,
   })
 }
