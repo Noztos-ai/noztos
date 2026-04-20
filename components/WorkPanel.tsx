@@ -4883,7 +4883,6 @@ function ChatPanel({
   onSessionRenamed: (name: string) => void
 }) {
   const [input, setInput] = useState('')
-  const [sending, setSending] = useState(false)
   const [showSelector, setShowSelector] = useState(false)
   const [selectorTab, setSelectorTab] = useState<'employees' | 'teams'>('employees')
   const [attachments, setAttachments] = useState<{ file: File; preview: string; type: 'image' | 'pdf' | 'text' }[]>([])
@@ -4914,33 +4913,6 @@ function ChatPanel({
   const [showReminderModal, setShowReminderModal] = useState(false)
   const [selectedModel, setSelectedModel] = useState<string>('sonnet')
   const [thinkingLevel, setThinkingLevel] = useState<string>('off')
-  const [permissionMode, setPermissionMode] = useState<'plan' | 'edit' | 'auto' | 'agent'>('auto')
-  const [contextPercentage, setContextPercentage] = useState(0)
-  const [showContextTooltip, setShowContextTooltip] = useState(false)
-  const [compacting, setCompacting] = useState(false)
-
-  // Poll context usage after messages change
-  useEffect(() => {
-    if (!sessionId) return
-    fetch(`/api/projects/${projectId}/chat-sessions/${sessionId}/context?model=${selectedModel}`)
-      .then((r) => r.json())
-      .then((data) => setContextPercentage(data.percentage ?? 0))
-      .catch(() => {})
-  }, [messages.length, sessionId, projectId, selectedModel])
-
-  async function handleCompact() {
-    if (!sessionId || compacting) return
-    setCompacting(true)
-    try {
-      await fetch(`/api/projects/${projectId}/chat-sessions/${sessionId}/context`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: selectedModel }),
-      })
-      setContextPercentage(10) // reset visual
-    } catch { /* ignore */ }
-    setCompacting(false)
-  }
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -5072,37 +5044,22 @@ function ChatPanel({
     }
   }, [input])
 
-  const [teamProcessing, setTeamProcessing] = useState(false)
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const agentPollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const [liveStepIds, setLiveStepIds] = useState<Set<string>>(new Set())
-
-  // Notify parent (WorkPanel) whenever this chat becomes busy / idle, so the
-  // sidebar + worktree tab bar can swap icons for a loading spinner.
+  // Notify parent when Claude is running so sidebar shows spinner.
   useEffect(() => {
-    onBusyChange(sessionId, sending || teamProcessing)
-  }, [sending, teamProcessing, sessionId, onBusyChange])
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current)
-      if (agentPollingRef.current) clearInterval(agentPollingRef.current)
-    }
-  }, [])
+    onBusyChange(sessionId, companion.isRunning)
+  }, [companion.isRunning, sessionId, onBusyChange])
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
     const userText = input.trim()
-    if ((!userText && attachments.length === 0 && hunkAttachments.length === 0) || sending || teamProcessing) return
+    if ((!userText && attachments.length === 0 && hunkAttachments.length === 0) || companion.isRunning) return
 
     const content = hunkAttachments.length > 0
       ? `${hunkAttachments.map((h) => h.formattedContent).join('')}${userText}`
       : userText
 
     // Auto-rename the chat using the first user message
-    const allMessages = companionConnected ? companion.messages : messages
-    const isFirstMessage = allMessages.filter(m => 'sender' in m ? m.sender === 'user' : m.role === 'user').length === 0
+    const isFirstMessage = companion.messages.filter(m => m.role === 'user').length === 0
     if (isFirstMessage && userText) {
       const title = userText.split(/\s+/).slice(0, 5).join(' ').slice(0, 40)
       onSessionRenamed(title)
@@ -5114,28 +5071,10 @@ function ChatPanel({
     window.dispatchEvent(new CustomEvent('bornastar-continue-merged'))
     window.dispatchEvent(new CustomEvent('bornastar-start-over-closed'))
 
-    // ── Companion mode: send via Claude Code CLI ──────────────────
+    // All chat goes through Claude Code via the companion daemon.
     if (companionConnected) {
-      const companionProject = companion.companionInfo?.projects?.[0]
-      if (companionProject) {
-        await companion.sendPrompt(companionProject.id, content, claudeMode)
-      }
-      return
+      await companion.sendPrompt(projectId, content, claudeMode)
     }
-
-    // ── Companion not running ──────────────────────────────────────
-    // All chat goes through Claude Code. If the companion isn't connected,
-    // surface the instruction instead of silently failing.
-    setMessages((prev) => [...prev, {
-      id: `sys-${Date.now()}`,
-      content: 'Companion not running. Start it with: bornastar start',
-      sender: 'system',
-      mode: activeMode,
-      activeSkillId: null,
-      report: null,
-      createdAt: new Date().toISOString(),
-    }])
-    return
   }
 
   const hasAnyone = hiredEmployees.length > 0 || teams.length > 0
@@ -5212,110 +5151,51 @@ function ChatPanel({
       {/* Messages — renders companion stream or legacy engine */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
-        {/* ── Companion mode (Claude Code CLI) ─────────────────────── */}
-        {companionConnected && (
-          <>
-            {companion.messages.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-3">
-                <CompanionStatusBadge status={companion.status} info={companion.companionInfo} />
-                <p className="text-sm text-zinc-400">Send a message to start coding with Claude Code</p>
-              </div>
-            )}
-            {companion.messages.map((msg: ChatMessage) => {
-              if (msg.role === 'user') {
-                return (
-                  <div key={msg.id} className="flex justify-end">
-                    <div className="max-w-[85%] rounded-xl bg-[#3C3C3C] px-4 py-2 text-sm text-zinc-100">
-                      {msg.content}
-                    </div>
-                  </div>
-                )
-              }
-              if (msg.role === 'tool') {
-                return <ClaudeToolCard key={msg.id} message={msg} />
-              }
-              if (msg.role === 'system') {
-                if (msg.costUsd !== undefined) {
-                  return <SessionResultCard key={msg.id} message={msg} />
-                }
-                return (
-                  <div key={msg.id} className="flex justify-start">
-                    <p className="text-xs italic text-zinc-500">{msg.content}</p>
-                  </div>
-                )
-              }
-              // assistant
-              return (
-                <div key={msg.id} className="flex justify-start">
-                  <div className="w-full max-w-[90%]">
-                    <MarkdownRenderer content={msg.content} />
-                  </div>
-                </div>
-              )
-            })}
-          </>
+        {/* ── Claude Code via companion ─────────────────────────────── */}
+        {companion.messages.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-3">
+            <CompanionStatusBadge status={companion.status} info={companion.companionInfo} />
+            <p className="text-sm text-zinc-400">
+              {companion.status === 'connecting' ? 'Connecting to companion…' :
+               companion.status === 'connected' ? 'Send a message to start coding with Claude Code' :
+               companion.status === 'error' ? 'Companion error — check terminal' :
+               'Start the companion: bornastar start'}
+            </p>
+          </div>
         )}
-
-        {/* ── Legacy engine mode ───────────────────────────────────── */}
-        {!companionConnected && (
-          <>
-            {messages.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-3">
-                <CompanionStatusBadge status={companion.status} info={companion.companionInfo} />
-                <p className="text-sm text-zinc-400">
-                  {companion.status === 'connecting' ? 'Connecting to companion…' :
-                   companion.status === 'error' ? 'Companion error — check terminal' :
-                   'Start the companion: bornastar start'}
-                </p>
-              </div>
-            )}
-            {messages.map((msg) => {
-              if (msg.sender === 'plan') return null
-              if (msg.sender === 'step') {
-                if (!liveStepIds.has(msg.id)) return null
-                return <LiveStepMessage key={msg.id} content={msg.content} />
-              }
-              if (msg.sender === 'user') {
-                return (
-                  <div key={msg.id} className="flex justify-end">
-                    <div className="max-w-[85%] rounded-xl bg-[#3C3C3C] px-4 py-2 text-sm text-zinc-100">
-                      {msg.content}
-                    </div>
-                  </div>
-                )
-              }
-              if (msg.sender === 'system') {
-                return (
-                  <div key={msg.id} className="flex justify-start">
-                    <p className="text-xs italic text-amber-400">{msg.content}</p>
-                  </div>
-                )
-              }
-              return (
-                <div key={msg.id} className="flex justify-start">
-                  <div className="w-full max-w-[90%]">
-                    {msg.sender !== 'claude' && (
-                      <div className="mb-1.5 flex items-center gap-1.5">
-                        <span className={`inline-block rounded bg-gradient-to-br ${getSenderColor(msg.sender)} px-1.5 py-0.5 text-[9px] font-bold text-white`}>
-                          {msg.sender}
-                        </span>
-                      </div>
-                    )}
-                    <MarkdownRenderer content={msg.content} />
-                    {msg.report && (
-                      <ReportBadge report={msg.report as unknown as ChatReport} projectId={projectId} sessionId={sessionId} />
-                    )}
-                  </div>
+        {companion.messages.map((msg: ChatMessage) => {
+          if (msg.role === 'user') {
+            return (
+              <div key={msg.id} className="flex justify-end">
+                <div className="max-w-[85%] rounded-xl bg-[#3C3C3C] px-4 py-2 text-sm text-zinc-100">
+                  {msg.content}
                 </div>
-              )
-            })}
-            {(sending || teamProcessing) && (
-              <ThinkingIndicator
-                mode={teamProcessing ? 'team' : activeMode === 'skill' && activeEmployee ? 'skill' : 'direct'}
-                employeeName={activeMode === 'skill' && activeEmployee ? activeEmployee.name : undefined}
-              />
-            )}
-          </>
+              </div>
+            )
+          }
+          if (msg.role === 'tool') {
+            return <ClaudeToolCard key={msg.id} message={msg} />
+          }
+          if (msg.role === 'system') {
+            if (msg.costUsd !== undefined) {
+              return <SessionResultCard key={msg.id} message={msg} />
+            }
+            return (
+              <div key={msg.id} className="flex justify-start">
+                <p className="text-xs italic text-zinc-500">{msg.content}</p>
+              </div>
+            )
+          }
+          return (
+            <div key={msg.id} className="flex justify-start">
+              <div className="w-full max-w-[90%]">
+                <MarkdownRenderer content={msg.content} />
+              </div>
+            </div>
+          )
+        })}
+        {companion.isRunning && (
+          <ThinkingIndicator mode="direct" />
         )}
 
         <div ref={bottomRef} />
@@ -5515,7 +5395,7 @@ function ChatPanel({
                   }
                 }}
                 placeholder={activeMode === 'team' ? `Message ${activeTeam?.name ?? 'team'}...` : activeMode === 'skill' ? `Message ${activeEmployee?.name ?? 'employee'}...` : 'Message Claude...'}
-                disabled={sending || teamProcessing}
+                disabled={companion.isRunning}
                 rows={1}
                 className="w-full resize-none bg-transparent text-sm text-zinc-200 placeholder-zinc-500 outline-none disabled:opacity-50"
                 style={{ maxHeight: `${36 * 4}px` }}
@@ -5541,13 +5421,11 @@ function ChatPanel({
               </div>
             )}
 
-            {/* Companion mode bar — mode selector + cost tracker */}
-            {companionConnected && (
-              <div className="flex items-center justify-between border-t border-white/5 px-3 py-1.5">
-                <ModeSelector mode={claudeMode} onChange={setClaudeMode} />
-                <CostTracker costUsd={companion.costUsd} sessionId={companion.sessionId} />
-              </div>
-            )}
+            {/* Mode selector + cost tracker */}
+            <div className="flex items-center justify-between border-t border-white/5 px-3 py-1.5">
+              <ModeSelector mode={claudeMode} onChange={setClaudeMode} />
+              <CostTracker costUsd={companion.costUsd} sessionId={companion.sessionId} />
+            </div>
 
             {/* Bottom toolbar — inside the card, all controls + submit */}
             <div className="relative flex items-center gap-1 px-2 py-2">
@@ -5623,44 +5501,6 @@ function ChatPanel({
               </svg>
             </button>
 
-            {/* Context usage circle */}
-            <div
-              className="relative"
-              onMouseEnter={() => setShowContextTooltip(true)}
-              onMouseLeave={() => setShowContextTooltip(false)}
-            >
-              <button
-                type="button"
-                onClick={handleCompact}
-                disabled={compacting}
-                className="flex h-6 w-6 items-center justify-center"
-                title={`${contextPercentage}% context used`}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 36 36">
-                  {/* Background circle */}
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="#e4e4e7" strokeWidth="3" />
-                  {/* Progress circle */}
-                  <circle
-                    cx="18" cy="18" r="15"
-                    fill="none"
-                    stroke={contextPercentage > 90 ? '#ef4444' : '#D97757'}
-                    strokeWidth="3"
-                    strokeDasharray={`${contextPercentage * 0.94} 94`}
-                    strokeLinecap="round"
-                    transform="rotate(-90 18 18)"
-                  />
-                </svg>
-              </button>
-
-              {showContextTooltip && (
-                <div className="absolute bottom-full right-0 z-20 mb-1 w-44 rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg">
-                  <p className="text-[10px] font-medium text-zinc-700">{contextPercentage}% context used</p>
-                  <p className="mt-0.5 text-[9px] text-zinc-400">
-                    {compacting ? 'Compacting...' : 'Click to compact context now'}
-                  </p>
-                </div>
-              )}
-            </div>
 
             {/* Model selector */}
             <select
@@ -5685,29 +5525,11 @@ function ChatPanel({
               <option value="high">Thinking: High</option>
             </select>
 
-            {/* Legacy mode selector (hidden when companion connected — ModeSelector above replaces it) */}
-            {!companionConnected && (
-              <select
-                value={permissionMode}
-                onChange={(e) => setPermissionMode(e.target.value as 'plan' | 'edit' | 'auto' | 'agent')}
-                className="rounded border border-[#2B2B2B] bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-300 outline-none hover:bg-white/10"
-              >
-                <option value="plan">Plan</option>
-                <option value="edit">Edit</option>
-                <option value="auto">Auto</option>
-                <option value="agent">Agent</option>
-              </select>
-            )}
-
-            {/* Submit / stop button — inside the card, rightmost */}
-            {(sending || teamProcessing) ? (
+            {/* Submit / stop button */}
+            {companion.isRunning ? (
               <button
                 type="button"
-                onClick={() => {
-                  if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
-                  setTeamProcessing(false)
-                  setSending(false)
-                }}
+                onClick={() => companion.interrupt(projectId)}
                 title="Stop"
                 className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-zinc-900 transition-colors hover:bg-zinc-200"
               >
@@ -5718,8 +5540,8 @@ function ChatPanel({
             ) : (
               <button
                 type="submit"
-                disabled={!input.trim() && attachments.length === 0}
-                title="Send"
+                disabled={(!input.trim() && attachments.length === 0) || !companionConnected}
+                title={!companionConnected ? 'Start companion: bornastar start' : 'Send'}
                 className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-zinc-900 transition-colors hover:bg-zinc-200 disabled:opacity-30"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">

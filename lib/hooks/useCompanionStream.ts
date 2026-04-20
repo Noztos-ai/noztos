@@ -85,6 +85,7 @@ export type CompanionStatus = 'disconnected' | 'connecting' | 'connected' | 'err
 interface UseCompanionStreamReturn {
   messages: ChatMessage[]
   status: CompanionStatus
+  isRunning: boolean
   companionInfo: {
     email?: string
     plan?: string
@@ -101,6 +102,7 @@ interface UseCompanionStreamReturn {
 export function useCompanionStream(): UseCompanionStreamReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [status, setStatus] = useState<CompanionStatus>('disconnected')
+  const [isRunning, setIsRunning] = useState(false)
   const [companionInfo, setCompanionInfo] = useState<UseCompanionStreamReturn['companionInfo']>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [costUsd, setCostUsd] = useState(0)
@@ -258,6 +260,7 @@ export function useCompanionStream(): UseCompanionStreamReturn {
         break
 
       case 'result':
+        setIsRunning(false)
         if (actual.total_cost_usd) setCostUsd((prev) => prev + actual.total_cost_usd!)
         parsed.push({
           id: nextId(),
@@ -273,6 +276,7 @@ export function useCompanionStream(): UseCompanionStreamReturn {
         break
 
       case 'error':
+        setIsRunning(false)
         parsed.push({
           id: nextId(),
           role: 'system',
@@ -340,6 +344,7 @@ export function useCompanionStream(): UseCompanionStreamReturn {
 
   // Send prompt to companion
   const sendPrompt = useCallback(async (projectId: string, prompt: string, mode?: 'plan' | 'edit' | 'auto' | 'agent') => {
+    setIsRunning(true)
     setMessages((prev) => [...prev, {
       id: nextId(),
       role: 'user',
@@ -373,11 +378,13 @@ export function useCompanionStream(): UseCompanionStreamReturn {
     setMessages([])
     setCostUsd(0)
     setSessionId(null)
+    setIsRunning(false)
   }, [])
 
   return {
     messages,
     status,
+    isRunning,
     companionInfo,
     sessionId,
     costUsd,
