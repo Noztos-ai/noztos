@@ -3,7 +3,7 @@ import { callAnthropic, callAnthropicWithTools, MODELS } from '@/lib/anthropic'
 import { REPO_TOOLS, READ_TOOLS, executeTool } from '@/lib/tools'
 import { acquireRepoLock, releaseRepoLock } from '@/lib/repo-lock'
 import type { ContentBlock, ToolCallMessage } from '@/lib/anthropic'
-import { ensureSandboxRunning, stopSandbox, isSandboxNeeded } from '@/lib/sandbox-manager'
+import { ensureSandboxRunning, stopSandbox } from '@/lib/sandbox-manager'
 import {
   buildTaskSkillPrompt,
   buildTaskTeamMemberPrompt,
@@ -331,13 +331,9 @@ export async function runTask(taskId: string): Promise<RunResult> {
     if (hasRepo) {
       await releaseRepoLock(task.projectId, 'task')
     }
-    // Stop sandbox if no longer needed (no other tasks, terminal not open)
+    // Release project (no-op in local mode — disk doesn't stop)
     if (hasRepo && canBuild) {
-      const needed = await isSandboxNeeded(task.projectId)
-      if (!needed) {
-        console.log(`[task-runner] Stopping sandbox — no longer needed`)
-        await stopSandbox(task.projectId).catch(() => {})
-      }
+      await stopSandbox(task.projectId).catch(() => {})
     }
   }
 }

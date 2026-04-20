@@ -56,7 +56,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       ctx.sandboxId,
       `find ${ctx.sandboxId} -type f -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/__pycache__/*' -not -path '*/.next/*' -not -path '*/dist/*' | sed 's|${ctx.sandboxId}/||' | sort`,
     )
-    if (!findResult.stderr?.includes('SANDBOX_DEAD') && findResult.stdout.trim()) {
+    if (findResult.stdout.trim()) {
       await prisma.repository.update({
         where: { projectId: id },
         data: { fileTree: findResult.stdout.trim(), fileTreeUpdatedAt: new Date() },

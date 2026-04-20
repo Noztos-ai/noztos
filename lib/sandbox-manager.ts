@@ -16,8 +16,6 @@ import { join } from 'node:path'
 // The local path is stored in `Repository.sandboxId` (repurposed — it's
 // just a string identifier, doesn't have to be a UUID).
 //
-// In CLOUD MODE (future), swap LocalProvider back to E2BProvider and
-// restore the idle-timer lifecycle.
 
 const provider = new LocalProvider()
 
@@ -186,13 +184,3 @@ export async function execInSandbox(
   return provider.exec(projectPath, wrapped)
 }
 
-/**
- * Check if sandbox is still needed.
- */
-export async function isSandboxNeeded(projectId: string): Promise<boolean> {
-  const runningTask = await prisma.task.findFirst({
-    where: { projectId, status: 'progress' },
-    select: { id: true },
-  })
-  return !!runningTask
-}

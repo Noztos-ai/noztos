@@ -24,8 +24,8 @@ import { analyzeContext, logContextSuggestions } from '@/lib/context-analysis'
 
 // ── File Read Cache ────────────────────────────────────────────────────────
 // Deduplicates file reads within the same session. When the same file is
-// requested again within TTL, we skip the E2B round-trip and return cached
-// content — same pattern as Claude Code's FileStateCache.
+// requested again within TTL, we return the cached content to avoid redundant
+// disk reads — same pattern as Claude Code's FileStateCache.
 
 const FILE_READ_CACHE = new Map<string, { content: string; expiresAt: number }>()
 const FILE_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes

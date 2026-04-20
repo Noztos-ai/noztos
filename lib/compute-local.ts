@@ -1,13 +1,11 @@
 // ── Local Compute Provider ─────────────────────────────────────────────
 //
-// Executes commands directly on the user's machine instead of in a
-// remote E2B sandbox. Used when the Bornastar companion is running
-// locally and the user's Claude Code handles all AI interactions.
+// Executes commands directly on the user's machine via the companion.
+// The Bornastar companion runs locally and handles all AI interactions.
 //
 // The `sandboxId` parameter on every method is repurposed as the
 // project root path (e.g. "/Users/vini/projects/my-app"). This
-// keeps the ComputeProvider interface unchanged — callers don't
-// need to know whether they're talking to E2B or local disk.
+// keeps the ComputeProvider interface stable across all callers.
 
 import { exec as execCb } from 'node:child_process'
 import { readFile as fsReadFile, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'

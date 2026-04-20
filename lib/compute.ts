@@ -1,12 +1,10 @@
-// ── Compute Abstraction Layer ──────────────────────────────────────────────
+// ── Local-Only Compute Layer ────────────────────────────────────────────────
 //
-// Abstract interface for sandbox/container management.
-// Implementations: E2B (testing), AWS Fargate (production).
+// Interfaces for the local compute provider. The Bornastar companion runs
+// directly on the user's Mac — no remote sandbox required.
 //
-// Each repository gets its own isolated sandbox with:
-//   - Linux filesystem
-//   - Terminal access
-//   - Persistent state (within session)
+// Each repository maps to a local directory. The `sandboxId` field in the
+// database stores the absolute path to that directory.
 
 export interface SandboxInfo {
   id: string
@@ -40,31 +38,4 @@ export interface ComputeProvider {
 
   /** Write a file to the sandbox */
   writeFile(sandboxId: string, path: string, content: string): Promise<void>
-}
-
-// Active provider — swap between Local, E2B, and AWS based on
-// BORNASTAR_MODE env var. Defaults to 'local' for companion-first
-// development. Set to 'cloud' to use E2B sandboxes.
-let activeProvider: ComputeProvider | null = null
-
-export function setComputeProvider(provider: ComputeProvider) {
-  activeProvider = provider
-}
-
-export function getComputeProvider(): ComputeProvider {
-  if (!activeProvider) throw new Error('No compute provider configured. Call setComputeProvider() first.')
-  return activeProvider
-}
-
-export function isLocalMode(): boolean {
-  return (process.env.BORNASTAR_MODE ?? 'local') === 'local'
-}
-
-export async function getDefaultProvider(): Promise<ComputeProvider> {
-  if (isLocalMode()) {
-    const { LocalProvider } = await import('./compute-local')
-    return new LocalProvider()
-  }
-  const { E2BProvider } = await import('./compute-e2b')
-  return new E2BProvider()
 }

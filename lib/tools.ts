@@ -4,8 +4,7 @@ import { LocalProvider } from '@/lib/compute-local'
 
 // ── Repository Tools ──────────────────────────────────────────────────────
 //
-// All file operations go through the local filesystem or cloud sandbox.
-// In local mode, commands execute directly on the user's machine.
+// All file operations execute directly on the user's machine via the companion.
 // DB stores only metadata (tasks, chat, teams, etc.) — NOT files.
 
 const compute = new LocalProvider()
@@ -237,63 +236,51 @@ export async function executeTool(
   // physically cannot call write_file/edit_file/delete_file outside Agent mode.
   const projectRoot = await resolveProjectRoot(sessionId)
 
-  // Ensure sandbox is running for ALL operations — with retry on sandbox death
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const sandboxId = await ensureSandboxRunning(projectId)
-    if (!sandboxId) return { result: 'Failed to start sandbox. No container available.', isError: true }
+  // Resolve the local project path for all operations
+  const sandboxId = await ensureSandboxRunning(projectId)
+  if (!sandboxId) return { result: 'Failed to resolve project path. Is the companion running?', isError: true }
 
-    let result: ToolResult
-    switch (toolName) {
-      case 'read_file':
-        result = await readFile(sandboxId, input.path as string, projectRoot); break
-      case 'edit_file':
-        result = await editFile(sandboxId, input.path as string, input.old_string as string, input.new_string as string, input.replace_all as boolean | undefined, projectRoot)
-        if (!result.isError && sessionId) recordTouchedPath(sessionId, input.path as string).catch(() => {})
-        break
-      case 'write_file':
-        result = await writeFile(sandboxId, input.path as string, input.content as string, projectRoot)
-        if (!result.isError && sessionId) recordTouchedPath(sessionId, input.path as string).catch(() => {})
-        break
-      case 'list_dir':
-        result = await listDir(sandboxId, input.path as string, projectRoot); break
-      case 'search_files':
-        result = await searchFiles(sandboxId, {
-          query: input.query as string,
-          glob: input.glob as string | undefined,
-          outputMode: input.output_mode as 'content' | 'files_with_matches' | 'count' | undefined,
-          contextLines: input.context_lines as number | undefined,
-          headLimit: input.head_limit as number | undefined,
-          offset: input.offset as number | undefined,
-          caseInsensitive: input.case_insensitive as boolean | undefined,
-        }, projectRoot); break
-      case 'glob':
-        result = await globFiles(sandboxId, input.pattern as string, input.path as string | undefined, projectRoot); break
-      case 'web_fetch':
-        return await webFetch(input.url as string, input.max_chars as number | undefined)
-      case 'delete_file':
-        result = await deleteFile(sandboxId, input.path as string, projectRoot)
-        if (!result.isError && sessionId) recordTouchedPath(sessionId, input.path as string).catch(() => {})
-        break
-      case 'run_command':
-        result = await runCommand(sandboxId, input.command as string, projectRoot); break
-      case 'run_command_readonly':
-        result = await runCommandReadonly(sandboxId, input.command as string, projectRoot); break
-      default:
-        return { result: `Unknown tool: ${toolName}`, isError: true }
+  switch (toolName) {
+    case 'read_file':
+      return readFile(sandboxId, input.path as string, projectRoot)
+    case 'edit_file': {
+      const result = await editFile(sandboxId, input.path as string, input.old_string as string, input.new_string as string, input.replace_all as boolean | undefined, projectRoot)
+      if (!result.isError && sessionId) recordTouchedPath(sessionId, input.path as string).catch(() => {})
+      return result
     }
-
-    // If sandbox died mid-execution, force cleanup and retry once
-    if (result.isError && result.result.includes('SANDBOX_DEAD')) {
-      console.log('[tools] Sandbox dead, forcing recreation...')
-      const { prisma: db } = await import('@/lib/db')
-      await db.repository.update({ where: { projectId }, data: { sandboxId: null, sandboxStatus: 'stopped' } })
-      continue
+    case 'write_file': {
+      const result = await writeFile(sandboxId, input.path as string, input.content as string, projectRoot)
+      if (!result.isError && sessionId) recordTouchedPath(sessionId, input.path as string).catch(() => {})
+      return result
     }
-
-    return result
+    case 'list_dir':
+      return listDir(sandboxId, input.path as string, projectRoot)
+    case 'search_files':
+      return searchFiles(sandboxId, {
+        query: input.query as string,
+        glob: input.glob as string | undefined,
+        outputMode: input.output_mode as 'content' | 'files_with_matches' | 'count' | undefined,
+        contextLines: input.context_lines as number | undefined,
+        headLimit: input.head_limit as number | undefined,
+        offset: input.offset as number | undefined,
+        caseInsensitive: input.case_insensitive as boolean | undefined,
+      }, projectRoot)
+    case 'glob':
+      return globFiles(sandboxId, input.pattern as string, input.path as string | undefined, projectRoot)
+    case 'web_fetch':
+      return webFetch(input.url as string, input.max_chars as number | undefined)
+    case 'delete_file': {
+      const result = await deleteFile(sandboxId, input.path as string, projectRoot)
+      if (!result.isError && sessionId) recordTouchedPath(sessionId, input.path as string).catch(() => {})
+      return result
+    }
+    case 'run_command':
+      return runCommand(sandboxId, input.command as string, projectRoot)
+    case 'run_command_readonly':
+      return runCommandReadonly(sandboxId, input.command as string, projectRoot)
+    default:
+      return { result: `Unknown tool: ${toolName}`, isError: true }
   }
-
-  return { result: 'Sandbox failed after retry. Please try again.', isError: true }
 }
 
 // ── All operations go to container ────────────────────────────────────────

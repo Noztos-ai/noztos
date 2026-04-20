@@ -3,14 +3,14 @@
 //
 // Two kinds of operations live here:
 //
-//  • Shell-based git commands run inside the user's E2B sandbox via
+//  • Shell-based git commands run directly on the user's machine via
 //    `compute.exec`. Used for everything that touches the working tree:
 //    commit, push, rebase, diff, etc.
 //
 //  • GitHub REST API calls made directly from our Node server using the
-//    user's OAuth token. Used for things the sandbox doesn't need to do —
+//    user's OAuth token. Used for things the companion doesn't need to do —
 //    reading branch-protection rules, creating/merging PRs, polling PR
-//    status. Avoids any dependency on `gh` being installed in the sandbox.
+//    status. Avoids any dependency on `gh` being installed locally.
 
 import { prisma } from '@/lib/db'
 import { decrypt } from '@/lib/crypto'

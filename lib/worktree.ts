@@ -5,12 +5,8 @@ import { LocalProvider } from '@/lib/compute-local'
 // ── Worktree Manager ──────────────────────────────────────────────────────
 //
 // A Worktree is an isolated git branch + working directory inside the
-// project's sandbox (cloud) or the user's local disk (local mode).
+// project's local directory on the user's machine.
 // Multiple chat sessions can collaborate inside the same worktree.
-//
-// Layout (cloud mode — E2B sandbox):
-//   /home/user/project                ← main root
-//   /home/user/worktrees/<worktreeId> ← isolated branches
 //
 // Layout (local mode — user's machine):
 //   ~/projects/my-app                  ← main root (wherever the user cloned)
