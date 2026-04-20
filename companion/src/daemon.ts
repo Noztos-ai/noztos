@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { hostname } from 'node:os'
+import { spawn } from 'node:child_process'
 import { loadConfig } from './config.js'
-import { detectClaudeAuth, getClaudeVersion } from './auth-detect.js'
+import { detectClaudeAuth, detectClaudeInstallation, getClaudeVersion } from './auth-detect.js'
 import { ClaudeBridge } from './claude-bridge.js'
 import { listProjects } from './project-manager.js'
 import type { CompanionCommand, CompanionMessage, ClaudeStreamEvent } from './types.js'
@@ -185,6 +186,15 @@ export class Daemon extends EventEmitter {
       case 'create_project':
         this.handleCreateProject(cmd)
         break
+      case 'setup_claude':
+        this.handleSetupClaude()
+        break
+      case 'claude_status':
+        this.sendClaudeStatus()
+        break
+      case 'scan_repos':
+        this.handleScanRepos()
+        break
     }
   }
 
@@ -300,6 +310,216 @@ export class Daemon extends EventEmitter {
         payload: { message: `Create failed: ${(err as Error).message}` },
       })
     }
+  }
+
+  // ── Scan local repos ───────────────────────────────────────────────
+
+  private async handleScanRepos(): Promise<void> {
+    const { homedir } = await import('node:os')
+    const { existsSync, readdirSync, statSync } = await import('node:fs')
+    const { join } = await import('node:path')
+
+    const home = homedir()
+    const searchDirs = [
+      join(home, 'projects'),
+      join(home, 'Desktop', 'projects'),
+      join(home, 'dev'),
+      join(home, 'code'),
+      join(home, 'repos'),
+      join(home, 'Documents', 'projects'),
+      join(home, 'Desktop'),
+    ]
+
+    const repos: Array<{ name: string; path: string; parentDir: string }> = []
+
+    for (const dir of searchDirs) {
+      if (!existsSync(dir)) continue
+      try {
+        const entries = readdirSync(dir)
+        for (const entry of entries) {
+          const fullPath = join(dir, entry)
+          try {
+            if (!statSync(fullPath).isDirectory()) continue
+            if (existsSync(join(fullPath, '.git'))) {
+              repos.push({
+                name: entry,
+                path: fullPath,
+                parentDir: dir.replace(home, '~'),
+              })
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    await this.send({
+      type: 'claude_event',
+      payload: {
+        event: {
+          type: 'system' as const,
+          subtype: 'scan_repos_result',
+          content: JSON.stringify(repos),
+        },
+      },
+    })
+  }
+
+  // ── Claude Code setup (install + login) ────────────────────────────
+
+  private async sendClaudeStatus(): Promise<void> {
+    const auth = detectClaudeAuth()
+    const version = getClaudeVersion()
+    await this.send({
+      type: 'claude_event',
+      payload: {
+        event: {
+          type: 'system' as const,
+          subtype: 'claude_status',
+          content: JSON.stringify({ ...auth, version }),
+        },
+      },
+    })
+  }
+
+  private async handleSetupClaude(): Promise<void> {
+    const installed = detectClaudeInstallation()
+
+    // Step 1: Install if needed
+    if (!installed) {
+      await this.send({
+        type: 'claude_event',
+        payload: { event: { type: 'system' as const, subtype: 'setup_progress', content: 'installing' } },
+      })
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const proc = spawn('bash', ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+          })
+          let output = ''
+          proc.stdout?.on('data', (d: Buffer) => { output += d.toString() })
+          proc.stderr?.on('data', (d: Buffer) => { output += d.toString() })
+          proc.on('close', (code) => {
+            if (code === 0) resolve()
+            else reject(new Error(`Install failed (exit ${code}): ${output.slice(-200)}`))
+          })
+          proc.on('error', reject)
+        })
+
+        await this.send({
+          type: 'claude_event',
+          payload: { event: { type: 'system' as const, subtype: 'setup_progress', content: 'installed' } },
+        })
+      } catch (err) {
+        await this.send({
+          type: 'error',
+          payload: { message: `Claude install failed: ${(err as Error).message}` },
+        })
+        return
+      }
+    } else {
+      await this.send({
+        type: 'claude_event',
+        payload: { event: { type: 'system' as const, subtype: 'setup_progress', content: 'already_installed' } },
+      })
+    }
+
+    // Step 2: Check if already authenticated
+    const auth = detectClaudeAuth()
+    if (auth.authenticated) {
+      await this.send({
+        type: 'claude_event',
+        payload: {
+          event: {
+            type: 'system' as const,
+            subtype: 'setup_progress',
+            content: 'authenticated',
+          },
+        },
+      })
+      await this.send({
+        type: 'claude_event',
+        payload: {
+          event: {
+            type: 'system' as const,
+            subtype: 'setup_complete',
+            content: JSON.stringify({ email: auth.email, plan: auth.plan, version: getClaudeVersion() }),
+          },
+        },
+      })
+      return
+    }
+
+    // Step 3: Run `claude login` and capture URL + code
+    await this.send({
+      type: 'claude_event',
+      payload: { event: { type: 'system' as const, subtype: 'setup_progress', content: 'login_starting' } },
+    })
+
+    const loginProc = spawn('claude', ['login'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    })
+
+    let fullOutput = ''
+
+    const processOutput = (chunk: Buffer) => {
+      const text = chunk.toString()
+      fullOutput += text
+
+      // Look for URL pattern (claude.ai auth URL)
+      const urlMatch = fullOutput.match(/(https:\/\/[^\s]+claude[^\s]+)/i)
+        ?? fullOutput.match(/(https:\/\/[^\s]+)/i)
+      // Look for code pattern
+      const codeMatch = fullOutput.match(/code[:\s]+([A-Z0-9-]{4,})/i)
+        ?? fullOutput.match(/([A-Z0-9]{4}-[A-Z0-9]{4})/i)
+
+      if (urlMatch || codeMatch) {
+        this.send({
+          type: 'claude_event',
+          payload: {
+            event: {
+              type: 'system' as const,
+              subtype: 'login_url',
+              content: JSON.stringify({
+                url: urlMatch?.[1] ?? null,
+                code: codeMatch?.[1] ?? null,
+                raw: text.trim(),
+              }),
+            },
+          },
+        })
+      }
+    }
+
+    loginProc.stdout?.on('data', processOutput)
+    loginProc.stderr?.on('data', processOutput)
+
+    loginProc.on('close', async (code) => {
+      if (code === 0) {
+        // Re-check auth status
+        const finalAuth = detectClaudeAuth()
+        await this.send({
+          type: 'claude_event',
+          payload: {
+            event: {
+              type: 'system' as const,
+              subtype: 'setup_complete',
+              content: JSON.stringify({
+                email: finalAuth.email,
+                plan: finalAuth.plan,
+                version: getClaudeVersion(),
+              }),
+            },
+          },
+        })
+      } else {
+        await this.send({
+          type: 'error',
+          payload: { message: `Claude login failed (exit ${code})` },
+        })
+      }
+    })
   }
 
   // ── Heartbeat (keeps server-side companion status alive) ──────────

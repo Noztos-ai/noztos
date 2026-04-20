@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useGitHubModal } from './GitHubModal'
+import { ClaudeSetupModal } from './ClaudeSetupModal'
 
 interface ConnectionStatus {
   claude: 'connected' | 'offline' | 'checking'
@@ -27,6 +29,7 @@ function formatLastSeen(ts?: number): string {
 }
 
 export function DashboardSidebar() {
+  const { openGitHub } = useGitHubModal()
   const [mounted, setMounted] = useState(false)
   const [status, setStatus] = useState<ConnectionStatus>({
     claude: 'checking',
@@ -36,6 +39,7 @@ export function DashboardSidebar() {
 
   useEffect(() => { setMounted(true) }, [])
   const [showMachineMenu, setShowMachineMenu] = useState(false)
+  const [showClaudeSetup, setShowClaudeSetup] = useState(false)
   const [showReconnectModal, setShowReconnectModal] = useState<'same' | 'new' | null>(null)
   const [showReinstall, setShowReinstall] = useState(false)
   const [reconnectToken, setReconnectToken] = useState<string | null>(null)
@@ -131,41 +135,63 @@ export function DashboardSidebar() {
       >
         {/* Claude Code */}
         <div className="group relative flex flex-col items-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/5">
+          <button
+            onClick={() => { if (status.claude !== 'connected') setShowClaudeSetup(true) }}
+            className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
+          >
             <img src="/claude-logo.png" alt="Claude" className="h-8 w-8 rounded" />
-          </div>
+          </button>
           <span className={`mt-1.5 h-2.5 w-2.5 rounded-full ${
             status.claude === 'connected' ? 'bg-emerald-400' :
             status.claude === 'checking' ? 'bg-zinc-600 animate-pulse' :
             'bg-amber-400'
           }`} />
-          <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 opacity-0 shadow-xl transition-opacity group-hover:opacity-100" style={{ backgroundColor: '#252526' }}>
+          <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 opacity-0 shadow-xl transition-opacity group-hover:pointer-events-auto group-hover:opacity-100" style={{ backgroundColor: '#252526' }}>
             <div className="flex items-center gap-1.5">
               <span className={`h-1.5 w-1.5 rounded-full ${status.claude === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
               <span className="text-[11px] font-medium text-zinc-200">Claude Code</span>
             </div>
             <p className="mt-1 text-[10px] text-zinc-500">{status.claudeDetail ?? 'Checking...'}</p>
+            {status.claude !== 'connected' && (
+              <button
+                onClick={() => setShowClaudeSetup(true)}
+                className="mt-2 w-full rounded-md bg-white/10 px-2 py-1 text-[10px] font-medium text-zinc-200 transition-colors hover:bg-white/15"
+              >
+                Setup Claude Code
+              </button>
+            )}
           </div>
         </div>
 
         {/* GitHub */}
         <div className="group relative flex flex-col items-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/5">
+          <button
+            onClick={() => { if (status.github !== 'connected') openGitHub() }}
+            className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
+          >
             <svg className="h-8 w-8 text-zinc-400" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
             </svg>
-          </div>
+          </button>
           <span className={`mt-1.5 h-2.5 w-2.5 rounded-full ${
             status.github === 'connected' ? 'bg-emerald-400' :
             status.github === 'checking' ? 'bg-zinc-600 animate-pulse' :
             'bg-zinc-600'
           }`} />
-          <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 opacity-0 shadow-xl transition-opacity group-hover:opacity-100" style={{ backgroundColor: '#252526' }}>
+          <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 opacity-0 shadow-xl transition-opacity group-hover:pointer-events-auto group-hover:opacity-100" style={{ backgroundColor: '#252526' }}>
             <div className="flex items-center gap-1.5">
               <span className={`h-1.5 w-1.5 rounded-full ${status.github === 'connected' ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
               <span className="text-[11px] font-medium text-zinc-200">GitHub</span>
             </div>
             <p className="mt-1 text-[10px] text-zinc-500">{status.githubDetail ?? 'Checking...'}</p>
+            {status.github !== 'connected' && (
+              <button
+                onClick={() => openGitHub()}
+                className="mt-2 w-full rounded-md bg-white/10 px-2 py-1 text-[10px] font-medium text-zinc-200 transition-colors hover:bg-white/15"
+              >
+                Connect GitHub
+              </button>
+            )}
           </div>
         </div>
 
@@ -262,6 +288,11 @@ export function DashboardSidebar() {
           </div>
         </div>
       </div>
+
+      {/* Claude Setup Modal */}
+      {showClaudeSetup && (
+        <ClaudeSetupModal onClose={() => setShowClaudeSetup(false)} />
+      )}
 
       {/* Reconnect Modal — fullscreen overlay */}
       {showReconnectModal && (

@@ -55,7 +55,7 @@ export interface ClaudeStreamEvent {
 
 // Commands sent FROM the web to the companion
 export interface CompanionCommand {
-  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project'
+  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project' | 'setup_claude' | 'claude_status' | 'scan_repos'
   sessionId?: string
   projectId?: string
   prompt?: string
