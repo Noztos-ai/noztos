@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useGitHubModal } from './GitHubModal'
 import { ClaudeSetupModal } from './ClaudeSetupModal'
 
@@ -36,8 +36,6 @@ export function DashboardSidebar() {
     github: 'checking',
     machine: 'checking',
   })
-
-  useEffect(() => { setMounted(true) }, [])
   const [showMachineMenu, setShowMachineMenu] = useState(false)
   const [showClaudeSetup, setShowClaudeSetup] = useState(false)
   const [showReconnectModal, setShowReconnectModal] = useState<'same' | 'new' | null>(null)
@@ -45,6 +43,19 @@ export function DashboardSidebar() {
   const [reconnectToken, setReconnectToken] = useState<string | null>(null)
   const [generatingToken, setGeneratingToken] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [hoveredTooltip, setHoveredTooltip] = useState<'claude' | 'github' | 'machine' | null>(null)
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  function enterTooltip(name: 'claude' | 'github' | 'machine') {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setHoveredTooltip(name)
+  }
+
+  function leaveTooltip() {
+    leaveTimer.current = setTimeout(() => setHoveredTooltip(null), 200)
+  }
 
   useEffect(() => {
     async function check() {
@@ -88,7 +99,6 @@ export function DashboardSidebar() {
   const generateNewToken = useCallback(async () => {
     setGeneratingToken(true)
     try {
-      // Revoke all existing tokens first
       const listRes = await fetch('/api/companion/tokens')
       const listData = await listRes.json()
       for (const t of listData.tokens ?? []) {
@@ -98,7 +108,6 @@ export function DashboardSidebar() {
           body: JSON.stringify({ tokenId: t.id }),
         })
       }
-      // Generate fresh token
       const res = await fetch('/api/companion/tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,7 +145,11 @@ export function DashboardSidebar() {
         style={{ backgroundColor: '#15151c' }}
       >
         {/* Claude Code */}
-        <div className="group relative flex flex-col items-center">
+        <div
+          className="relative flex flex-col items-center"
+          onMouseEnter={() => enterTooltip('claude')}
+          onMouseLeave={leaveTooltip}
+        >
           <button
             onClick={() => { if (status.claude !== 'connected') setShowClaudeSetup(true) }}
             className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
@@ -148,7 +161,12 @@ export function DashboardSidebar() {
             status.claude === 'checking' ? 'bg-zinc-600 animate-pulse' :
             'bg-amber-400'
           }`} />
-          <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 opacity-0 shadow-xl transition-opacity group-hover:pointer-events-auto group-hover:opacity-100" style={{ backgroundColor: '#252526' }}>
+          <div
+            className={`absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 shadow-xl transition-opacity ${hoveredTooltip === 'claude' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+            style={{ backgroundColor: '#252526' }}
+            onMouseEnter={() => enterTooltip('claude')}
+            onMouseLeave={leaveTooltip}
+          >
             <div className="flex items-center gap-1.5">
               <span className={`h-1.5 w-1.5 rounded-full ${status.claude === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
               <span className="text-[11px] font-medium text-zinc-200">Claude Code</span>
@@ -166,7 +184,11 @@ export function DashboardSidebar() {
         </div>
 
         {/* GitHub */}
-        <div className="group relative flex flex-col items-center">
+        <div
+          className="relative flex flex-col items-center"
+          onMouseEnter={() => enterTooltip('github')}
+          onMouseLeave={leaveTooltip}
+        >
           <button
             onClick={() => { if (status.github !== 'connected') openGitHub() }}
             className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
@@ -180,7 +202,12 @@ export function DashboardSidebar() {
             status.github === 'checking' ? 'bg-zinc-600 animate-pulse' :
             'bg-zinc-600'
           }`} />
-          <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 opacity-0 shadow-xl transition-opacity group-hover:pointer-events-auto group-hover:opacity-100" style={{ backgroundColor: '#252526' }}>
+          <div
+            className={`absolute left-full top-0 z-50 ml-2 w-48 rounded-md border border-[#2B2B2B] px-3 py-2 shadow-xl transition-opacity ${hoveredTooltip === 'github' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+            style={{ backgroundColor: '#252526' }}
+            onMouseEnter={() => enterTooltip('github')}
+            onMouseLeave={leaveTooltip}
+          >
             <div className="flex items-center gap-1.5">
               <span className={`h-1.5 w-1.5 rounded-full ${status.github === 'connected' ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
               <span className="text-[11px] font-medium text-zinc-200">GitHub</span>
@@ -200,7 +227,11 @@ export function DashboardSidebar() {
         <div className="mx-3 border-t border-white/5" />
 
         {/* Machine + Cloud */}
-        <div className="group relative flex flex-col items-center">
+        <div
+          className="relative flex flex-col items-center"
+          onMouseEnter={() => enterTooltip('machine')}
+          onMouseLeave={leaveTooltip}
+        >
           <div className="flex h-14 w-14 items-center justify-center rounded-xl transition-colors hover:bg-white/5">
             <svg className="h-8 w-8 text-zinc-400" viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
@@ -211,20 +242,16 @@ export function DashboardSidebar() {
             status.machine === 'checking' ? 'bg-zinc-600 animate-pulse' :
             'bg-amber-400'
           }`} />
-
-          {/* Tooltip with ⋯ menu */}
           <div
-            className="pointer-events-none absolute left-full top-0 z-50 ml-2 w-56 rounded-lg border border-[#2B2B2B] p-3 opacity-0 shadow-xl transition-opacity group-hover:pointer-events-auto group-hover:opacity-100"
+            className={`absolute left-full top-0 z-50 ml-2 w-56 rounded-lg border border-[#2B2B2B] p-3 shadow-xl transition-opacity ${hoveredTooltip === 'machine' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
             style={{ backgroundColor: '#252526' }}
-            onMouseLeave={() => setShowMachineMenu(false)}
+            onMouseEnter={() => enterTooltip('machine')}
+            onMouseLeave={leaveTooltip}
           >
-            {/* Local machine row */}
             <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 shrink-0 rounded-full ${
-                status.machine === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'
-              }`} />
+              <span className={`h-2 w-2 shrink-0 rounded-full ${status.machine === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium text-zinc-200 truncate">
+                <p className="truncate text-[11px] font-medium text-zinc-200">
                   {status.machineName ?? 'Local Machine'}
                 </p>
                 <p className="text-[9px] text-zinc-500">
@@ -235,7 +262,6 @@ export function DashboardSidebar() {
                       : 'Offline — no connection yet'}
                 </p>
               </div>
-              {/* ⋯ menu button */}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowMachineMenu(!showMachineMenu) }}
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
@@ -248,9 +274,8 @@ export function DashboardSidebar() {
               </button>
             </div>
 
-            {/* ⋯ dropdown menu */}
             {showMachineMenu && (
-              <div className="mt-2 rounded-md border border-[#3A3A3A] overflow-hidden" style={{ backgroundColor: '#2A2A2A' }}>
+              <div className="mt-2 overflow-hidden rounded-md border border-[#3A3A3A]" style={{ backgroundColor: '#2A2A2A' }}>
                 <button
                   onClick={() => { setShowReconnectModal('same'); setShowMachineMenu(false) }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] text-zinc-300 hover:bg-white/5"
@@ -275,7 +300,6 @@ export function DashboardSidebar() {
 
             <div className="my-2 border-t border-white/5" />
 
-            {/* Cloud */}
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
               <div>
@@ -291,16 +315,13 @@ export function DashboardSidebar() {
         </div>
       </div>
 
-      {/* Claude Setup Modal */}
       {showClaudeSetup && (
         <ClaudeSetupModal onClose={() => setShowClaudeSetup(false)} />
       )}
 
-      {/* Reconnect Modal — fullscreen overlay */}
       {showReconnectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
           <div className="w-full max-w-md rounded-xl border border-[#2B2B2B] p-6 shadow-2xl" style={{ backgroundColor: '#1F1F1F' }}>
-            {/* Header */}
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-[15px] font-semibold text-zinc-100">
                 {showReconnectModal === 'same' ? 'Restore local connection' : 'Change local machine'}
@@ -318,11 +339,10 @@ export function DashboardSidebar() {
                 : 'Generate a new token for your new machine. The previous connection will be revoked.'}
             </p>
 
-            {/* Step 1 — Install (for new computer, or expandable for same) */}
             {showReconnectModal === 'same' && !showReinstall && (
               <button
                 onClick={() => setShowReinstall(true)}
-                className="mb-3 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
+                className="mb-3 text-[10px] text-zinc-600 transition-colors hover:text-zinc-400"
               >
                 Need to reinstall the CLI?
               </button>
@@ -347,7 +367,6 @@ export function DashboardSidebar() {
               </div>
             )}
 
-            {/* Step 2 — Generate token + login */}
             <div className="mb-3 rounded-lg border border-[#2B2B2B] px-4 py-3" style={{ backgroundColor: '#181818' }}>
               <div className="mb-2 flex items-center gap-2">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/10 text-[10px] font-bold text-violet-400">
@@ -366,7 +385,7 @@ export function DashboardSidebar() {
               ) : (
                 <div className="space-y-2">
                   <div className="group relative">
-                    <pre className="rounded-md border border-[#2B2B2B] px-3 py-2 font-mono text-[11px] text-violet-300/80 break-all whitespace-pre-wrap" style={{ backgroundColor: '#151515' }}>
+                    <pre className="whitespace-pre-wrap break-all rounded-md border border-[#2B2B2B] px-3 py-2 font-mono text-[11px] text-violet-300/80" style={{ backgroundColor: '#151515' }}>
                       bornastar login {reconnectToken}
                     </pre>
                     <button
@@ -381,7 +400,6 @@ export function DashboardSidebar() {
               )}
             </div>
 
-            {/* Step 3 — Start */}
             <div className="rounded-lg border border-[#2B2B2B] px-4 py-3" style={{ backgroundColor: '#181818' }}>
               <div className="mb-2 flex items-center gap-2">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-[10px] font-bold text-emerald-400">
@@ -402,7 +420,6 @@ export function DashboardSidebar() {
               </div>
             </div>
 
-            {/* Close button */}
             <div className="mt-4 flex justify-end">
               <button
                 onClick={closeModal}
