@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
 import { ensureSandboxRunning } from '@/lib/sandbox-manager'
+import { loadProjectGitContext } from '@/lib/git'
 import { LocalProvider } from '@/lib/compute-local'
 
 // ── Worktree Manager ──────────────────────────────────────────────────────
@@ -128,6 +129,21 @@ export async function provisionWorktree(
 
   try {
     await compute.exec(sandboxId, `mkdir -p ${worktreesDir}`)
+
+    // If the project has a GitHub remote, fetch + fast-forward main before
+    // creating the worktree so it always starts from the latest upstream state.
+    const ctx = await loadProjectGitContext(projectId)
+    if (ctx?.githubOwner && ctx?.githubToken) {
+      const remoteUrl = `https://${ctx.githubToken}@github.com/${ctx.githubOwner}/${ctx.githubRepo}.git`
+      await compute.exec(
+        sandboxId,
+        `cd ${sandboxId} && git fetch ${remoteUrl} main:refs/remotes/origin/main 2>/dev/null || true`,
+      )
+      await compute.exec(
+        sandboxId,
+        `cd ${sandboxId} && git merge origin/main --ff-only 2>/dev/null || true`,
+      )
+    }
 
     // Get current HEAD on main as the baseline
     const headRes = await compute.exec(
