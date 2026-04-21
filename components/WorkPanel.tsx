@@ -2015,6 +2015,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
 
               <div className="flex flex-1 overflow-hidden">
                 <ChatPanel
+                  key={activeSessionId ?? 'empty'}
                   projectId={projectId}
                   sessionId={activeSessionId}
                   sessionName={
@@ -2647,11 +2648,13 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
           {/* Panel content — takes remaining space above terminal */}
           <div className="min-h-0 flex-1 overflow-hidden" style={{ backgroundColor: '#181818' }}>
             {rightPanelTab === 'explorer' && (
-              <FileTree key={activeWorktreeId ?? 'main'} projectId={projectId} hasActiveSession={!!activeSessionId} mainState={!activeWorktreeId} />
+              <FileTree key={activeWorktreeId ?? 'main'} projectId={projectId} worktreeId={activeWorktreeId} hasActiveSession={!!activeSessionId} mainState={!activeWorktreeId} />
             )}
             {rightPanelTab === 'changes' && (
               <ChangesList
+                key={activeWorktreeId ?? 'main'}
                 projectId={projectId}
+                worktreeId={activeWorktreeId}
                 selectMode={changesSelectMode}
                 onExitSelectMode={() => setChangesSelectMode(false)}
                 onAttachToCurrent={handleAttachHunkToCurrentChat}
@@ -3312,6 +3315,7 @@ function InlineDiffView({
 
 function ChangesList({
   projectId,
+  worktreeId,
   selectMode,
   onExitSelectMode,
   onAttachToCurrent,
@@ -3321,6 +3325,7 @@ function ChangesList({
   onOpenFile,
 }: {
   projectId: string
+  worktreeId?: string | null
   // Whether the panel is in multi-select mode (header icon toggles this).
   selectMode: boolean
   onExitSelectMode: () => void
@@ -3345,9 +3350,10 @@ function ChangesList({
   const [realChanges, setRealChanges] = useState<MockChangedFile[]>([])
   useEffect(() => {
     let cancelled = false
+    const wtqs = worktreeId ? `?worktree=${worktreeId}` : ''
     async function load() {
       try {
-        const res = await fetch(`/api/projects/${projectId}/repository/files`)
+        const res = await fetch(`/api/projects/${projectId}/repository/files${wtqs}`)
         if (!res.ok) return
         const data = await res.json()
         if (cancelled) return
@@ -3362,7 +3368,7 @@ function ChangesList({
           added: f.added ?? 0,
           removed: f.removed ?? 0,
           hunks: [],
-          worktreeId: f.worktrees?.[0]?.id,
+          worktreeId: worktreeId ?? f.worktrees?.[0]?.id,
         }))
         setRealChanges(mapped)
       } catch (err) {
@@ -3372,7 +3378,7 @@ function ChangesList({
     load()
     const interval = setInterval(load, 5000)
     return () => { cancelled = true; clearInterval(interval) }
-  }, [projectId])
+  }, [projectId, worktreeId])
 
   const filtered = realChanges
   const selectedFiles = filtered.filter((f) => selectedPaths.has(f.path))
@@ -3892,7 +3898,11 @@ function DiffHunkView({
 
 // ── File Tree ──────────────────────────────────────────────────────────────
 
-function FileTree({ projectId, hasActiveSession, mainState }: { projectId: string; hasActiveSession?: boolean; mainState?: boolean }) {
+function FileTree({ projectId, worktreeId, hasActiveSession, mainState }: { projectId: string; worktreeId?: string | null; hasActiveSession?: boolean; mainState?: boolean }) {
+  // Query-string helper: append ?worktree=ID to every file API call so the
+  // tree, reads, writes and PATCH operations all stay scoped to the active
+  // worktree. Main (no worktree) continues to use the project root.
+  const wtqs = worktreeId ? `?worktree=${worktreeId}` : ''
   const [files, setFiles] = useState<FileEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
@@ -3967,7 +3977,7 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
   }, [])
 
   function fetchFiles() {
-    fetch(`/api/projects/${projectId}/repository/files`)
+    fetch(`/api/projects/${projectId}/repository/files${wtqs}`)
       .then((r) => r.json())
       .then((data) => { setFiles(data.files ?? []); setLoading(false) })
       .catch(() => setLoading(false))
@@ -3978,7 +3988,8 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
     // Re-fetch every 5s so changes from any active chat appear in the tree
     const interval = setInterval(fetchFiles, 5000)
     return () => clearInterval(interval)
-  }, [projectId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, worktreeId])
 
   useEffect(() => {
     if (creatingType && creatingRef.current) creatingRef.current.focus()
@@ -3994,18 +4005,21 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
 
   async function handleSelectFile(path: string) {
     setSelectedPath(path)
-    // If the file is modified by exactly one worktree, read that version so
-    // the user sees the agent's in-progress edits. For files touched by
-    // multiple worktrees, fall back to main (the merge view comes later).
+    // Reading order of preference:
+    //   1. The active worktree (full isolation — we're inside worktree A, always
+    //      read worktree A's copy so the user sees its in-progress state).
+    //   2. On main view: a file touched by exactly one worktree shows that
+    //      worktree's version. Files touched by several fall back to main.
     const fileEntry = files.find((f) => f.path === path)
-    const singleWorktreeId = fileEntry?.worktrees && fileEntry.worktrees.length === 1
+    const singleWorktreeId = !worktreeId && fileEntry?.worktrees?.length === 1
       ? fileEntry.worktrees[0].id
       : null
-    const worktreeParam = singleWorktreeId ? `?worktree=${singleWorktreeId}` : ''
+    const effectiveWorktreeId = worktreeId ?? singleWorktreeId
+    const worktreeParam = effectiveWorktreeId ? `?worktree=${effectiveWorktreeId}` : ''
     const res = await fetch(`/api/projects/${projectId}/repository/files/${encodeURIComponent(path)}${worktreeParam}`)
     if (res.ok) {
       const data = await res.json()
-      setViewingFile({ path, content: data.content, worktreeId: singleWorktreeId })
+      setViewingFile({ path, content: data.content, worktreeId: effectiveWorktreeId })
     }
   }
 
@@ -4025,7 +4039,7 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
     const path = folder ? `${folder}/${creatingName.trim()}` : creatingName.trim()
 
     if (creatingType === 'file') {
-      await fetch(`/api/projects/${projectId}/repository/files`, {
+      await fetch(`/api/projects/${projectId}/repository/files${wtqs}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, action: 'accept' }),
@@ -4033,7 +4047,7 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
       // Create empty file via the tools endpoint approach
       const repo = files[0] // just need any file to get repositoryId pattern
       if (repo) {
-        await fetch(`/api/projects/${projectId}/repository/files`, {
+        await fetch(`/api/projects/${projectId}/repository/files${wtqs}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path, action: 'create', content: '' }),
@@ -4048,7 +4062,7 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
   }
 
   async function handleRename(oldPath: string, newName: string) {
-    await fetch(`/api/projects/${projectId}/repository/files`, {
+    await fetch(`/api/projects/${projectId}/repository/files${wtqs}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: oldPath, action: 'rename', newName }),
@@ -4057,7 +4071,7 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
   }
 
   async function handleDelete(path: string) {
-    await fetch(`/api/projects/${projectId}/repository/files`, {
+    await fetch(`/api/projects/${projectId}/repository/files${wtqs}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, action: 'delete' }),
@@ -4072,7 +4086,7 @@ function FileTree({ projectId, hasActiveSession, mainState }: { projectId: strin
     const newPath = toFolder ? `${toFolder}/${fileName}` : fileName
     if (newPath === fromPath) return
 
-    await fetch(`/api/projects/${projectId}/repository/files`, {
+    await fetch(`/api/projects/${projectId}/repository/files${wtqs}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: fromPath, action: 'move', newPath }),
@@ -4891,10 +4905,27 @@ function ChatPanel({
 
   // ── Companion stream (Claude Code CLI) ──────────────────────────
   // When the companion daemon is connected, chat messages flow through
-  // the SSE relay instead of the old Bornastar Engine polling.
-  const companion = useCompanionStream()
+  // the SSE relay instead of the old Bornastar Engine polling. We pass
+  // the Bornastar chat session so the hook filters out events from other
+  // chats sharing the same user-level companion channel.
+  const companion = useCompanionStream(sessionId)
   const companionConnected = companion.status === 'connected'
   const [claudeMode, setClaudeMode] = useState<'plan' | 'edit' | 'auto' | 'agent'>('auto')
+
+  // The companion daemon has its own project registry with hex IDs keyed by
+  // local path. We need to resolve the Bornastar DB projectId → companion hex ID
+  // by matching sandboxId (local path) against companion.companionInfo.projects.
+  const [sandboxId, setSandboxId] = useState<string | null>(null)
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}/terminal`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.sandboxId) setSandboxId(d.sandboxId) })
+      .catch(() => {})
+  }, [projectId])
+
+  const companionProjectId = sandboxId && companion.companionInfo?.projects
+    ? (companion.companionInfo.projects.find((p) => p.path === sandboxId)?.id ?? null)
+    : null
 
   // External prompts — e.g. "Resolve with agent" on the Conflicts top
   // bar fires this event with a prefilled message. We drop it into the
@@ -5071,9 +5102,11 @@ function ChatPanel({
     window.dispatchEvent(new CustomEvent('bornastar-continue-merged'))
     window.dispatchEvent(new CustomEvent('bornastar-start-over-closed'))
 
-    // All chat goes through Claude Code via the companion daemon.
-    if (companionConnected) {
-      await companion.sendPrompt(projectId, content, claudeMode)
+    // All chat goes through Claude Code via the companion daemon. Pass the
+    // Bornastar session ID so the server can resolve the worktree path and
+    // so each chat's bridge is keyed independently on the daemon.
+    if (companionConnected && companionProjectId) {
+      await companion.sendPrompt(companionProjectId, content, claudeMode, sessionId)
     }
   }
 
@@ -5529,7 +5562,7 @@ function ChatPanel({
             {companion.isRunning ? (
               <button
                 type="button"
-                onClick={() => companion.interrupt(projectId)}
+                onClick={() => companionProjectId && companion.interrupt(companionProjectId, sessionId)}
                 title="Stop"
                 className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-zinc-900 transition-colors hover:bg-zinc-200"
               >
@@ -5540,8 +5573,8 @@ function ChatPanel({
             ) : (
               <button
                 type="submit"
-                disabled={(!input.trim() && attachments.length === 0) || !companionConnected}
-                title={!companionConnected ? 'Start companion: bornastar start' : 'Send'}
+                disabled={(!input.trim() && attachments.length === 0) || !companionConnected || !companionProjectId}
+                title={!companionConnected ? 'Start companion: bornastar start' : !companionProjectId ? 'Project not registered in companion' : 'Send'}
                 className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-zinc-900 transition-colors hover:bg-zinc-200 disabled:opacity-30"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">

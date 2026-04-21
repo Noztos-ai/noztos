@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { verifyProjectAccess } from '@/lib/auth'
 import { ensureSandboxRunning } from '@/lib/sandbox-manager'
 import { LocalProvider } from '@/lib/compute-local'
-import { getAllProjectChanges } from '@/lib/worktree'
+import { getAllProjectChanges, getWorktreeChangedFiles } from '@/lib/worktree'
 
 const compute = new LocalProvider()
 
@@ -11,13 +11,44 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
-// GET — List all files in the repository, enriched with cross-worktree
-// modification info. Each file gets:
-//   - isModified: any open chat has touched it
-//   - isNew:      file does not exist on main (only in some worktree)
-//   - chats:      [{id, name}] of every chat that touched it
-//   - added/removed: aggregated +/- across all chats touching it
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+// Resolve which working directory a request should operate in.
+// ?worktree=ID  → that worktree's path (full isolation)
+// ?session=ID   → the chat's parent worktree if any (fallback to main)
+// otherwise     → project root (main)
+async function resolveRoot(
+  projectId: string,
+  sandboxId: string,
+  worktreeIdParam: string | null,
+  sessionIdParam: string | null,
+): Promise<{ root: string; worktreeId: string | null }> {
+  if (worktreeIdParam) {
+    const wt = await prisma.worktree.findUnique({
+      where: { id: worktreeIdParam },
+      select: { projectId: true, worktreePath: true },
+    })
+    if (wt && wt.projectId === projectId && wt.worktreePath) {
+      return { root: wt.worktreePath, worktreeId: worktreeIdParam }
+    }
+  } else if (sessionIdParam) {
+    const session = await prisma.chatSession.findUnique({
+      where: { id: sessionIdParam },
+      select: {
+        projectId: true,
+        worktreeId: true,
+        worktree: { select: { worktreePath: true } },
+      },
+    })
+    if (session && session.projectId === projectId && session.worktree?.worktreePath) {
+      return { root: session.worktree.worktreePath, worktreeId: session.worktreeId }
+    }
+  }
+  return { root: sandboxId, worktreeId: null }
+}
+
+// GET — List files. Scope depends on query:
+//   ?worktree=ID → only that worktree's tree + its own diffs vs baseCommit
+//   (no param)   → main tree + cross-worktree change aggregation
+export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id } = await params
   const auth = await verifyProjectAccess(id)
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
@@ -25,52 +56,77 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const repo = await prisma.repository.findUnique({ where: { projectId: id } })
   if (!repo) return NextResponse.json({ files: [] })
 
-  const projectPath = await ensureSandboxRunning(id)
-  if (!projectPath) return NextResponse.json({ files: [], error: 'Project not available' })
+  const sandboxId = await ensureSandboxRunning(id)
+  if (!sandboxId) return NextResponse.json({ files: [], error: 'Project not available' })
+
+  const worktreeIdParam = request.nextUrl.searchParams.get('worktree')
+  const sessionIdParam = request.nextUrl.searchParams.get('session')
+  const { root, worktreeId } = await resolveRoot(id, sandboxId, worktreeIdParam, sessionIdParam)
 
   try {
-    // Run main file listing and worktree changes in parallel
-    const [listResult, changes] = await Promise.all([
-      compute.exec(projectPath, `cd ${projectPath} && find . -type f -not -path './.git/*' -not -path './node_modules/*' -not -path './__pycache__/*' -not -path './venv/*' -not -path './.next/*' -not -path './dist/*' | sed 's|^\\./||' | sort`),
-      getAllProjectChanges(id),
-    ])
+    const listResult = await compute.exec(sandboxId, `cd ${root} && find . -type f -not -path './.git/*' -not -path './node_modules/*' -not -path './__pycache__/*' -not -path './venv/*' -not -path './.next/*' -not -path './dist/*' | sed 's|^\\./||' | sort`)
+    const diskFiles = listResult.stdout.split('\n').filter(Boolean)
+    const diskSet = new Set(diskFiles)
 
-    // Index changes by path for O(1) lookup
+    // Per-worktree view: changes only for this worktree (vs its baseCommit).
+    if (worktreeId) {
+      const wtChanges = await getWorktreeChangedFiles(id, worktreeId)
+      const changeByPath = new Map(wtChanges.map((f) => [f.path, f]))
+      const files: Array<{
+        id: string; path: string; isModified: boolean; isNew: boolean; sizeBytes: number
+        added?: number; removed?: number; worktrees?: { id: string; name: string }[]
+      }> = diskFiles.map((path, i) => {
+        const c = changeByPath.get(path)
+        return {
+          id: `file-${i}`,
+          path,
+          isModified: !!c,
+          isNew: c?.status === 'A',
+          sizeBytes: 0,
+          ...(c && { added: c.added, removed: c.removed }),
+        }
+      })
+      // Deleted files (don't exist on disk but show in git diff as 'D')
+      let extraIdx = 0
+      for (const c of wtChanges) {
+        if (c.status === 'D' && !diskSet.has(c.path)) {
+          files.push({
+            id: `del-${extraIdx++}`,
+            path: c.path,
+            isModified: true,
+            isNew: false,
+            sizeBytes: 0,
+            added: c.added,
+            removed: c.removed,
+          })
+        }
+      }
+      files.sort((a, b) => a.path.localeCompare(b.path))
+      return NextResponse.json({ files })
+    }
+
+    // Project-wide (main) view: aggregate every worktree's changes.
+    const changes = await getAllProjectChanges(id)
     const changeByPath = new Map(changes.files.map((f) => [f.path, f]))
-    const mainFiles = listResult.stdout.split('\n').filter(Boolean)
-    const mainSet = new Set(mainFiles)
 
-    // Files that exist on main: enrich with change info if any worktree touched them
     const files: Array<{
-      id: string
-      path: string
-      isModified: boolean
-      isNew: boolean
-      sizeBytes: number
-      added?: number
-      removed?: number
-      worktrees?: { id: string; name: string }[]
-    }> = mainFiles.map((path, i) => {
-      const change = changeByPath.get(path)
+      id: string; path: string; isModified: boolean; isNew: boolean; sizeBytes: number
+      added?: number; removed?: number; worktrees?: { id: string; name: string }[]
+    }> = diskFiles.map((path, i) => {
+      const c = changeByPath.get(path)
       return {
         id: `file-${i}`,
         path,
-        isModified: !!change,
+        isModified: !!c,
         isNew: false,
         sizeBytes: 0,
-        ...(change && {
-          added: change.added,
-          removed: change.removed,
-          worktrees: change.worktrees,
-        }),
+        ...(c && { added: c.added, removed: c.removed, worktrees: c.worktrees }),
       }
     })
 
-    // Files that DON'T exist on main but were created by some worktree
-    // — surface them too so the tree shows the full project state.
     let extraIdx = 0
     for (const f of changes.files) {
-      if (mainSet.has(f.path)) continue
+      if (diskSet.has(f.path)) continue
       files.push({
         id: `new-${extraIdx++}`,
         path: f.path,
@@ -90,7 +146,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PATCH — File operations (revert, accept, create, rename, delete, move)
+// PATCH — File operations (revert, accept, create, rename, delete, move).
+// Accepts ?worktree=ID / ?session=ID to scope operations into the correct
+// working directory so edits never leak between branches.
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { id } = await params
   const auth = await verifyProjectAccess(id)
@@ -107,11 +165,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { path, action } = body
   if (!path || !action) return NextResponse.json({ error: 'path and action required' }, { status: 400 })
 
-  const projectPath = await ensureSandboxRunning(id)
-  if (!projectPath) return NextResponse.json({ error: 'Project not available' }, { status: 503 })
+  const sandboxId = await ensureSandboxRunning(id)
+  if (!sandboxId) return NextResponse.json({ error: 'Project not available' }, { status: 503 })
 
-  const sandboxId = projectPath
-  const PROJECT_ROOT = projectPath
+  const worktreeIdParam = request.nextUrl.searchParams.get('worktree')
+  const sessionIdParam = request.nextUrl.searchParams.get('session')
+  const { root: PROJECT_ROOT } = await resolveRoot(id, sandboxId, worktreeIdParam, sessionIdParam)
 
   try {
     switch (action) {

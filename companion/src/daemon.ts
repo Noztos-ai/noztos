@@ -224,7 +224,16 @@ export class Daemon extends EventEmitter {
       return
     }
 
-    let bridge = this.bridges.get(project.id)
+    // Resolve the working directory: a specific worktree path (when the chat
+    // belongs to a worktree) or the project root (main chats).
+    const cwd = cmd.worktreePath ?? project.path
+
+    // Bridge key: one per Bornastar chat session so conversations stay
+    // independent and multiple chats can run concurrently across worktrees.
+    // Fallback to projectId for backward compatibility.
+    const bridgeKey = cmd.bornastarSessionId ?? project.id
+
+    let bridge = this.bridges.get(bridgeKey)
     if (bridge?.isRunning()) {
       await this.send({
         type: 'error',
@@ -233,13 +242,17 @@ export class Daemon extends EventEmitter {
       return
     }
 
-    bridge = new ClaudeBridge(project.path, cmd.sessionId ?? undefined, cmd.mode ?? 'auto')
-    this.bridges.set(project.id, bridge)
+    bridge = new ClaudeBridge(cwd, cmd.sessionId ?? undefined, cmd.mode ?? 'auto')
+    this.bridges.set(bridgeKey, bridge)
+
+    // Tag every outgoing event with the Bornastar chat session so the
+    // browser can filter and never show chat1's stream inside chat2.
+    const bornastarSessionId = cmd.bornastarSessionId
 
     bridge.on('event', (event: ClaudeStreamEvent) => {
       this.send({
         type: 'claude_event',
-        payload: { projectId: project.id, event },
+        payload: { projectId: project.id, bornastarSessionId, event },
       })
     })
 
@@ -248,6 +261,7 @@ export class Daemon extends EventEmitter {
         type: 'claude_event',
         payload: {
           projectId: project.id,
+          bornastarSessionId,
           event: {
             type: 'result',
             session_id: summary.sessionId,
@@ -260,7 +274,7 @@ export class Daemon extends EventEmitter {
     bridge.on('error', (err: Error) => {
       this.send({
         type: 'error',
-        payload: { projectId: project.id, message: err.message },
+        payload: { projectId: project.id, bornastarSessionId, message: err.message },
       })
     })
 
@@ -269,14 +283,15 @@ export class Daemon extends EventEmitter {
     } catch (err) {
       await this.send({
         type: 'error',
-        payload: { projectId: project.id, message: (err as Error).message },
+        payload: { projectId: project.id, bornastarSessionId, message: (err as Error).message },
       })
     }
   }
 
   private handleInterrupt(cmd: CompanionCommand): void {
     if (!cmd.projectId) return
-    const bridge = this.bridges.get(cmd.projectId)
+    const bridgeKey = cmd.bornastarSessionId ?? cmd.projectId
+    const bridge = this.bridges.get(bridgeKey)
     if (bridge?.isRunning()) {
       bridge.interrupt()
     }

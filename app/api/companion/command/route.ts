@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 import { getChannel, getCompanionStatus } from '@/lib/companion-relay'
 
 // POST — Browser sends a command to the companion daemon. Supported
@@ -23,7 +24,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { type, projectId, prompt, sessionId, repoUrl, targetPath, template } = body as {
+  const {
+    type, projectId, prompt, sessionId, repoUrl, targetPath, template,
+    bornastarSessionId, claudeSessionId, mode,
+  } = body as {
     type: string
     projectId?: string
     prompt?: string
@@ -31,10 +35,30 @@ export async function POST(request: NextRequest) {
     repoUrl?: string
     targetPath?: string
     template?: string
+    bornastarSessionId?: string
+    claudeSessionId?: string
+    mode?: 'plan' | 'edit' | 'auto' | 'agent'
   }
 
   if (!type) {
     return NextResponse.json({ error: 'Missing command type' }, { status: 400 })
+  }
+
+  // Resolve worktreePath from the Bornastar chat session, when present. The
+  // companion daemon only knows about projects (roots); we enrich the
+  // command here so it can spawn Claude Code in the correct worktree dir.
+  let worktreePath: string | undefined
+  if (bornastarSessionId) {
+    const session = await prisma.chatSession.findUnique({
+      where: { id: bornastarSessionId },
+      select: {
+        userId: true,
+        worktree: { select: { worktreePath: true } },
+      },
+    })
+    if (session && session.userId === auth.userId && session.worktree?.worktreePath) {
+      worktreePath = session.worktree.worktreePath
+    }
   }
 
   const channel = getChannel(auth.userId)
@@ -42,7 +66,12 @@ export async function POST(request: NextRequest) {
     type,
     projectId,
     prompt,
-    sessionId,
+    // Use the explicit claudeSessionId field when the browser provides one;
+    // fall back to legacy `sessionId` so older call sites keep working.
+    sessionId: claudeSessionId ?? sessionId,
+    mode,
+    worktreePath,
+    bornastarSessionId,
     repoUrl,
     targetPath,
     template,

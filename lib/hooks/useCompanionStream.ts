@@ -49,7 +49,7 @@ export interface ClaudeEvent {
   authInfo?: { email?: string; plan?: string; version?: string }
   projects?: Array<{ id: string; path: string; name: string }>
   // claude_event wrapper (from relay)
-  payload?: { projectId?: string; event?: ClaudeEvent; message?: string }
+  payload?: { projectId?: string; bornastarSessionId?: string; event?: ClaudeEvent; message?: string }
 }
 
 // Parsed message for rendering — flattened from stream events
@@ -94,12 +94,12 @@ interface UseCompanionStreamReturn {
   } | null
   sessionId: string | null
   costUsd: number
-  sendPrompt: (projectId: string, prompt: string, mode?: 'plan' | 'edit' | 'auto' | 'agent') => Promise<void>
-  interrupt: (projectId: string) => Promise<void>
+  sendPrompt: (projectId: string, prompt: string, mode?: 'plan' | 'edit' | 'auto' | 'agent', bornastarSessionId?: string) => Promise<void>
+  interrupt: (projectId: string, bornastarSessionId?: string) => Promise<void>
   clearMessages: () => void
 }
 
-export function useCompanionStream(): UseCompanionStreamReturn {
+export function useCompanionStream(bornastarSessionId?: string | null): UseCompanionStreamReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [status, setStatus] = useState<CompanionStatus>('disconnected')
   const [isRunning, setIsRunning] = useState(false)
@@ -114,6 +114,15 @@ export function useCompanionStream(): UseCompanionStreamReturn {
   // Parse a Claude stream event into ChatMessage(s)
   const parseEvent = useCallback((event: ClaudeEvent): ChatMessage[] => {
     const parsed: ChatMessage[] = []
+
+    // Per-chat isolation: claude_event / error payloads from the daemon carry
+    // the originating Bornastar chat session id. Skip anything that doesn't
+    // belong to this hook's chat so chat1 never sees chat2's stream, even
+    // when both bridges are running concurrently on the same user channel.
+    if (bornastarSessionId && (event.type === 'claude_event' || event.type === 'error')) {
+      const evtSession = event.payload?.bornastarSessionId
+      if (evtSession && evtSession !== bornastarSessionId) return []
+    }
 
     // Unwrap relay wrapper
     const actual = event.type === 'claude_event' && event.payload?.event
@@ -287,7 +296,7 @@ export function useCompanionStream(): UseCompanionStreamReturn {
     }
 
     return parsed
-  }, [])
+  }, [bornastarSessionId])
 
   // Connect to SSE stream
   useEffect(() => {
@@ -342,8 +351,10 @@ export function useCompanionStream(): UseCompanionStreamReturn {
     return () => controller.abort()
   }, [parseEvent])
 
-  // Send prompt to companion
-  const sendPrompt = useCallback(async (projectId: string, prompt: string, mode?: 'plan' | 'edit' | 'auto' | 'agent') => {
+  // Send prompt to companion. `sessionId` on the state is the Claude Code
+  // session ID (used for --resume); `bornastarSessionId` is the Bornastar
+  // chat ID used to isolate bridges and resolve the worktree path.
+  const sendPrompt = useCallback(async (projectId: string, prompt: string, mode?: 'plan' | 'edit' | 'auto' | 'agent', bornastarSessionId?: string) => {
     setIsRunning(true)
     setMessages((prev) => [...prev, {
       id: nextId(),
@@ -359,18 +370,19 @@ export function useCompanionStream(): UseCompanionStreamReturn {
         type: 'prompt',
         projectId,
         prompt,
-        sessionId,
+        claudeSessionId: sessionId,
+        bornastarSessionId,
         mode: mode ?? 'auto',
       }),
     })
   }, [sessionId])
 
-  // Interrupt running agent
-  const interrupt = useCallback(async (projectId: string) => {
+  // Interrupt running agent for a specific chat (matches the bridge key).
+  const interrupt = useCallback(async (projectId: string, bornastarSessionId?: string) => {
     await fetch('/api/companion/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'interrupt', projectId }),
+      body: JSON.stringify({ type: 'interrupt', projectId, bornastarSessionId }),
     })
   }, [])
 

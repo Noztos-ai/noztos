@@ -61,6 +61,14 @@ export interface CompanionCommand {
   prompt?: string
   // Claude Code permission mode
   mode?: 'plan' | 'edit' | 'auto' | 'agent'
+  // Worktree isolation — when set, the Claude Code CLI is spawned in this
+  // absolute path instead of project.path. Lets each chat in its own branch
+  // operate on its own files.
+  worktreePath?: string
+  // Bornastar chat session ID (DB id). Used as the bridge key so each chat
+  // has its own Claude Code conversation and multiple chats can run
+  // concurrently across worktrees without the "Agent already running" clash.
+  bornastarSessionId?: string
   // clone/create
   repoUrl?: string
   projectName?: string
