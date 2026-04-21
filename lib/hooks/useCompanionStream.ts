@@ -27,7 +27,7 @@ export interface ClaudeMessage {
 }
 
 export interface ClaudeEvent {
-  type: 'system' | 'assistant' | 'user' | 'result' | 'error' | 'companion_status' | 'claude_event'
+  type: 'system' | 'assistant' | 'user' | 'result' | 'error' | 'companion_status' | 'claude_event' | 'running_sessions'
   subtype?: string
   session_id?: string
   // system init
@@ -48,8 +48,9 @@ export interface ClaudeEvent {
   connected?: boolean
   authInfo?: { email?: string; plan?: string; version?: string }
   projects?: Array<{ id: string; path: string; name: string }>
-  // claude_event wrapper (from relay)
-  payload?: { projectId?: string; bornastarSessionId?: string; event?: ClaudeEvent; message?: string }
+  // claude_event wrapper (from relay) — also reused for running_sessions
+  // (sessionIds) and error envelopes (message).
+  payload?: { projectId?: string; bornastarSessionId?: string; event?: ClaudeEvent; message?: string; sessionIds?: string[] }
 }
 
 // Parsed message for rendering — flattened from stream events
@@ -293,6 +294,16 @@ export function useCompanionStream(bornastarSessionId?: string | null): UseCompa
           timestamp: Date.now(),
         })
         break
+
+      case 'running_sessions': {
+        // Daemon broadcasts which chats are currently running. A ChatPanel
+        // remounting mid-prompt uses this to restore its spinner.
+        const ids = actual.payload?.sessionIds ?? []
+        if (bornastarSessionId) {
+          setIsRunning(ids.includes(bornastarSessionId))
+        }
+        break
+      }
     }
 
     return parsed
@@ -350,6 +361,18 @@ export function useCompanionStream(bornastarSessionId?: string | null): UseCompa
     connect()
     return () => controller.abort()
   }, [parseEvent])
+
+  // On mount (or when the chat id changes) ask the daemon which chats are
+  // currently running so a ChatPanel re-mounted mid-prompt re-syncs its
+  // "Claude is working" spinner without waiting for the next Claude event.
+  useEffect(() => {
+    if (!bornastarSessionId) return
+    fetch('/api/companion/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'query_running' }),
+    }).catch(() => {})
+  }, [bornastarSessionId])
 
   // Send prompt to companion. `sessionId` on the state is the Claude Code
   // session ID (used for --resume); `bornastarSessionId` is the Bornastar

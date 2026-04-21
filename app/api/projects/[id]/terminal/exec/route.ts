@@ -69,6 +69,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  console.log(`[isolation] terminal exec worktree=${worktreeIdParam?.slice(0, 8) ?? '(main)'} cwd=${cwd ?? '(project root)'} port=${env?.BORNASTAR_PORT ?? '-'} cmd="${body.command.slice(0, 60)}"`)
+
   try {
     const result = await execInSandbox(id, body.command, { cwd, env })
 

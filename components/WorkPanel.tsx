@@ -5085,6 +5085,14 @@ function ChatPanel({
     const userText = input.trim()
     if ((!userText && attachments.length === 0 && hunkAttachments.length === 0) || companion.isRunning) return
 
+    // If the companion isn't reachable or the project isn't registered on
+    // the daemon, bail BEFORE clearing the input so the user doesn't lose
+    // their message. Surface a clear error instead of a silent disappear.
+    if (!companionConnected || !companionProjectId) {
+      console.warn('[chat] cannot send — companion not ready', { companionConnected, companionProjectId })
+      return
+    }
+
     const content = hunkAttachments.length > 0
       ? `${hunkAttachments.map((h) => h.formattedContent).join('')}${userText}`
       : userText
@@ -5210,9 +5218,10 @@ function ChatPanel({
             return <ClaudeToolCard key={msg.id} message={msg} />
           }
           if (msg.role === 'system') {
-            if (msg.costUsd !== undefined) {
-              return <SessionResultCard key={msg.id} message={msg} />
-            }
+            // Skip the per-turn cost/duration/turns card — the running total
+            // already lives in the CostTracker badge at the top of the panel,
+            // and the noise after every reply is distracting.
+            if (msg.costUsd !== undefined) return null
             return (
               <div key={msg.id} className="flex justify-start">
                 <p className="text-xs italic text-zinc-500">{msg.content}</p>
@@ -5454,11 +5463,12 @@ function ChatPanel({
               </div>
             )}
 
-            {/* Mode selector + cost tracker */}
-            <div className="flex items-center justify-between border-t border-white/5 px-3 py-1.5">
-              <ModeSelector mode={claudeMode} onChange={setClaudeMode} />
-              <CostTracker costUsd={companion.costUsd} sessionId={companion.sessionId} />
-            </div>
+            {/* Cost tracker row (slim) — only shown when there's activity */}
+            {(companion.costUsd > 0 || companion.sessionId) && (
+              <div className="flex items-center justify-end border-t border-white/5 px-3 py-1">
+                <CostTracker costUsd={companion.costUsd} sessionId={companion.sessionId} />
+              </div>
+            )}
 
             {/* Bottom toolbar — inside the card, all controls + submit */}
             <div className="relative flex items-center gap-1 px-2 py-2">
@@ -5557,6 +5567,9 @@ function ChatPanel({
               <option value="medium">Thinking: Medium</option>
               <option value="high">Thinking: High</option>
             </select>
+
+            {/* Mode selector — compact dropdown right before the send button */}
+            <ModeSelector mode={claudeMode} onChange={setClaudeMode} />
 
             {/* Submit / stop button */}
             {companion.isRunning ? (

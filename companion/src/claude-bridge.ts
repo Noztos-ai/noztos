@@ -59,11 +59,18 @@ export class ClaudeBridge extends EventEmitter {
       args.push('--resume', this.sessionId)
     }
 
+    console.log(`[isolation] claude spawn cwd=${this.cwd} mode=${permissionMode} resume=${this.sessionId?.slice(0, 8) ?? 'new'}`)
     this.process = spawn('claude', args, {
       cwd: this.cwd,
       env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
+
+    // Close stdin right away. We pass the full prompt via -p, so the CLI
+    // has nothing to read from stdin — and without this, it waits 3s for
+    // possible piped input (e.g. `cat file | claude -p "..."`) before
+    // proceeding and emits a stderr warning that leaks into the chat UI.
+    this.process.stdin?.end()
 
     this.buffer = ''
 

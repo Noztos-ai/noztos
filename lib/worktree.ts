@@ -191,7 +191,7 @@ export async function provisionWorktree(
       }
     }
 
-    console.log(`[worktree] Created ${branchName} at ${worktreePath} (base: ${baseCommit.slice(0, 8)}, port: ${portBase})`)
+    console.log(`[isolation] worktree created branch=${branchName} path=${worktreePath} base=${baseCommit.slice(0, 8)} port=${portBase}`)
     return { worktreePath, branchName, baseCommit, portBase }
   } catch (err) {
     console.error(`[worktree] Error provisioning worktree:`, err)

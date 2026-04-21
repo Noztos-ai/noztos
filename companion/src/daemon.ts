@@ -24,6 +24,10 @@ export class Daemon extends EventEmitter {
   private serverUrl: string
   private authToken: string
   private bridges: Map<string, ClaudeBridge> = new Map()
+  // Bornastar session IDs whose Claude CLI is currently running. Broadcast
+  // to the browser so a ChatPanel remounting mid-prompt can restore its
+  // "Claude is working" indicator without waiting for the next event.
+  private runningSessions: Set<string> = new Set()
   private eventSource: EventSource | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -186,6 +190,9 @@ export class Daemon extends EventEmitter {
       case 'create_project':
         this.handleCreateProject(cmd)
         break
+      case 'init_project':
+        this.handleInitProject(cmd)
+        break
       case 'setup_claude':
         this.handleSetupClaude()
         break
@@ -194,6 +201,9 @@ export class Daemon extends EventEmitter {
         break
       case 'scan_repos':
         this.handleScanRepos()
+        break
+      case 'query_running':
+        this.broadcastRunning()
         break
     }
   }
@@ -208,6 +218,19 @@ export class Daemon extends EventEmitter {
     await this.send({
       type: 'project_list',
       payload: listProjects(),
+    })
+    await this.broadcastRunning()
+  }
+
+  // Fire-and-forget broadcast of which chats are currently running. Called
+  // whenever the set changes (prompt started, bridge finished, interrupted)
+  // and on explicit client queries.
+  private async broadcastRunning(): Promise<void> {
+    const ids = Array.from(this.runningSessions)
+    console.log(`[isolation] running_sessions broadcast count=${ids.length} ids=[${ids.map(i => i.slice(0, 8)).join(',')}]`)
+    await this.send({
+      type: 'running_sessions',
+      payload: { sessionIds: ids },
     })
   }
 
@@ -233,6 +256,9 @@ export class Daemon extends EventEmitter {
     // Fallback to projectId for backward compatibility.
     const bridgeKey = cmd.bornastarSessionId ?? project.id
 
+    const scope = cmd.worktreePath ? 'worktree' : 'main'
+    console.log(`[isolation] prompt project=${project.name} scope=${scope} cwd=${cwd} bridgeKey=${bridgeKey.slice(0, 8)} mode=${cmd.mode ?? 'auto'}`)
+
     let bridge = this.bridges.get(bridgeKey)
     if (bridge?.isRunning()) {
       await this.send({
@@ -248,6 +274,26 @@ export class Daemon extends EventEmitter {
     // Tag every outgoing event with the Bornastar chat session so the
     // browser can filter and never show chat1's stream inside chat2.
     const bornastarSessionId = cmd.bornastarSessionId
+
+    // Track this chat as running so a late-joining ChatPanel can restore
+    // its "Claude is working" indicator by querying the current set.
+    if (bornastarSessionId) {
+      this.runningSessions.add(bornastarSessionId)
+      this.broadcastRunning()
+    }
+    // Capture bridge reference so cleanup only removes THIS bridge from the
+    // map. If a later prompt replaced the entry (same bridgeKey), we leave
+    // the newer bridge alone.
+    const startedBridge = bridge
+    const markFinished = () => {
+      if (bornastarSessionId && this.runningSessions.delete(bornastarSessionId)) {
+        this.broadcastRunning()
+      }
+      if (this.bridges.get(bridgeKey) === startedBridge) {
+        this.bridges.delete(bridgeKey)
+        console.log(`[isolation] bridge cleanup bridgeKey=${bridgeKey.slice(0, 8)} (map size now ${this.bridges.size})`)
+      }
+    }
 
     bridge.on('event', (event: ClaudeStreamEvent) => {
       this.send({
@@ -269,6 +315,7 @@ export class Daemon extends EventEmitter {
           },
         },
       })
+      markFinished()
     })
 
     bridge.on('error', (err: Error) => {
@@ -276,6 +323,7 @@ export class Daemon extends EventEmitter {
         type: 'error',
         payload: { projectId: project.id, bornastarSessionId, message: err.message },
       })
+      markFinished()
     })
 
     try {
@@ -285,6 +333,7 @@ export class Daemon extends EventEmitter {
         type: 'error',
         payload: { projectId: project.id, bornastarSessionId, message: (err as Error).message },
       })
+      markFinished()
     }
   }
 
@@ -323,6 +372,25 @@ export class Daemon extends EventEmitter {
       await this.send({
         type: 'error',
         payload: { message: `Create failed: ${(err as Error).message}` },
+      })
+    }
+  }
+
+  // Register an existing local directory as a project (used by the web
+  // "Open local project" flow). Idempotent — addProject deduplicates by
+  // path, so repeated calls just refresh the config entry.
+  private async handleInitProject(cmd: CompanionCommand): Promise<void> {
+    if (!cmd.targetPath) return
+    try {
+      const { initProject } = await import('./project-manager.js')
+      const project = initProject(cmd.targetPath)
+      console.log(`[isolation] project registered path=${project.path} id=${project.id.slice(0, 8)}`)
+      await this.send({ type: 'project_added', payload: project })
+      await this.sendStatus()
+    } catch (err) {
+      await this.send({
+        type: 'error',
+        payload: { message: `Init failed: ${(err as Error).message}` },
       })
     }
   }

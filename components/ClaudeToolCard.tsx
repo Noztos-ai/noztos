@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/lib/hooks/useCompanionStream'
 
 // ── Tool Card Icons ─────────────────────────────────────────────────
@@ -262,37 +262,105 @@ export function SessionResultCard({ message }: { message: ChatMessage }) {
 
 // ── Mode Selector ───────────────────────────────────────────────────
 
+type ModeId = 'plan' | 'edit' | 'auto' | 'agent'
+
+const MODE_ICONS: Record<ModeId, (props: { className?: string }) => React.ReactElement> = {
+  plan: ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="M9 12h6M9 16h4" />
+    </svg>
+  ),
+  edit: ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  ),
+  auto: ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+    </svg>
+  ),
+  agent: ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" />
+    </svg>
+  ),
+}
+
+const MODES: { id: ModeId; label: string; desc: string }[] = [
+  { id: 'plan', label: 'Plan', desc: 'Research only, no edits' },
+  { id: 'edit', label: 'Edit', desc: 'Edit files, confirm commands' },
+  { id: 'auto', label: 'Auto', desc: 'Smart — classifier decides safety' },
+  { id: 'agent', label: 'Agent', desc: 'Full autonomy, no prompts' },
+]
+
 export function ModeSelector({
   mode,
   onChange,
 }: {
-  mode: 'plan' | 'edit' | 'auto' | 'agent'
-  onChange: (mode: 'plan' | 'edit' | 'auto' | 'agent') => void
+  mode: ModeId
+  onChange: (mode: ModeId) => void
 }) {
-  const modes = [
-    { id: 'plan' as const, label: 'Plan', desc: 'Research only, no edits', icon: '📋' },
-    { id: 'edit' as const, label: 'Edit', desc: 'Edit files, confirm commands', icon: '✏️' },
-    { id: 'auto' as const, label: 'Auto', desc: 'Smart — classifier decides safety', icon: '⚡' },
-    { id: 'agent' as const, label: 'Agent', desc: 'Full autonomy, no prompts', icon: '🤖' },
-  ]
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = MODES.find((m) => m.id === mode) ?? MODES[2]
+  const CurrentIcon = MODE_ICONS[current.id]
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
 
   return (
-    <div className="flex gap-1 rounded-lg border border-[#2B2B2B] bg-[#1B1B1B] p-1">
-      {modes.map((m) => (
-        <button
-          key={m.id}
-          onClick={() => onChange(m.id)}
-          title={m.desc}
-          className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-            mode === m.id
-              ? 'bg-white/10 text-zinc-100'
-              : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <span className="text-[12px]">{m.icon}</span>
-          {m.label}
-        </button>
-      ))}
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={`Mode: ${current.label} — ${current.desc}`}
+        className="flex items-center gap-1 rounded border border-[#2B2B2B] bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-300 outline-none transition-colors hover:bg-white/10"
+      >
+        <CurrentIcon className="h-3 w-3" />
+        {current.label}
+        <svg className={`h-2.5 w-2.5 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[200px] overflow-hidden rounded-lg border border-[#2B2B2B] bg-[#1B1B1B] shadow-xl shadow-black/40">
+          {MODES.map((m) => {
+            const Icon = MODE_ICONS[m.id]
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => { onChange(m.id); setOpen(false) }}
+                className={`flex w-full items-start gap-2 px-2.5 py-2 text-left text-[11px] transition-colors hover:bg-white/5 ${
+                  mode === m.id ? 'bg-white/5 text-zinc-100' : 'text-zinc-400'
+                }`}
+              >
+                <Icon className="mt-[1px] h-3.5 w-3.5 text-zinc-400" />
+                <span className="flex-1">
+                  <span className="block font-medium text-zinc-200">{m.label}</span>
+                  <span className="block text-[10px] text-zinc-500">{m.desc}</span>
+                </span>
+                {mode === m.id && (
+                  <svg className="mt-[2px] h-3 w-3 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

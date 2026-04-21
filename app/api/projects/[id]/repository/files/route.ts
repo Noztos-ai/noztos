@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { verifyProjectAccess } from '@/lib/auth'
 import { ensureSandboxRunning } from '@/lib/sandbox-manager'
 import { LocalProvider } from '@/lib/compute-local'
-import { getAllProjectChanges, getWorktreeChangedFiles } from '@/lib/worktree'
+import { getWorktreeChangedFiles } from '@/lib/worktree'
 
 const compute = new LocalProvider()
 
@@ -63,6 +63,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const sessionIdParam = request.nextUrl.searchParams.get('session')
   const { root, worktreeId } = await resolveRoot(id, sandboxId, worktreeIdParam, sessionIdParam)
 
+  console.log(`[isolation] files GET scope=${worktreeId ? 'worktree' : 'main'} worktree=${worktreeId?.slice(0, 8) ?? '-'} root=${root}`)
+
   try {
     const listResult = await compute.exec(sandboxId, `cd ${root} && find . -type f -not -path './.git/*' -not -path './node_modules/*' -not -path './__pycache__/*' -not -path './venv/*' -not -path './.next/*' -not -path './dist/*' | sed 's|^\\./||' | sort`)
     const diskFiles = listResult.stdout.split('\n').filter(Boolean)
@@ -105,39 +107,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ files })
     }
 
-    // Project-wide (main) view: aggregate every worktree's changes.
-    const changes = await getAllProjectChanges(id)
-    const changeByPath = new Map(changes.files.map((f) => [f.path, f]))
-
-    const files: Array<{
-      id: string; path: string; isModified: boolean; isNew: boolean; sizeBytes: number
-      added?: number; removed?: number; worktrees?: { id: string; name: string }[]
-    }> = diskFiles.map((path, i) => {
-      const c = changeByPath.get(path)
-      return {
-        id: `file-${i}`,
-        path,
-        isModified: !!c,
-        isNew: false,
-        sizeBytes: 0,
-        ...(c && { added: c.added, removed: c.removed, worktrees: c.worktrees }),
-      }
-    })
-
-    let extraIdx = 0
-    for (const f of changes.files) {
-      if (diskSet.has(f.path)) continue
-      files.push({
-        id: `new-${extraIdx++}`,
-        path: f.path,
-        isModified: true,
-        isNew: true,
-        sizeBytes: 0,
-        added: f.added,
-        removed: f.removed,
-        worktrees: f.worktrees,
-      })
-    }
+    // Main view: pure snapshot of the main tree on disk. Worktrees live on
+    // their own branches/dirs — we don't leak their state here because main
+    // can be on a newer commit, making cross-branch +/- numbers misleading.
+    // Users see worktree changes only by selecting the worktree.
+    const files = diskFiles.map((path, i) => ({
+      id: `file-${i}`,
+      path,
+      isModified: false,
+      isNew: false,
+      sizeBytes: 0,
+    }))
 
     files.sort((a, b) => a.path.localeCompare(b.path))
     return NextResponse.json({ files })

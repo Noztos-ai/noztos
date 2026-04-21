@@ -55,7 +55,7 @@ export interface ClaudeStreamEvent {
 
 // Commands sent FROM the web to the companion
 export interface CompanionCommand {
-  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project' | 'setup_claude' | 'claude_status' | 'scan_repos'
+  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project' | 'init_project' | 'setup_claude' | 'claude_status' | 'scan_repos' | 'query_running'
   sessionId?: string
   projectId?: string
   prompt?: string
@@ -78,6 +78,6 @@ export interface CompanionCommand {
 
 // Messages sent FROM companion TO the server
 export interface CompanionMessage {
-  type: 'auth_status' | 'project_list' | 'claude_event' | 'status' | 'error' | 'project_added'
+  type: 'auth_status' | 'project_list' | 'claude_event' | 'status' | 'error' | 'project_added' | 'running_sessions'
   payload: unknown
 }

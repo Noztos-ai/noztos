@@ -123,6 +123,15 @@ function ProjectPickerModal({ onClose }: { onClose: () => void }) {
       const path = localPath.trim()
       const folderName = path.split('/').pop() ?? 'project'
 
+      // Register with the companion daemon FIRST so the chat flow can
+      // resolve companionProjectId from this sandboxId when sending prompts.
+      // Idempotent — safe to call even if already registered.
+      await fetch('/api/companion/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'init_project', targetPath: path }),
+      }).catch(() => {})
+
       // Create project in DB
       const res = await fetch('/api/projects', {
         method: 'POST',

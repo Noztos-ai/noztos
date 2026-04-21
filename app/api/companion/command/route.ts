@@ -61,6 +61,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (type === 'prompt') {
+    console.log(`[isolation] command type=prompt session=${bornastarSessionId?.slice(0, 8) ?? '-'} worktreePath=${worktreePath ?? '(main)'}`)
+  } else if (type === 'interrupt') {
+    console.log(`[isolation] command type=interrupt session=${bornastarSessionId?.slice(0, 8) ?? '-'}`)
+  }
+
   const channel = getChannel(auth.userId)
   channel.pushCommand({
     type,
