@@ -1380,14 +1380,16 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   const activeEmployee = hiredEmployees.find((e) => e.id === activeSkillId)
   const activeTeam = teams.find((t) => t.id === activeTeamId)
 
-  // Stable callback so ChatPanel's sync effect doesn't loop (a new inline
-  // reference each render would retrigger the effect → setState → render → …).
-  // We read activeSessionId from a ref so the callback stays referentially
-  // stable even when the active chat switches.
-  const activeSessionIdRef = useRef(activeSessionId)
-  useEffect(() => { activeSessionIdRef.current = activeSessionId }, [activeSessionId])
-  const handleCompanionMessagesChange = useCallback((msgs: ChatMessage[]) => {
-    const sid = activeSessionIdRef.current
+  // Stable callback that takes the owning sessionId as an argument.
+  //
+  // Don't read the session id from a parent ref here: React runs effects
+  // child-before-parent, so when activeSessionId changes A → B the newly
+  // mounted ChatPanel B fires its "mirror current messages" effect BEFORE
+  // the parent effect that updates a ref has a chance to run. If the
+  // callback reads a parent ref, it sees the stale A at that moment and
+  // stores B's empty initial state under A — wiping A's cached messages.
+  // ChatPanel knows its own sessionId (it's a prop); pass it explicitly.
+  const handleCompanionMessagesChange = useCallback((sid: string, msgs: ChatMessage[]) => {
     if (!sid) return
     setCompanionMessagesBySession((prev) => {
       // Skip the set if identical reference — React still re-runs effects
@@ -5120,7 +5122,7 @@ function ChatPanel({
   onClearHunkAttachment: (index: number) => void
   onClearAllHunkAttachments: () => void
   initialCompanionMessages: ChatMessage[]
-  onCompanionMessagesChange: (msgs: ChatMessage[]) => void
+  onCompanionMessagesChange: (sessionId: string, msgs: ChatMessage[]) => void
   activeMode: ChatMode
   activeSkillId: string | null
   activeTeamId: string | null
@@ -5233,9 +5235,12 @@ function ChatPanel({
 
   // Mirror every change back up to the parent store so siblings (or this
   // chat re-mounted later) can pick the conversation back up instantly.
+  // Passing `sessionId` explicitly (rather than via a parent ref) closes
+  // a race where the newly-mounted ChatPanel for a different session would
+  // fire this effect first and overwrite the previous session's cache.
   useEffect(() => {
-    onCompanionMessagesChange(companion.messages)
-  }, [companion.messages, onCompanionMessagesChange])
+    onCompanionMessagesChange(sessionId, companion.messages)
+  }, [sessionId, companion.messages, onCompanionMessagesChange])
 
   // Hydrate the hook with the first DB page as soon as it lands. The
   // hook guards against clobbering in-flight streaming state, so this
