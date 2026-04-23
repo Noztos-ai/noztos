@@ -2,22 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyProjectAccess } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
-import { dropSessionBuffer } from '@/lib/companion-relay'
 
-// ── Chat conversation read + lifecycle ───────────────────────────────
+// ── Chat conversation read ───────────────────────────────────────────
 //
-// Writes moved out — the companion daemon persists stream events to a
-// local SQLite queue and flushes them to Supabase via
-// /api/companion/sync-messages. What's left here:
-//   GET    → paginated history replay (hydrate after refresh / device switch)
-//   DELETE → soft-delete every message under a session
+// Writes live in the companion daemon: it queues stream events in a
+// local SQLite WAL, the server drains them via /companion/sync-messages
+// and also write-throughs live frames from /companion/response. All
+// this endpoint does is serve paginated history as the cold fallback
+// behind /api/companion/session-state (ring buffer).
 
 interface RouteContext {
   params: Promise<{ id: string; sessionId: string }>
 }
 
 // Reads are generous since tab focus / initial mount issues GETs in
-// rapid succession. No write limiter — POST is gone.
+// rapid succession.
 const readLimiter = rateLimit({ tokensPerInterval: 300, intervalMs: 60_000 }, 'chat-messages-read')
 
 // GET — replay the conversation. Paginated: newest first, cursor-based.
@@ -90,37 +89,4 @@ export async function GET(request: NextRequest, context: RouteContext) {
     hasMore,
     nextCursor: hasMore ? slice[0]?.id ?? null : null,
   })
-}
-
-// POST removed — the browser no longer persists chat events from here.
-// The companion daemon holds the durable write path: it buffers each
-// stream event in ~/.bornastar/queue.db (SQLite) and drains to
-// Supabase via /api/companion/sync-messages in the background. The old
-// rate limiter + size cap + per-event upsert logic that used to live
-// here is gone; see app/api/companion/sync-messages/route.ts.
-
-// DELETE — soft delete every message in the session. Keeps the audit
-// trail intact; only flips deletedAt so future GETs ignore them.
-export async function DELETE(_request: NextRequest, context: RouteContext) {
-  const { id, sessionId } = await context.params
-  const auth = await verifyProjectAccess(id)
-  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
-
-  const session = await prisma.chatSession.findUnique({
-    where: { id: sessionId },
-    select: { projectId: true, userId: true },
-  })
-  if (!session || session.projectId !== id || session.userId !== auth.userId) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-  }
-
-  const now = new Date()
-  await prisma.chatMessage.updateMany({
-    where: { sessionId, userId: auth.userId, deletedAt: null },
-    data: { deletedAt: now },
-  })
-  // Keep the RAM buffer in sync — otherwise a fresh chat hydration
-  // would replay the just-soft-deleted events from memory.
-  dropSessionBuffer(sessionId)
-  return NextResponse.json({ ok: true })
 }

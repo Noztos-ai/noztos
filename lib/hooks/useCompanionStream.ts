@@ -124,7 +124,6 @@ export function useCompanionStream(
   const [companionInfo, setCompanionInfo] = useState<UseCompanionStreamReturn['companionInfo']>(null)
   const [sessionId, setSessionId] = useState<string | null>(initialClaudeSessionId ?? null)
   const [costUsd, setCostUsd] = useState(0)
-  const eventSourceRef = useRef<AbortController | null>(null)
   const messageIdCounter = useRef(0)
 
   // All durability lives in the companion daemon (local SQLite queue →
@@ -345,7 +344,6 @@ export function useCompanionStream(
   // Connect to SSE stream
   useEffect(() => {
     const controller = new AbortController()
-    eventSourceRef.current = controller
 
     async function connect() {
       setStatus('connecting')

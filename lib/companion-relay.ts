@@ -316,4 +316,3 @@ export function getCompanionStatus(userId: string): {
   }
 }
 
-export type { RelayChannel, CompanionConnection }
