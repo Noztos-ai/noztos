@@ -290,18 +290,22 @@ function sweepExpired(): void {
   }
 }
 
-// Detect channels whose companion went silent. We flip the server-side
-// connection state to disconnected and broadcast `companion_status` so
-// the offline banner + send-gate kick in everywhere.
+// Detect channels whose companion went silent. We flip server state to
+// disconnected, clear the running spinner across every chat, and drop
+// any commands the daemon hadn't picked up yet.
 //
-// We deliberately DO NOT clear running_sessions here. The daemon may
-// still be running Claude locally and the network just dropped briefly:
-// when it comes back, sync-messages will fast-forward the missing
-// events (including the eventual `result` that stops the spinner).
-// Until then the UI keeps showing the spinner — that's the honest
-// signal the user expects ("a wheel spinning forever means something
-// is wrong"). Graceful disconnect (via the DELETE /register route)
-// still clears running because the user explicitly stopped.
+// Original "honest spinner" design (keep running so a brief network
+// blip can resume cleanly) caused a worse UX in practice: when the
+// daemon was actually killed (Ctrl+C, Mac sleep, restart), the
+// spinner stayed forever and the user thought the chat was stuck.
+// Better to abandon and let the user resend than to lie about an
+// in-flight turn that's never coming back. The 60s heartbeat-stale
+// window already absorbs short blips before this fires.
+//
+// commandQueue drain prevents "zombie commands": if the daemon comes
+// back later, it would otherwise pull the queued prompt and run it
+// late, surprising the user with a delayed answer. Cleaner to drop
+// here so `offline → online` is a clean slate.
 function sweepStaleCompanions(): void {
   const now = Date.now()
   let flipped = 0
@@ -310,9 +314,11 @@ function sweepStaleCompanions(): void {
     if (!c) continue // already disconnected, nothing to do
     if (now - c.lastHeartbeat < HEARTBEAT_STALE_MS) continue
     const staleFor = now - c.lastHeartbeat
-    console.warn(`[conn-sweep] userId=${userId.slice(0, 8)} companion offline (staleFor=${staleFor}ms) — broadcasting disconnected (running kept)`)
+    const dropped = channel.drainCommands().length
+    console.warn(`[conn-sweep] userId=${userId.slice(0, 8)} companion offline (staleFor=${staleFor}ms) — broadcasting disconnected, clearing running, dropped=${dropped} pending command(s)`)
     channel.setCompanionDisconnected()
     channel.pushEvent({ type: 'companion_status', connected: false }, userId)
+    channel.pushEvent({ type: 'running_sessions', payload: { sessionIds: [] } }, userId)
     flipped++
   }
   if (flipped > 0) {

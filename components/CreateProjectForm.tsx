@@ -7,8 +7,8 @@ import { useCompanionStatus } from '@/lib/hooks/useCompanionStore'
 
 export function CreateProjectButton({ label }: { label?: string } = {}) {
   const [showPicker, setShowPicker] = useState(false)
-  // Adding a project requires the Mac companion to be reachable so the
-  // daemon can register the folder path (clone target / local scan
+  // Adding a project requires the local companion to be reachable so
+  // the daemon can register the folder path (clone target / local scan
   // result / new template scaffold). Claude auth is irrelevant here —
   // the user can sign Claude in later. When cloud sandbox lands, this
   // gate flips to "either local OR cloud is ready".
@@ -21,7 +21,7 @@ export function CreateProjectButton({ label }: { label?: string } = {}) {
         <button
           onClick={() => setShowPicker(true)}
           disabled={!companionConnected}
-          title={companionConnected ? '' : 'Start your Mac companion to add projects: bornastar start'}
+          title={companionConnected ? '' : 'Local offline. Reconnect to add projects.'}
           className="flex h-10 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           {label ?? 'New Project'}
@@ -35,8 +35,8 @@ export function CreateProjectButton({ label }: { label?: string } = {}) {
             <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
             <span>
               {companionStatus === 'connecting'
-                ? 'Connecting to your Mac…'
-                : 'Start your Mac to add projects: bornastar start'}
+                ? 'Connecting to local…'
+                : 'Local offline. Reconnect to add projects.'}
             </span>
           </div>
         )}

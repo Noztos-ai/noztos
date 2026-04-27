@@ -54,9 +54,14 @@ export async function POST(request: NextRequest) {
   after(async () => {
     const tAfter = Date.now()
     console.log(`[response] after() running, frames=${frames.length}`)
-    for (const frame of frames) {
-      await writeThrough(frame, auth.userId)
-    }
+    // Parallel write-through: fire all frames at once. Each upsert
+    // takes a Postgres advisory lock keyed on its own sessionId, so
+    // frames belonging to the same chat still serialise inside the DB
+    // (preserving order + dedup) while frames from different chats
+    // truly parallelise. With a single frame this is identical to the
+    // old sequential await; with N frames it cuts wall-clock to the
+    // slowest single write instead of the sum.
+    await Promise.all(frames.map((frame) => writeThrough(frame, auth.userId)))
     console.log(`[response] after() done elapsed=${Date.now() - tAfter}ms frames=${frames.length}`)
   })
 

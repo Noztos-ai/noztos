@@ -77,7 +77,7 @@ export function DashboardSidebar() {
     ? 'checking'
     : isClaudeAuthed ? 'connected' : 'offline'
   const claudeDetail = !isCompanionLive
-    ? 'Companion not running'
+    ? 'Local offline. Reconnect to continue.'
     : !isClaudeAuthed
       ? 'Claude not authenticated — run: claude login'
       : `Claude Code ${companionInfo?.version?.split(' ')[0] ?? ''} — ${companionInfo?.plan ?? 'subscription'}`

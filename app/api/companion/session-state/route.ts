@@ -83,16 +83,29 @@ export async function GET(request: NextRequest) {
   }
 
   const messages = Array.from(byId.values()).map(toMessage)
-  // If the buffer is already at its per-session cap (200 frames), older
-  // rows have been FIFO'd out → tell the client there's more history in
-  // Supabase. If we're under the cap we have every row this chat ever
-  // produced — no point teasing the "Scroll up for earlier messages"
-  // marker to an empty chat.
-  const BUFFER_CAP = 200
-  const hasMore = frames.length >= BUFFER_CAP
+  // hasMore tells the client whether to surface scroll-up pagination.
+  // The old logic ("ring is at its 200-frame cap") was wrong: a server
+  // restart, a fresh user opening an old chat, or a 24h-quiet chat all
+  // produce a small ring AND have older rows in Supabase. The honest
+  // signal is "is the oldest row in the ring also the oldest row in
+  // the DB?". If yes, ring covers the whole history. If not, DB has
+  // older rows that pagination needs to fetch.
+  const oldestInRingTs = messages.reduce(
+    (acc, m) => Math.min(acc, new Date(m.createdAt).getTime()),
+    Number.POSITIVE_INFINITY,
+  )
+  const tHasMore = Date.now()
+  const oldestInDb = await prisma.chatMessage.findFirst({
+    where: { sessionId, deletedAt: null },
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  })
+  const hasMoreMs = Date.now() - tHasMore
+  const hasMore = !!oldestInDb && oldestInDb.createdAt.getTime() < oldestInRingTs
   console.log(
     `[session-state] served from Ponta B (ring) sessionId=${sessionId.slice(0, 8)} messages=${messages.length} `
-    + `frames=${frames.length} hasMore=${hasMore} dbLookup=${dbLookupMs}ms total=${Date.now() - tStart}ms`,
+    + `frames=${frames.length} hasMore=${hasMore} oldestRing=${oldestInRingTs} oldestDb=${oldestInDb?.createdAt.getTime() ?? 'none'} `
+    + `dbLookup=${dbLookupMs}ms hasMoreCheck=${hasMoreMs}ms total=${Date.now() - tStart}ms`,
   )
 
   return NextResponse.json({

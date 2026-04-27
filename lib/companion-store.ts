@@ -456,6 +456,17 @@ class CompanionStore {
     this.notifyRunning()
   }
 
+  // Counterpart of markBusy — used after a successful Stop click so the
+  // spinner clears immediately instead of waiting for the daemon's
+  // running_sessions broadcast (which arrives ~50-200ms later).
+  markIdle(sessionId: string): void {
+    if (!this.runningSessionIds.has(sessionId)) return
+    const next = new Set(this.runningSessionIds)
+    next.delete(sessionId)
+    this.runningSessionIds = next
+    this.notifyRunning()
+  }
+
   markUnread(sessionId: string): void {
     if (this.unreadSessionIds.has(sessionId)) return
     const next = new Set(this.unreadSessionIds)
@@ -536,18 +547,31 @@ class CompanionStore {
         }),
       })
       if (!res.ok) {
-        let msg = 'Failed to reach Claude Code companion.'
-        try {
-          const data = await res.json()
-          if (data?.message) msg = data.message
-          else if (data?.error) msg = data.error
-        } catch { /* body wasn't JSON */ }
-        this.upsertMessage(sessionId, {
-          id: localId(),
-          role: 'system',
-          content: `Error: ${msg}`,
-          timestamp: Date.now(),
-        })
+        // 503 = companion not connected (per command/route.ts). Treat
+        // silently: the markBusy already fired so the spinner is up,
+        // and the sweeper's offline broadcast will clear it within
+        // the heartbeat-stale window. Adding a system error message
+        // here would force the user to act on a state we already
+        // surface globally (offline banner + dimmed send button).
+        // Letting the spinner spin also keeps the door open: if the
+        // daemon comes back inside the window, the request that's
+        // still queued in commandQueue gets picked up and runs.
+        if (res.status === 503) {
+          console.log(`[store] sendPrompt 503 (companion offline) sid=${sessionId.slice(0, 8)} — letting spinner ride until sweeper clears`)
+        } else {
+          let msg = 'Failed to reach Claude Code companion.'
+          try {
+            const data = await res.json()
+            if (data?.message) msg = data.message
+            else if (data?.error) msg = data.error
+          } catch { /* body wasn't JSON */ }
+          this.upsertMessage(sessionId, {
+            id: localId(),
+            role: 'system',
+            content: `Error: ${msg}`,
+            timestamp: Date.now(),
+          })
+        }
       }
     } catch {
       this.upsertMessage(sessionId, {
@@ -559,12 +583,33 @@ class CompanionStore {
     }
   }
 
-  async interrupt(sessionId: string, projectId: string): Promise<void> {
-    await fetch('/api/companion/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'interrupt', projectId, bornastarSessionId: sessionId }),
-    })
+  // Send an interrupt to the daemon for the in-flight Claude turn on
+  // this chat. Returns a status so the caller can branch on it:
+  //   ok=true        → daemon got it, will stop Claude + emit result
+  //   ok=false +
+  //     offline=true → companion not connected (server returned 503)
+  //     offline=false→ network error / bad status (best-effort silent)
+  // The caller (Stop button handler) uses this to decide whether to
+  // clear running locally + restore prompt (Caso 1) or to surface an
+  // offline system message (Caso 2).
+  async interrupt(sessionId: string, projectId: string): Promise<{ ok: boolean; offline: boolean }> {
+    try {
+      const res = await fetch('/api/companion/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'interrupt', projectId, bornastarSessionId: sessionId }),
+      })
+      if (res.ok) {
+        console.log(`[store] interrupt ok sid=${sessionId.slice(0, 8)}`)
+        return { ok: true, offline: false }
+      }
+      const offline = res.status === 503
+      console.warn(`[store] interrupt failed sid=${sessionId.slice(0, 8)} status=${res.status} offline=${offline}`)
+      return { ok: false, offline }
+    } catch (err) {
+      console.warn(`[store] interrupt threw sid=${sessionId.slice(0, 8)}: ${(err as Error).message}`)
+      return { ok: false, offline: false }
+    }
   }
 
   // Apply a batch of server-provided messages to a slice. Used by the
@@ -644,6 +689,8 @@ class CompanionStore {
     // Non-claude bookkeeping events ─ status, running list, fs change ─
     // handled separately; they don't belong to a specific chat slice.
     if (event.type === 'companion_status') {
+      const projDigest = (event.projects ?? []).map((p) => `${p.name}:${p.id.slice(0, 8)}`).join(',')
+      console.log(`[store] companion_status connected=${event.connected} plan=${event.authInfo?.plan ?? '-'} projects=[${projDigest}]`)
       this.setStatus(
         event.connected ? 'connected' : 'disconnected',
         event.connected

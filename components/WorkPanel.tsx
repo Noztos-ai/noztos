@@ -1228,8 +1228,6 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // icon can drive it.
   const [changesSelectMode, setChangesSelectMode] = useState(false)
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false)
-  const [showTargetBranchPicker, setShowTargetBranchPicker] = useState(false)
-  const [targetBranchSearch, setTargetBranchSearch] = useState('')
   // Scratchpad — per-project free-form notes, referenced via @notes in chat
   const [showScratchpad, setShowScratchpad] = useState(false)
   const [scratchpadContent, setScratchpadContent] = useState('')
@@ -1918,65 +1916,19 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                       </svg>
 
-                      {/* Target branch pill — clickable dropdown */}
-                      <div className="relative">
-                        <button
-                          onClick={() => { setShowTargetBranchPicker(!showTargetBranchPicker); setTargetBranchSearch('') }}
-                          className="flex items-center gap-1 rounded-md border border-[#3C3C3C] px-2 py-0.5 transition-colors hover:border-zinc-500 hover:bg-white/5"
-                          style={{ backgroundColor: '#2A2A2A' }}
-                        >
-                          <span className="font-mono text-[11px] text-zinc-300">origin/main</span>
-                          <svg className="h-2.5 w-2.5 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                          </svg>
-                        </button>
-
-                        {/* Target branch picker dropdown */}
-                        {showTargetBranchPicker && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setShowTargetBranchPicker(false)} />
-                            <div
-                              className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-white/15 shadow-2xl shadow-black/50"
-                              style={{ backgroundColor: '#252526' }}
-                            >
-                              {/* Search input */}
-                              <div className="flex items-center gap-2 border-b border-[#2B2B2B] px-3 py-2">
-                                <svg className="h-3 w-3 shrink-0 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                                </svg>
-                                <input
-                                  autoFocus
-                                  value={targetBranchSearch}
-                                  onChange={(e) => setTargetBranchSearch(e.target.value)}
-                                  placeholder="Select target branch..."
-                                  className="min-w-0 flex-1 bg-transparent text-[11px] text-zinc-200 placeholder-zinc-600 outline-none"
-                                />
-                              </div>
-                              {/* Branch list */}
-                              <div className="max-h-48 overflow-y-auto py-1">
-                                {['main', 'develop', 'staging'].filter(
-                                  (b) => !targetBranchSearch || b.includes(targetBranchSearch.toLowerCase())
-                                ).map((branch) => (
-                                  <button
-                                    key={branch}
-                                    onClick={() => setShowTargetBranchPicker(false)}
-                                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors hover:bg-white/5 ${
-                                      branch === 'main' ? 'text-zinc-100' : 'text-zinc-400'
-                                    }`}
-                                  >
-                                    {branch === 'main' && (
-                                      <svg className="h-3 w-3 shrink-0 text-violet-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                      </svg>
-                                    )}
-                                    {branch !== 'main' && <div className="h-3 w-3 shrink-0" />}
-                                    <span className="font-mono">{branch}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </>
-                        )}
+                      {/* Target branch — static label for now. The picker
+                          dropdown was a mock (hardcoded ['main','develop',
+                          'staging'] with no backing data). Today every
+                          worktree implicitly targets origin/main (see
+                          lib/git.ts rebase logic). When per-worktree
+                          baseBranch lands (DB field + branch listing API),
+                          turn this back into a clickable picker. */}
+                      <div
+                        className="flex items-center rounded-md border border-[#3C3C3C] px-2 py-0.5"
+                        style={{ backgroundColor: '#2A2A2A' }}
+                        title="Target branch (currently fixed to origin/main)"
+                      >
+                        <span className="font-mono text-[11px] text-zinc-300">origin/main</span>
                       </div>
 
                       <div className="flex-1" />
@@ -5153,6 +5105,13 @@ function ChatPanel({
       setHasMoreOlder(false)
       return
     }
+    // Capture the scroll geometry BEFORE the fetch — we need to know
+    // the container's scrollHeight so we can compensate after React
+    // commits the new (taller) message list.
+    const container = scrollContainerRef.current
+    const beforeHeight = container?.scrollHeight ?? 0
+    const beforeTop = container?.scrollTop ?? 0
+    isPaginatingRef.current = true
     setLoadingOlder(true)
     try {
       const res = await fetch(`/api/projects/${projectId}/chat-sessions/${sessionId}/messages?limit=${PAGE_SIZE}&before=${oldestMessageId}`)
@@ -5166,6 +5125,19 @@ function ChatPanel({
       setHasMoreOlder(!!data.hasMore)
     } catch { /* ignore */ }
     setLoadingOlder(false)
+    // After React paints the new rows, push the scrollTop down by the
+    // same delta the content grew — keeping whatever the user was
+    // looking at fixed in their viewport. requestAnimationFrame waits
+    // one paint cycle so scrollHeight reflects the new content. Then
+    // the paginating flag drops and the bottom-anchor effect resumes.
+    requestAnimationFrame(() => {
+      const c = scrollContainerRef.current
+      if (c) {
+        const heightDelta = c.scrollHeight - beforeHeight
+        c.scrollTop = beforeTop + heightDelta
+      }
+      isPaginatingRef.current = false
+    })
   }, [projectId, sessionId, hasMoreOlder, loadingOlder, oldestMessageId])
   const [claudeMode, setClaudeMode] = useState<'plan' | 'edit' | 'auto' | 'agent'>('auto')
 
@@ -5184,6 +5156,17 @@ function ChatPanel({
     ? (companionInfo.projects.find((p) => p.path === sandboxId)?.id ?? null)
     : null
 
+  // Diagnostic: log every change in the resolved daemon hex id. If
+  // this swings while a chat is mid-turn, we want to know — that's
+  // the canary for the stale-project-id bug we fixed in /register.
+  const lastResolvedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (lastResolvedRef.current !== companionProjectId) {
+      console.log(`[chat] companionProjectId resolved sid=${sessionId.slice(0, 8)} sandboxId=${sandboxId ?? '-'} hex=${companionProjectId ?? '(null)'} (was=${lastResolvedRef.current ?? '(null)'})`)
+      lastResolvedRef.current = companionProjectId
+    }
+  }, [companionProjectId, sandboxId, sessionId])
+
   // External prompts — e.g. "Resolve with agent" on the Conflicts top
   // bar fires this event with a prefilled message. We drop it into the
   // input so the user can tweak before sending (safer than auto-send).
@@ -5195,6 +5178,34 @@ function ChatPanel({
     window.addEventListener('bornastar-agent-prompt', handler)
     return () => window.removeEventListener('bornastar-agent-prompt', handler)
   }, [])
+
+  // Auto-restore prompt on offline-induced stop. When an in-flight turn
+  // ends because the system detected the local companion or Claude
+  // went offline (NOT because Claude actually finished), pull the
+  // user's prompt back into the input so they can edit + resend when
+  // the connection returns. Mirrors the manual Pause UX so the user
+  // never feels stuck with a "where did my message go?" moment.
+  // Detection: isRunning transitioned true → false AND the same tick
+  // (or just before) canSendToLLM transitioned true → false. A normal
+  // turn finish leaves canSendToLLM true throughout, so the condition
+  // doesn't fire — no false positives.
+  const prevIsRunningRef = useRef(false)
+  const prevCanSendRef = useRef(true)
+  useEffect(() => {
+    const wasRunning = prevIsRunningRef.current
+    const wasOnline = prevCanSendRef.current
+    if (wasRunning && !isRunning && wasOnline && !canSendToLLM) {
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+      if (lastUserMsg && !input.trim()) {
+        setInput(lastUserMsg.content)
+        companionStore.setDraft(sessionId, lastUserMsg.content)
+        const reason = !companionConnected ? 'local-offline' : 'claude-offline'
+        console.log(`[chat] auto-restore prompt sid=${sessionId.slice(0, 8)} reason=${reason}`)
+      }
+    }
+    prevIsRunningRef.current = isRunning
+    prevCanSendRef.current = canSendToLLM
+  }, [isRunning, canSendToLLM, companionConnected, messages, input, sessionId])
   const [showToolbarMenu, setShowToolbarMenu] = useState(false)
   const [showContextPicker, setShowContextPicker] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
@@ -5202,6 +5213,12 @@ function ChatPanel({
   const [selectedModel, setSelectedModel] = useState<string>('sonnet')
   const [thinkingLevel, setThinkingLevel] = useState<string>('off')
   const bottomRef = useRef<HTMLDivElement>(null)
+  // Scroll container ref + pagination flag. Together they let us
+  // preserve the user's scroll position when older messages are
+  // prepended, instead of letting the bottom-anchor effect snap them
+  // back to the latest message every time a page loads.
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const isPaginatingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const ACCEPTED_TYPES = {
@@ -5276,6 +5293,11 @@ function ChatPanel({
   const scrollSignature = `${messages.length}:${lastCompanion?.content?.length ?? 0}:${isRunning ? 1 : 0}`
   const hasScrolledOnceRef = useRef(false)
   useEffect(() => {
+    // Skip the auto-scroll-to-bottom when the length change came from
+    // paginating older messages upward. Without this guard, every
+    // scroll-up that prepends content would yank the user right back
+    // to the latest message — defeating the whole point of pagination.
+    if (isPaginatingRef.current) return
     const behavior: ScrollBehavior = hasScrolledOnceRef.current ? 'smooth' : 'auto'
     bottomRef.current?.scrollIntoView({ behavior })
     hasScrolledOnceRef.current = true
@@ -5497,6 +5519,7 @@ function ChatPanel({
 
       {/* Messages — renders companion stream or legacy engine */}
       <div
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto p-4 space-y-3"
         onScroll={(e) => {
           // When the user scrolls near the top, fetch the previous page
@@ -5720,7 +5743,7 @@ function ChatPanel({
         {/* Input area — single floating card (VSCode Claude style) */}
         <form onSubmit={sendMessage} className="shrink-0 px-3 pb-3 pt-1">
           {/* Offline banner — distinguishes the two upstream gates:
-                (1) the Mac companion daemon
+                (1) the local companion daemon (Mac / device-side)
                 (2) Claude itself (signed in inside the companion)
               Same dim style + zinc dot so the visual language is shared
               with the sidebar status badges. */}
@@ -5729,9 +5752,9 @@ function ChatPanel({
               <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
               <span>
                 {companionStatus === 'connecting'
-                  ? 'Connecting to your Mac companion…'
+                  ? 'Connecting to local…'
                   : !companionConnected
-                    ? 'Mac companion offline — start it with `bornastar start` to continue.'
+                    ? 'Local offline. Reconnect to continue.'
                     : 'Claude not signed in — run `claude login` on your Mac.'}
               </span>
             </div>
@@ -5992,7 +6015,30 @@ function ChatPanel({
             {isRunning ? (
               <button
                 type="button"
-                onClick={() => companionProjectId && companionStore.interrupt(sessionId, companionProjectId)}
+                onClick={() => {
+                  if (!companionProjectId) return
+                  // Pause is a user action — respond visually right
+                  // now, never wait on the network. The pattern is
+                  // local-first: stop the spinner, return the prompt
+                  // to the input, fire the interrupt fetch in the
+                  // background (still useful if the daemon is alive).
+                  // If the daemon is offline, the next Send attempt
+                  // surfaces it (or the sweeper does within 60s) —
+                  // keeping the spinner spinning after a Pause click
+                  // would look broken regardless of why it failed.
+                  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+                  companionStore.markIdle(sessionId)
+                  if (lastUserMsg && !input.trim()) {
+                    setInput(lastUserMsg.content)
+                    companionStore.setDraft(sessionId, lastUserMsg.content)
+                  }
+                  // Fire-and-forget; result drives logs only. If it
+                  // succeeds the daemon stops Claude (and any late
+                  // events that already streamed slot into history
+                  // by their original timestamps). If it fails the
+                  // user already has their UI back.
+                  companionStore.interrupt(sessionId, companionProjectId).catch(() => {})
+                }}
                 title="Stop"
                 className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-zinc-900 transition-colors hover:bg-zinc-200"
               >
@@ -6005,7 +6051,7 @@ function ChatPanel({
                 type="submit"
                 disabled={(!input.trim() && attachments.length === 0) || !canSendToLLM || !companionProjectId}
                 title={
-                  !companionConnected ? 'Start companion: bornastar start'
+                  !companionConnected ? 'Local offline. Reconnect to continue.'
                     : !claudeAuthed ? 'Claude not signed in — run: claude login'
                     : !companionProjectId ? 'Project not registered in companion'
                     : 'Send'

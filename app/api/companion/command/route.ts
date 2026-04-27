@@ -10,7 +10,9 @@ import { getChannel, getCompanionStatus } from '@/lib/companion-relay'
 // via the SSE stream at /api/companion/events.
 //
 // If the companion is not connected, returns an error so the browser
-// can show "Companion offline — start it with `bornastar start`".
+// can surface the offline state. The send button + banner already
+// convey this visually; the response message is a fallback for
+// callers that don't subscribe to the store (curl tests, etc).
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -19,7 +21,7 @@ export async function POST(request: NextRequest) {
   if (!status.connected) {
     return NextResponse.json({
       error: 'Companion not connected',
-      message: 'Start the Bornastar companion on your machine: `bornastar start`',
+      message: 'Local offline. Reconnect to continue.',
     }, { status: 503 })
   }
 

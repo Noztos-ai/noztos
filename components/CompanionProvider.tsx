@@ -24,20 +24,57 @@ export function CompanionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let controller = new AbortController()
     let disposed = false
+    // Auto-reconnect with exponential backoff. The stream can close for
+    // many reasons that aren't bugs — a server restart, a hot reload, a
+    // proxy timeout, the daemon flipping offline, a transient network
+    // blip. Without a retry loop the only way back was a tab refresh
+    // (browser visibility change), which the user shouldn't have to
+    // perform. retryDelay doubles each failure up to 30s, then resets
+    // to 1s as soon as we successfully read a frame again.
+    const INITIAL_RETRY_MS = 1_000
+    const MAX_RETRY_MS = 30_000
+    let retryDelay = INITIAL_RETRY_MS
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+    function scheduleReconnect(): void {
+      if (disposed) return
+      if (retryTimer) return // already scheduled
+      console.log(`[provider] reconnecting in ${retryDelay}ms`)
+      retryTimer = setTimeout(() => {
+        retryTimer = null
+        if (disposed) return
+        controller = new AbortController()
+        connect()
+      }, retryDelay)
+      retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS)
+    }
 
     async function connect() {
       console.log('[provider] SSE connecting...')
       companionStore.setStatus('connecting')
       try {
         const res = await fetch('/api/companion/stream', { signal: controller.signal })
-        if (!res.ok || !res.body) { console.warn('[provider] SSE open failed'); companionStore.setStatus('error'); return }
+        if (!res.ok || !res.body) {
+          console.warn('[provider] SSE open failed status=' + res.status)
+          companionStore.setStatus('error')
+          scheduleReconnect()
+          return
+        }
         console.log('[provider] SSE open')
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
         while (true) {
           const { done, value } = await reader.read()
-          if (done) { console.log('[provider] SSE closed by server'); break }
+          if (done) {
+            console.log('[provider] SSE closed by server — scheduling reconnect')
+            companionStore.setStatus('disconnected')
+            scheduleReconnect()
+            return
+          }
+          // Got real data — connection is healthy, reset the backoff so
+          // the next failure starts from 1s again.
+          retryDelay = INITIAL_RETRY_MS
           buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split('\n')
           buffer = lines.pop() ?? ''
@@ -85,7 +122,9 @@ export function CompanionProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         if (!disposed && (err as Error).name !== 'AbortError') {
+          console.warn('[provider] SSE error: ' + (err as Error).message)
           companionStore.setStatus('error')
+          scheduleReconnect()
         }
       }
     }
@@ -95,7 +134,10 @@ export function CompanionProvider({ children }: { children: React.ReactNode }) {
       if (next === epochRef.current) return
       epochRef.current = next
       console.log(`[provider] reconnect (epoch=${next})`)
-      // Abort and reopen. No wait — keep event loop tight.
+      // Explicit reconnect — cancel any pending retry, abort the current
+      // stream (caught as AbortError → no auto-retry), then open fresh.
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+      retryDelay = INITIAL_RETRY_MS
       controller.abort()
       controller = new AbortController()
       connect()
@@ -106,6 +148,7 @@ export function CompanionProvider({ children }: { children: React.ReactNode }) {
     return () => {
       disposed = true
       unsubscribeEpoch()
+      if (retryTimer) clearTimeout(retryTimer)
       controller.abort()
     }
   }, [])
