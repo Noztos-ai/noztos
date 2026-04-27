@@ -92,6 +92,14 @@ class CompanionStore {
   private companionInfo: CompanionInfo | null = null
   private runningSessionIds: Set<string> = new Set()
   private unreadSessionIds: Set<string> = new Set()
+  // Sessions that are mid-creation on the server — the optimistic UI
+  // already shows them in the sidebar (and may have selected them), but
+  // the POST to /chat-sessions hasn't returned yet. Reading endpoints
+  // (/session-state, /messages, /mark-read) 404 during this window
+  // because the row literally doesn't exist in the DB. ChatPanel reads
+  // this set to skip its hydrate during the gap. Cleared on success or
+  // on rollback after a failed create.
+  private pendingSessionIds: Set<string> = new Set()
   // Bumped on reconnect() so provider's SSE useEffect can re-run.
   private connectionEpoch = 0
   // Background sweeper handle. Null on SSR; started lazily in the
@@ -102,6 +110,7 @@ class CompanionStore {
   private sliceListeners: Map<string, Set<Listener>> = new Map()
   private runningListeners: Set<Listener> = new Set()
   private unreadListeners: Set<Listener> = new Set()
+  private pendingListeners: Set<Listener> = new Set()
   private statusListeners: Set<Listener> = new Set()
   private epochListeners: Set<Listener> = new Set()
 
@@ -155,6 +164,10 @@ class CompanionStore {
     return this.unreadSessionIds
   }
 
+  getPendingSessions(): Set<string> {
+    return this.pendingSessionIds
+  }
+
   getStatus(): CompanionStatus {
     return this.status
   }
@@ -194,6 +207,11 @@ class CompanionStore {
     return () => { this.unreadListeners.delete(cb) }
   }
 
+  subscribePending(cb: Listener): () => void {
+    this.pendingListeners.add(cb)
+    return () => { this.pendingListeners.delete(cb) }
+  }
+
   subscribeStatus(cb: Listener): () => void {
     this.statusListeners.add(cb)
     return () => { this.statusListeners.delete(cb) }
@@ -210,6 +228,7 @@ class CompanionStore {
   }
   private notifyRunning(): void { for (const l of this.runningListeners) l() }
   private notifyUnread(): void { for (const l of this.unreadListeners) l() }
+  private notifyPending(): void { for (const l of this.pendingListeners) l() }
   private notifyStatus(): void { for (const l of this.statusListeners) l() }
   private notifyEpoch(): void { for (const l of this.epochListeners) l() }
 
@@ -560,6 +579,26 @@ class CompanionStore {
     next.delete(sessionId)
     this.unreadSessionIds = next
     this.notifyUnread()
+  }
+
+  // Marks a session as "being created on the server right now". Set the
+  // moment a client-minted cuid goes into an optimistic insert; cleared
+  // on POST success or on rollback. ChatPanel checks this set to skip
+  // its hydrate calls (which would 404 otherwise) during the gap.
+  markPending(sessionId: string): void {
+    if (this.pendingSessionIds.has(sessionId)) return
+    const next = new Set(this.pendingSessionIds)
+    next.add(sessionId)
+    this.pendingSessionIds = next
+    this.notifyPending()
+  }
+
+  clearPending(sessionId: string): void {
+    if (!this.pendingSessionIds.has(sessionId)) return
+    const next = new Set(this.pendingSessionIds)
+    next.delete(sessionId)
+    this.pendingSessionIds = next
+    this.notifyPending()
   }
 
   setStatus(status: CompanionStatus, info?: CompanionInfo | null): void {

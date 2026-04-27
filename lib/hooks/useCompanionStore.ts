@@ -68,6 +68,14 @@ export function useUnreadSessions(): Set<string> {
   )
 }
 
+export function usePendingSessions(): Set<string> {
+  return useSyncExternalStore(
+    (cb) => companionStore.subscribePending(cb),
+    () => companionStore.getPendingSessions(),
+    () => EMPTY_SET,
+  )
+}
+
 export function useCompanionStatus(): CompanionStatus {
   return useSyncExternalStore(
     (cb) => companionStore.subscribeStatus(cb),

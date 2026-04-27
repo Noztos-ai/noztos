@@ -24,7 +24,7 @@ import { type ChatMessage } from '@/lib/hooks/useCompanionStream'
 import { companionStore } from '@/lib/companion-store'
 import {
   useChatMessages, useChatIsRunning,
-  useBusySessions, useUnreadSessions, useCompanionStatus, useCompanionInfo,
+  useBusySessions, useUnreadSessions, useCompanionStatus, useCompanionInfo, usePendingSessions,
 } from '@/lib/hooks/useCompanionStore'
 import { CompanionProvider, setActiveSessionIdForUnread } from './CompanionProvider'
 import { ClaudeToolCard, SessionResultCard, ModeSelector, ModelSelector, ThinkingSelector, CompanionStatusBadge, WorkBlock } from './ClaudeToolCard'
@@ -231,7 +231,6 @@ function ChatsSidebar({
   companionOffline,
   onSelectMainChat,
   onSelectWorktree,
-  onNewMainChat,
   onNewWorktree,
   onAddChatToWorktree,
   onRenameSession,
@@ -253,7 +252,6 @@ function ChatsSidebar({
   chatStats: Record<string, { added: number; removed: number; files: number }>
   onSelectMainChat: (id: string) => void
   onSelectWorktree: (worktreeId: string) => void
-  onNewMainChat: () => void
   onNewWorktree: () => void
   onAddChatToWorktree: (worktreeId: string) => void
   onRenameSession: (id: string, name: string) => void
@@ -1441,6 +1439,13 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // endpoint 400s. Same gate is reused below for /mark-read, FileTree,
   // and ChatPanel hydrate so all four go quiet during the same window.
   const activeWorktreePending = !!activeWorktreeId && worktrees.find((w) => w.id === activeWorktreeId)?.state === 'pending'
+  // Same idea as `activeWorktreePending`, but for the chat-only optimistic
+  // path: handleAddChatToWorktree mints a cuid and shows the chat in the
+  // sidebar before the server-side row exists. Reading endpoints 404
+  // during that window. ChatPanel + the mark-read effect both gate on
+  // this so the console stays quiet during the ~1.7s creation gap.
+  const pendingSessionIds = usePendingSessions()
+  const activeSessionPending = !!activeSessionId && pendingSessionIds.has(activeSessionId)
   const { status: activeGitStatus } = useGitStatus(projectId, activeSessionId, activeWorktreeId, 30000, !activeWorktreePending)
   const statusBadge = deriveBadge(activeGitStatus)
   const [worktreeTabMenuId, setWorktreeTabMenuId] = useState<string | null>(null)
@@ -1644,17 +1649,21 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // Persist "user viewed this chat" so unread state survives refresh /
   // device switch. Fire-and-forget — the in-memory Set is already
   // updated by the click handlers in the sidebar.
-  // Gated on activeWorktreePending: optimistic chats inside a still-
-  // provisioning worktree don't exist on the server yet, so mark-read
-  // would 404. The effect re-runs once pending flips false and the
-  // session row is real.
+  // Two gates, both for optimistic-create windows where the row doesn't
+  // exist on the server yet:
+  //   • activeWorktreePending — worktree itself is still provisioning
+  //     (handleNewWorktree)
+  //   • activeSessionPending  — chat-only optimistic create inside an
+  //     existing worktree (handleAddChatToWorktree)
+  // The effect re-runs once either flag flips false.
   useEffect(() => {
     if (!activeSessionId) return
     if (activeWorktreePending) return
+    if (activeSessionPending) return
     fetch(`/api/projects/${projectId}/chat-sessions/${activeSessionId}/mark-read`, {
       method: 'POST',
     }).catch(() => {})
-  }, [activeSessionId, projectId, activeWorktreePending])
+  }, [activeSessionId, projectId, activeWorktreePending, activeSessionPending])
 
   // ── Unread detection (SSE-driven, not polling) ─────────────────────
   // Seed the initial unread set from the DB so a refresh / fresh tab
@@ -1874,6 +1883,13 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
     ))
     setActiveWorktreeId(worktreeId)
     setActiveSessionId(sessionId)
+    // Mark the session as in-flight so ChatPanel skips its hydrate
+    // (/session-state, /messages, /mark-read all 404 until the POST
+    // returns and the row exists in the DB). The store is the single
+    // source of truth for "this id is real on the server" — same shape
+    // as `markBusy`/`markUnread` and shared by every reader without
+    // prop drilling.
+    companionStore.markPending(sessionId)
 
     try {
       const res = await fetch(`/api/projects/${projectId}/chat-sessions`, {
@@ -1892,6 +1908,9 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
           }
         : w,
       ))
+      // Clear AFTER the row is real so ChatPanel's hydrate (gated on
+      // `sessionPending`) re-runs against the now-existing endpoint.
+      companionStore.clearPending(sessionId)
       console.log(`[opt] addChat READY sid=${sessionId.slice(0, 12)} totalMs=${Math.round(performance.now() - tStart)}`)
     } catch (err) {
       console.warn(`[opt] addChat FAILED sid=${sessionId.slice(0, 12)}: ${(err as Error).message}`)
@@ -1901,6 +1920,10 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
         : w,
       ))
       if (activeSessionId === sessionId) setActiveSessionId(null)
+      // Clear pending on rollback too — leaving the id stuck in the set
+      // would block hydrate forever if the chat was somehow re-created
+      // under the same id (idempotent retry path).
+      companionStore.clearPending(sessionId)
       setCreateErrorModal({
         message: 'Couldn\'t add chat. Please try again.',
         onRetry: () => { setCreateErrorModal(null); void handleAddChatToWorktree(worktreeId) },
@@ -2152,7 +2175,6 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
               companionStore.clearUnread(targetSession.id)
             }
           }}
-          onNewMainChat={handleNewMainChat}
           onNewWorktree={handleNewWorktree}
           onAddChatToWorktree={handleAddChatToWorktree}
           companionOffline={companionOffline}
@@ -2381,6 +2403,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
                   }
                   isWorktreeChat={!!activeWorktreeId}
                   worktreePending={!!activeWorktreeId && worktrees.find((w) => w.id === activeWorktreeId)?.state === 'pending'}
+                  sessionPending={activeSessionPending}
                   activeWorktreeId={activeWorktreeId}
                   activeMode={activeMode}
                   activeSkillId={activeSkillId}
@@ -5306,6 +5329,7 @@ function ChatPanel({
   sessionName,
   isWorktreeChat,
   worktreePending,
+  sessionPending,
   activeWorktreeId,
   activeMode,
   activeSkillId,
@@ -5329,6 +5353,7 @@ function ChatPanel({
   sessionName: string
   isWorktreeChat: boolean
   worktreePending: boolean
+  sessionPending: boolean
   activeWorktreeId: string | null
   onMinimize: () => void
   onOpenScratchpad: () => void
@@ -5427,14 +5452,18 @@ function ChatPanel({
   // duplicates or reorders.
   const hydrateFromServer = useCallback(async () => {
     if (!sessionId) return
-    // Optimistic-window gate: while the parent worktree is still being
-    // provisioned, this session row doesn't exist on the server yet, so
-    // /session-state and /messages both 404. The store slice is already
-    // empty (this is a brand-new chat — there's nothing to hydrate from
-    // the buffer or from Supabase), so skipping is correct, not just
-    // quiet. This callback's identity changes when worktreePending flips
-    // false, retriggering the mount-effect → real hydrate runs.
+    // Optimistic-window gates — both cases mean the server hasn't
+    // finished creating the session row yet, so /session-state and
+    // /messages would 404. The slice is empty in both cases (brand-new
+    // chat), so skipping is correct, not just quiet:
+    //   • worktreePending — we're inside a worktree still provisioning
+    //     (handleNewWorktree path, ~5s window)
+    //   • sessionPending — chat-only optimistic insert into an existing
+    //     worktree (handleAddChatToWorktree path, ~1.7s window)
+    // The callback's identity changes when either flips false, which
+    // retriggers the mount-effect → real hydrate runs.
     if (worktreePending) return
+    if (sessionPending) return
     const sidShort = sessionId.slice(0, 8)
     try {
       const ss = await fetch(`/api/companion/session-state?projectId=${projectId}&sessionId=${sessionId}`)
@@ -5462,7 +5491,7 @@ function ChatPanel({
       setHasMoreOlder(!!data.hasMore)
       setOldestMessageId(msgs[0]?.id ?? null)
     } catch {}
-  }, [projectId, sessionId, worktreePending])
+  }, [projectId, sessionId, worktreePending, sessionPending])
 
   useEffect(() => {
     console.log(`[chat-panel] sessionId=${sessionId.slice(0, 8)} — mounting/switching`)
