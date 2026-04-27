@@ -43,6 +43,29 @@ Everything below is intentionally deferred. The current design is correct and
 fast for single-instance deployment. These items unlock horizontal scale or
 harden edge cases that don't matter yet.
 
+### Hosting / infrastructure (do at deploy time)
+
+These are not code changes — they're operational decisions made when the
+app moves off localhost. The optimistic UI + retry pattern hides 95% of DB
+blips, but underlying latency / pool sizing still benefit from these.
+
+- [ ] **Host Next.js in the same region as Supabase.** Today queries make a
+      cross-region round-trip (~80-150ms each). Hosting the Next.js app in
+      `us-west-2` (or whichever Supabase region we end up on) drops that to
+      5-10ms. The biggest single-knob improvement for backend latency.
+- [ ] **Bump `connection_limit` in DATABASE_URL to 30.** Default Prisma pool
+      is `num_cpus*2+1` (~9 on small instances). Under heavy concurrent load
+      (rapid deletes + creates + parallel reads) the pool saturates and
+      Prisma surfaces `DatabaseNotReachable` / `SocketTimeout` /
+      `ConnectionClosed` errors. The session pooler (port 5432) accepts a
+      higher limit comfortably; the transaction pooler (port 6543) is NOT
+      compatible with our interactive transactions in `chat-persist.ts`
+      (we tried — see `.env.example` notes).
+- [ ] **Consider Supabase tier upgrade.** Free tier = 60 connections total,
+      Pro tier = 200. With `connection_limit=30` per Next.js instance, the
+      Pro tier supports 5-6 instances comfortably. Tier upgrade is the
+      first thing to revisit when concurrency truly bites.
+
 ### Persistence pipeline (`lib/companion-relay.ts`, `lib/chat-persist.ts`)
 
 - [ ] **Ring buffer → Redis.** The per-session ring buffer lives in Node RAM

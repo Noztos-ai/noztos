@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyProjectAccess } from '@/lib/auth'
+import { cleanupWorktreeOnDisk } from '@/lib/worktree'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -27,9 +28,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   // Lazy retention — promote expired trashed worktrees AND their chats
   // to 'deleted'. These rows stay in the DB; the user just stops seeing
   // them. Runs before the listing query so the response is clean.
+  //
+  // The transition trashed → deleted is the point where the on-disk
+  // worktree and its branch finally get cleaned up. Up to this point
+  // both have been preserved so restore could bring them back. After
+  // 7 days untouched the user has effectively abandoned the worktree,
+  // so we free the disk + git refs (best-effort, errors logged only).
   const expired = await prisma.worktree.findMany({
     where: { projectId: id, status: 'trashed', trashedAt: { lt: cutoff } },
-    select: { id: true },
+    select: { id: true, worktreePath: true, branchName: true },
   })
   if (expired.length > 0) {
     const expiredIds = expired.map((w) => w.id)
@@ -52,6 +59,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         data: { status: 'deleted', deletedAt: now },
       }),
     ])
+    // Disk + git cleanup runs after the DB flip. Sequential rather than
+    // parallel because each call ensures the same sandbox is up — there's
+    // no benefit to fan-out, and serial keeps the log order readable.
+    for (const w of expired) {
+      await cleanupWorktreeOnDisk(id, w.worktreePath, w.branchName, 'trash-expire')
+    }
   }
 
   const worktrees = await prisma.worktree.findMany({

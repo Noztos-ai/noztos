@@ -110,6 +110,23 @@ class CompanionStore {
   // what they were typing. Not persisted to disk/DB — reload clears.
   private drafts: Map<string, string> = new Map()
 
+  // Per-worktree send queue. When a user sends a prompt to a chat
+  // inside a worktree that's still being provisioned on the server
+  // (state='pending' on the optimistic UI), we don't fire the POST
+  // right away — the daemon doesn't know the chat exists yet and
+  // would error with "session not found". Instead the prompt sits
+  // here, and when the worktree finalises (markWorktreeReady) the
+  // queue drains and the POSTs go out in order.
+  // Queue is keyed by worktreeId because that's what transitions from
+  // pending → ready. Inside each entry we capture (sessionId, prompt,
+  // opts) so the drainer can call companionStore.sendPrompt verbatim.
+  private worktreeSendQueue: Map<string, Array<{
+    sessionId: string
+    projectId: string
+    prompt: string
+    opts?: { mode?: 'plan' | 'edit' | 'auto' | 'agent'; model?: string; thinking?: 'off' | 'low' | 'medium' | 'high' }
+  }>> = new Map()
+
   // ── Snapshot helpers (referentially stable between notifies) ──
 
   getMessages(sessionId: string): ChatMessage[] {
@@ -211,6 +228,68 @@ class CompanionStore {
 
   clearDraft(sessionId: string): void {
     this.drafts.delete(sessionId)
+  }
+
+  // ── Per-worktree send queue (used by optimistic worktree creation) ─
+
+  // Mint a stable client-side id. Same scheme used elsewhere in the
+  // codebase: short prefix + Date.now + random suffix. Ids generated
+  // here flow through the request body to the server's idempotent
+  // upsert path, so a retry never duplicates state.
+  mintCuid(prefix: string): string {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  }
+
+  // User pressed Send while their worktree is still creating. Stash
+  // the prompt; we'll fire it the moment the worktree finalises.
+  queueSendForWorktree(
+    worktreeId: string,
+    payload: {
+      sessionId: string
+      projectId: string
+      prompt: string
+      opts?: { mode?: 'plan' | 'edit' | 'auto' | 'agent'; model?: string; thinking?: 'off' | 'low' | 'medium' | 'high' }
+    },
+  ): void {
+    const list = this.worktreeSendQueue.get(worktreeId) ?? []
+    list.push(payload)
+    this.worktreeSendQueue.set(worktreeId, list)
+    // Surface as busy locally so the spinner shows immediately — we
+    // already added the optimistic user msg via upsertMessage in the
+    // caller, this keeps the UI honest about the in-flight turn.
+    this.markBusy(payload.sessionId)
+    console.log(`[store] queueSendForWorktree wt=${worktreeId.slice(0, 8)} sid=${payload.sessionId.slice(0, 8)} queued=${list.length}`)
+  }
+
+  // Worktree creation succeeded — drain its queue. Each entry replays
+  // the normal sendPrompt path; markBusy was already set when queued.
+  async drainSendsForWorktree(worktreeId: string): Promise<void> {
+    const list = this.worktreeSendQueue.get(worktreeId)
+    if (!list || list.length === 0) return
+    this.worktreeSendQueue.delete(worktreeId)
+    console.log(`[store] drainSendsForWorktree wt=${worktreeId.slice(0, 8)} count=${list.length}`)
+    for (const item of list) {
+      // markIdle first so sendPrompt's own markBusy works clean. The
+      // optimistic user msg is already in the slice.
+      this.markIdle(item.sessionId)
+      await this.sendPrompt(item.sessionId, item.projectId, item.prompt, item.opts)
+    }
+  }
+
+  // Worktree creation failed and the user dismissed it. Drop any
+  // pending sends; the caller restores their text to the drafts.
+  discardSendsForWorktree(worktreeId: string): Array<{
+    sessionId: string
+    prompt: string
+  }> {
+    const list = this.worktreeSendQueue.get(worktreeId)
+    if (!list || list.length === 0) return []
+    this.worktreeSendQueue.delete(worktreeId)
+    for (const item of list) {
+      this.markIdle(item.sessionId)
+    }
+    console.log(`[store] discardSendsForWorktree wt=${worktreeId.slice(0, 8)} count=${list.length}`)
+    return list.map((i) => ({ sessionId: i.sessionId, prompt: i.prompt }))
   }
 
   // ── Actions ────────────────────────────────────────────────────

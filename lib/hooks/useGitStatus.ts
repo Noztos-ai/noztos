@@ -49,7 +49,7 @@ export function deriveUnsupportedLabel(status: GitStatus | null): string | null 
   return null
 }
 
-export function useGitStatus(projectId: string, sessionId: string | null, worktreeId: string | null, pollMs: number = 30000): {
+export function useGitStatus(projectId: string, sessionId: string | null, worktreeId: string | null, pollMs: number = 30000, enabled: boolean = true): {
   status: GitStatus | null
   refresh: () => void
 } {
@@ -76,6 +76,13 @@ export function useGitStatus(projectId: string, sessionId: string | null, worktr
 
   useEffect(() => {
     mounted.current = true
+    // Optimistic-window gate: while the worktree is still provisioning on
+    // the server (worktreePath='_pending_'), the /git/status endpoint
+    // returns 400 because the on-disk worktree doesn't exist yet. Skipping
+    // the fetch+interval keeps the console clean and saves a useless
+    // round-trip per poll. The caller flips `enabled` true once the
+    // worktree is real, and this effect re-runs to start polling.
+    if (!enabled) return
     fetchOnce()
     pollRef.current = setInterval(fetchOnce, pollMs)
     return () => {
@@ -83,7 +90,7 @@ export function useGitStatus(projectId: string, sessionId: string | null, worktr
       if (pollRef.current) clearInterval(pollRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, sessionId, worktreeId, pollMs])
+  }, [projectId, sessionId, worktreeId, pollMs, enabled])
 
   // Optimistic override — after a commit+push on a changes-requested
   // PR, immediately flip the local state to "awaiting review" so the

@@ -43,6 +43,61 @@ const WORKTREE_CODENAMES = [
 ]
 
 /**
+ * Best-effort cleanup of a worktree's on-disk state.
+ *
+ * Runs `git worktree remove --force` (kills the working dir, ignores
+ * uncommitted changes) followed by `git branch -D` (force-delete the
+ * branch even if unmerged). Both are idempotent in the senses we care
+ * about: rerunning when the dir / branch no longer exists is harmless,
+ * we just log a warn so an investigator can find it.
+ *
+ * Used on the destructive paths only:
+ *   - delete-forever (user explicitly asks for permanent removal)
+ *   - lazy expiration of the 7-day trash window
+ *
+ * Soft removal (trash, archive) intentionally does NOT call this — the
+ * disk + branch must stay intact so restore brings the worktree back
+ * with all its uncommitted changes and commits.
+ *
+ * Never throws. The DB row is the source of truth; if the on-disk side
+ * goes wrong we surface a warn-level log and move on.
+ */
+export async function cleanupWorktreeOnDisk(
+  projectId: string,
+  worktreePath: string | null | undefined,
+  branchName: string | null | undefined,
+  loggerTag: string = 'cleanup',
+): Promise<void> {
+  try {
+    const sandboxId = await ensureSandboxRunning(projectId)
+    if (!sandboxId) {
+      console.warn(`[${loggerTag}] no sandbox available, skipping disk+git cleanup branch=${branchName} path=${worktreePath}`)
+      return
+    }
+    if (worktreePath && worktreePath !== '_pending_') {
+      const removeRes = await compute.exec(
+        sandboxId,
+        `cd ${sandboxId} && git worktree remove --force ${worktreePath}`,
+      )
+      if (removeRes.exitCode !== 0) {
+        console.warn(`[${loggerTag}] git worktree remove non-zero exit=${removeRes.exitCode} path=${worktreePath} stderr=${removeRes.stderr || '(empty)'}`)
+      }
+    }
+    if (branchName) {
+      const branchRes = await compute.exec(
+        sandboxId,
+        `cd ${sandboxId} && git branch -D ${branchName}`,
+      )
+      if (branchRes.exitCode !== 0) {
+        console.warn(`[${loggerTag}] git branch -D non-zero exit=${branchRes.exitCode} branch=${branchName} stderr=${branchRes.stderr || '(empty)'}`)
+      }
+    }
+  } catch (err) {
+    console.warn(`[${loggerTag}] disk+git cleanup threw branch=${branchName} path=${worktreePath}: ${(err as Error).message}`)
+  }
+}
+
+/**
  * Pick a fresh `<city>-v<N>` codename that hasn't been used by any worktree
  * (open, archived, trashed, or deleted) in this project — so we never create
  * a duplicate git branch ref. Returns a pretty `name` and a `branchName`.
@@ -174,19 +229,45 @@ export async function provisionWorktree(
       return { worktreePath, branchName, baseCommit, portBase }
     }
 
-    // Create new worktree on a fresh branch from current main HEAD
-    const createRes = await compute.exec(
+    // Create new worktree on a fresh branch from current main HEAD.
+    //
+    // Retry-on-flake: this command intermittently fails with exit 255
+    // and a stderr that only contains the "Preparing worktree…"
+    // progress line — no fatal message, no useful diagnostic. The
+    // pattern observed is "fails immediately after deleting other
+    // worktrees, succeeds on a fresh retry seconds later." Best fit
+    // is transient .git/index.lock contention with another process
+    // (the daemon's fs watcher, a concurrent git status, …). Retrying
+    // 1× after a short delay reliably clears it. If the second pass
+    // also fails the failure is logged with full stdout+stderr.
+    let createRes = await compute.exec(
       sandboxId,
-      `cd ${sandboxId} && git worktree add ${worktreePath} -b ${branchName} 2>&1`,
+      `cd ${sandboxId} && git worktree add ${worktreePath} -b ${branchName}`,
     )
+    if (createRes.exitCode === 255 || createRes.exitCode === 128) {
+      console.warn(`[worktree] git worktree add transient (exit=${createRes.exitCode}) branch=${branchName}, retrying in 500ms`)
+      await new Promise((r) => setTimeout(r, 500))
+      createRes = await compute.exec(
+        sandboxId,
+        `cd ${sandboxId} && git worktree add ${worktreePath} -b ${branchName}`,
+      )
+    }
     if (createRes.exitCode !== 0) {
       // Branch may already exist — try without -b
       const fallbackRes = await compute.exec(
         sandboxId,
-        `cd ${sandboxId} && git worktree add ${worktreePath} ${branchName} 2>&1`,
+        `cd ${sandboxId} && git worktree add ${worktreePath} ${branchName}`,
       )
       if (fallbackRes.exitCode !== 0) {
-        console.warn(`[worktree] Failed to create worktree: ${createRes.stdout} | ${fallbackRes.stdout}`)
+        console.warn(
+          `[worktree] git worktree add FAILED branch=${branchName} path=${worktreePath}\n`
+          + `  --- create exit=${createRes.exitCode} ---\n`
+          + `  stdout: ${createRes.stdout || '(empty)'}\n`
+          + `  stderr: ${createRes.stderr || '(empty)'}\n`
+          + `  --- fallback exit=${fallbackRes.exitCode} ---\n`
+          + `  stdout: ${fallbackRes.stdout || '(empty)'}\n`
+          + `  stderr: ${fallbackRes.stderr || '(empty)'}`,
+        )
         return null
       }
     }
@@ -213,6 +294,54 @@ export async function provisionWorktree(
     console.error(`[worktree] Error provisioning worktree:`, err)
     return null
   }
+}
+
+/**
+ * Sweep orphan worktree placeholders. A placeholder is a row whose
+ * `worktreePath` is still `_pending_` — it means the create-worktree
+ * route inserted the row but never finished provisioning (server crash
+ * mid-call, or a 500 followed by no client retry). After
+ * ORPHAN_PLACEHOLDER_TTL_MS without resuming, we nuke it so it doesn't
+ * pollute the sidebar / branch-name namespace forever. The matching
+ * disk artefacts (none — git worktree add never ran) need no cleanup;
+ * partial creates leave a directory and we'd need `git worktree prune`
+ * to handle that, deferred until we actually see it in the wild.
+ */
+const ORPHAN_PLACEHOLDER_TTL_MS = 5 * 60_000 // 5 min — generous for slow networks
+const PLACEHOLDER_SWEEP_INTERVAL_MS = 5 * 60_000
+
+export async function cleanupOrphanPlaceholders(): Promise<number> {
+  const cutoff = new Date(Date.now() - ORPHAN_PLACEHOLDER_TTL_MS)
+  const stale = await prisma.worktree.findMany({
+    where: { worktreePath: '_pending_', createdAt: { lt: cutoff } },
+    select: { id: true },
+  })
+  if (stale.length === 0) return 0
+  // Cascade: delete the placeholder + any sessions that point at it
+  // (shouldn't be any in practice — sessions are created AFTER the
+  // worktree finalises — but defensive).
+  for (const w of stale) {
+    await prisma.chatSession.deleteMany({ where: { worktreeId: w.id } })
+    await prisma.worktree.delete({ where: { id: w.id } })
+  }
+  console.log(`[worktree-cleanup] removed ${stale.length} orphan placeholder(s)`)
+  return stale.length
+}
+
+// Background sweep: pin on globalThis so hot-reload doesn't spawn
+// duplicate timers (matches the pattern used by companion-relay's
+// connection sweeper). Production cold-starts pay no extra cost.
+const globalForWorktreeCleanup = globalThis as unknown as {
+  __bornastarWorktreeCleanupSweeper?: NodeJS.Timeout
+}
+if (!globalForWorktreeCleanup.__bornastarWorktreeCleanupSweeper) {
+  const t = setInterval(() => {
+    cleanupOrphanPlaceholders().catch((err) => {
+      console.warn('[worktree-cleanup] sweep failed:', (err as Error).message)
+    })
+  }, PLACEHOLDER_SWEEP_INTERVAL_MS)
+  if (typeof t.unref === 'function') t.unref()
+  globalForWorktreeCleanup.__bornastarWorktreeCleanupSweeper = t
 }
 
 /**

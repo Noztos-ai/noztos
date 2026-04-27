@@ -12,6 +12,14 @@ import { ConflictResolver } from './ConflictResolver'
 import { ResolveConflictsSplitButton } from './ResolveConflictsSplitButton'
 import { MOCK_CONFLICTS, MOCK_GIT_STATUS } from '@/lib/mocks/checks-demo'
 import { useGitStatus, deriveBadge, deriveUnsupportedLabel } from '@/lib/hooks/useGitStatus'
+import type { FileEntry } from '@/lib/worktree-types'
+import {
+  getCachedFiles, setCachedFiles, hasCachedFiles,
+  subscribeCachedFiles, getCachedFilesKeys, parseAffectedCacheKeys,
+  getCachedTerminal, setCachedTerminal,
+  setCacheProtector,
+  type TerminalEntry, type TerminalSandboxStatus,
+} from '@/lib/worktree-cache'
 import { type ChatMessage } from '@/lib/hooks/useCompanionStream'
 import { companionStore } from '@/lib/companion-store'
 import {
@@ -183,6 +191,13 @@ interface SidebarWorktree {
   branchName: string
   updatedAt?: string
   sessions: SidebarChat[]
+  // Set to 'pending' for optimistic worktrees inserted before the
+  // server confirmed creation. Cleared (back to undefined) once the
+  // server returns and the row becomes "real". The sidebar uses this
+  // to render a subtle pulse so the user sees something happening
+  // without losing the click. Errors don't reach this field — failed
+  // worktrees are dropped from the list and surfaced via a modal.
+  state?: 'pending'
 }
 
 // Format an ISO timestamp as a compact relative age — "now", "5m", "2h",
@@ -213,6 +228,7 @@ function ChatsSidebar({
   busySessions,
   worktreeStats,
   chatStats,
+  companionOffline,
   onSelectMainChat,
   onSelectWorktree,
   onNewMainChat,
@@ -245,6 +261,7 @@ function ChatsSidebar({
   onToggleUnread: (id: string, unread: boolean) => void
   onToggleWorktreeUnread: (worktreeId: string, unread: boolean) => void
   onChanged: () => void
+  companionOffline: boolean
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -361,11 +378,17 @@ function ChatsSidebar({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2">
         <div className="flex flex-col">
               {/* Workspace is the only unit of work. "Workspace" is the
-                  user-facing name for what git calls a worktree. */}
+                  user-facing name for what git calls a worktree.
+                  Disabled when the companion (user's Mac) is offline —
+                  worktree creation requires `git worktree add` to run
+                  on the user's machine, which can't happen without the
+                  daemon. Same gating + copy used by the project picker
+                  (CreateProjectButton.tsx). */}
               <button
                 onClick={onNewWorktree}
-                className="flex w-full items-center gap-2 pl-9 pr-4 py-1.5 text-left text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300"
-                title="New workspace"
+                disabled={companionOffline}
+                className="flex w-full items-center gap-2 pl-9 pr-4 py-1.5 text-left text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-500"
+                title={companionOffline ? 'Local offline. Reconnect to create workspaces.' : 'New workspace'}
               >
                 <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -1151,18 +1174,8 @@ function ConfirmActionModal({
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface FileEntry {
-  id: string
-  path: string
-  isModified: boolean
-  isNew: boolean
-  sizeBytes: number
-  // Cross-worktree info — present only when at least one open worktree touched this file
-  added?: number
-  removed?: number
-  worktrees?: { id: string; name: string }[]
-}
+// `FileEntry` lives in `lib/worktree-types.ts` so the cache module can
+// import the same shape without pulling all of WorkPanel.tsx in.
 
 interface HiredEmployee {
   id: string
@@ -1212,6 +1225,12 @@ interface WorktreeInfo {
   branchName: string
   updatedAt?: string
   sessions: { id: string; name: string; updatedAt?: string }[]
+  // 'pending' = optimistic placeholder while the server provisions the
+  // real worktree. Cleared once the create-worktree POST resolves with
+  // the actual codename + branchName. On failure the row is dropped
+  // from this state entirely (no 'error' state — failed creates surface
+  // via the central error modal, not a ghost in the sidebar).
+  state?: 'pending'
 }
 
 export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true }: WorkPanelProps) {
@@ -1285,6 +1304,13 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [activeWorktreeId, setActiveWorktreeId] = useState<string | null>(null)
+  // Central modal for create failures. Holds the user-facing message
+  // and a callback for the "Try again" button so each handler can wire
+  // its own retry logic. Null means no modal showing.
+  const [createErrorModal, setCreateErrorModal] = useState<{
+    message: string
+    onRetry?: () => void
+  } | null>(null)
   // Worktree IDs whose Merged banner the user has dismissed via "Continue".
   // Suppresses the purple state locally without touching the PR — the user
   // keeps working on the already-merged branch until they archive.
@@ -1295,9 +1321,127 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // Open conflict resolver overlay for a given worktree + file list.
   // Null = no overlay showing.
   const [conflictSession, setConflictSession] = useState<{ worktreeId: string; files: import('./conflicts/types').ConflictFile[] } | null>(null)
+  // Whether the companion daemon (user's Mac) is offline. Used to disable
+  // the "new worktree" button — creating a worktree requires `git worktree
+  // add` to run locally, which can't happen without the daemon. Same gate
+  // as `CreateProjectButton.tsx` so language/behavior stays consistent.
+  const companionOffline = useCompanionStatus() !== 'connected'
+
+  // ── Global fs-change refresher ───────────────────────────────────
+  // The daemon's fs watcher emits a `bornastar-fs-change` event with the
+  // affected paths. Without a global handler the cache for any worktree
+  // the user isn't currently viewing would go stale — Claude could be
+  // editing files in worktree B while we're looking at A, and switching
+  // back would briefly show stale-then-fresh.
+  //
+  // This effect parses the paths to derive the set of touched worktrees,
+  // intersects with what's cached today, and refetches each in parallel.
+  // Subscribers (FileTree / ChangesList) get the new snapshot via
+  // `subscribeCachedFiles` without needing their own fs-change listener.
+  //
+  // Paths NOT matching the `.bornastar-worktrees/<id>/` prefix map to
+  // the synthetic 'main' key. Worktrees not yet in cache are skipped —
+  // first visit will fetch fresh anyway.
+  useEffect(() => {
+    let debounce: ReturnType<typeof setTimeout> | null = null
+    let pendingPaths: string[] = []
+
+    async function refreshKey(cacheKey: string) {
+      const wtqs = cacheKey === 'main' ? '' : `?worktree=${cacheKey}`
+      try {
+        const res = await fetch(`/api/projects/${projectId}/repository/files${wtqs}`)
+        if (!res.ok) return
+        const data = await res.json()
+        setCachedFiles(cacheKey, data.files ?? [])
+      } catch {
+        // Silent — the next visit's mount-time fetch picks it up if the
+        // refresh failed for a transient reason.
+      }
+    }
+
+    function flush() {
+      const paths = pendingPaths
+      pendingPaths = []
+      debounce = null
+      if (paths.length === 0) return
+      const affected = parseAffectedCacheKeys(paths)
+      const cached = new Set(getCachedFilesKeys())
+      // Intersection: keys that are both cached AND touched.
+      const refreshing: string[] = []
+      for (const key of affected) {
+        if (cached.has(key)) {
+          refreshing.push(key)
+          void refreshKey(key)
+        }
+      }
+      console.log(
+        `[wt-cache] fs-change paths=${paths.length} `
+        + `affected=[${Array.from(affected).map((k) => k.slice(0, 8)).join(',') || '-'}] `
+        + `cached=[${Array.from(cached).map((k) => k.slice(0, 8)).join(',') || '-'}] `
+        + `refreshing=[${refreshing.map((k) => k.slice(0, 8)).join(',') || '-'}]`,
+      )
+    }
+
+    function onFsChange(e: Event) {
+      const detail = (e as CustomEvent<{ paths?: string[] }>).detail
+      const paths = detail?.paths ?? []
+      pendingPaths.push(...paths)
+      // Coalesce burst events from editor save-format-lint cycles.
+      // 400ms matches the per-component debounce we removed below.
+      if (debounce) return
+      debounce = setTimeout(flush, 400)
+    }
+    window.addEventListener('bornastar-fs-change', onFsChange)
+    return () => {
+      window.removeEventListener('bornastar-fs-change', onFsChange)
+      if (debounce) clearTimeout(debounce)
+    }
+  }, [projectId])
+
+  // ── Worktree cache protector ─────────────────────────────────────
+  // Tells the cache's idle sweeper which keys it must keep alive even
+  // if they've been untouched for an hour. Anything in here survives
+  // the sweep; anything outside it AND past 1h gets dropped.
+  //
+  // Always-protected:
+  //   • activeWorktreeId — focused worktree, even if user is just
+  //     looking at it without doing anything
+  //   • 'main' — the project-root view, default when no worktree is
+  //     selected; cheap to keep, would re-fetch on first click anyway
+  //   • projectId — keys the project-level terminal context
+  //   • activeSessionId — keys the chat-scoped terminal context
+  //
+  // Conditionally protected:
+  //   • worktrees with at least one busy chat (Claude streaming, task
+  //     running) — the user expects "stuff that's working in the
+  //     background" to be ready when they switch back
+  //
+  // Re-registered whenever any of those inputs change. The sweeper
+  // calls the latest registered fn each pass (60s), so we don't need
+  // to push updates synchronously — eventual consistency is fine for
+  // a 1h TTL.
+  useEffect(() => {
+    setCacheProtector(() => {
+      const protect = new Set<string>()
+      protect.add('main')
+      protect.add(projectId)
+      if (activeWorktreeId) protect.add(activeWorktreeId)
+      if (activeSessionId) protect.add(activeSessionId)
+      for (const wt of worktrees) {
+        if (wt.sessions.some((s) => busySessions.has(s.id))) protect.add(wt.id)
+      }
+      return protect
+    })
+  }, [projectId, activeWorktreeId, activeSessionId, worktrees, busySessions])
+
   // Git status for the currently-active chat context (main or worktree).
   // Drives the colored badge next to the branch label in the right panel.
-  const { status: activeGitStatus } = useGitStatus(projectId, activeSessionId, activeWorktreeId, 30000)
+  // Gated on `!activeWorktreePending` — while the optimistic worktree is
+  // still provisioning, the server has worktreePath='_pending_' and the
+  // endpoint 400s. Same gate is reused below for /mark-read, FileTree,
+  // and ChatPanel hydrate so all four go quiet during the same window.
+  const activeWorktreePending = !!activeWorktreeId && worktrees.find((w) => w.id === activeWorktreeId)?.state === 'pending'
+  const { status: activeGitStatus } = useGitStatus(projectId, activeSessionId, activeWorktreeId, 30000, !activeWorktreePending)
   const statusBadge = deriveBadge(activeGitStatus)
   const [worktreeTabMenuId, setWorktreeTabMenuId] = useState<string | null>(null)
   const [worktreeTabMenuPos, setWorktreeTabMenuPos] = useState<{ top: number; left: number } | null>(null)
@@ -1500,12 +1644,17 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // Persist "user viewed this chat" so unread state survives refresh /
   // device switch. Fire-and-forget — the in-memory Set is already
   // updated by the click handlers in the sidebar.
+  // Gated on activeWorktreePending: optimistic chats inside a still-
+  // provisioning worktree don't exist on the server yet, so mark-read
+  // would 404. The effect re-runs once pending flips false and the
+  // session row is real.
   useEffect(() => {
     if (!activeSessionId) return
+    if (activeWorktreePending) return
     fetch(`/api/projects/${projectId}/chat-sessions/${activeSessionId}/mark-read`, {
       method: 'POST',
     }).catch(() => {})
-  }, [activeSessionId, projectId])
+  }, [activeSessionId, projectId, activeWorktreePending])
 
   // ── Unread detection (SSE-driven, not polling) ─────────────────────
   // Seed the initial unread set from the DB so a refresh / fresh tab
@@ -1564,57 +1713,198 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
     return () => window.removeEventListener('session-replaced', handleReplace)
   }, [activeSessionId, reloadAll])
 
-  // Create a new chat directly on main (no worktree).
+  // ── Optimistic create handlers ───────────────────────────────────
+  // All three create flows follow the same pattern:
+  //   1. Mint a stable client-side id (cuid). The server accepts this
+  //      id and upserts on it, so a retry from the same click never
+  //      duplicates state.
+  //   2. Insert an optimistic row into local state right away —
+  //      sidebar updates in 0ms, user sees feedback before the server
+  //      even gets the request.
+  //   3. POST in the background. On 2xx, finalise the row in place
+  //      with the real codename/data. On error, drop the optimistic
+  //      row from state and surface the central error modal with a
+  //      "Try again" callback.
+  // No diagnostic [click]/[create] noise here anymore — the issue we
+  // were debugging (clicks duplicating, clicks "dying") is structurally
+  // fixed by the optimistic UI itself: each click produces a single
+  // cuid, the row is in the sidebar instantly so the user can't think
+  // it didn't register, and a server failure surfaces explicitly.
+
   async function handleNewMainChat() {
-    const res = await fetch(`/api/projects/${projectId}/chat-sessions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    if (res.ok) {
-      const session = await res.json()
-      setMainChats((prev) => [...prev, { id: session.id, name: session.name, worktreeId: null }])
-      setActiveSessionId(session.id)
-      setActiveWorktreeId(null)
-    }
-  }
+    const sessionId = companionStore.mintCuid('chat')
+    const tStart = performance.now()
+    console.log(`[opt] mainChat START sid=${sessionId.slice(0, 12)}`)
+    // Optimistic insert: sidebar shows the chat immediately.
+    setMainChats((prev) => [...prev, { id: sessionId, name: 'New Chat', worktreeId: null }])
+    setActiveSessionId(sessionId)
+    setActiveWorktreeId(null)
 
-  // Create a new worktree (provisions branch + first chat).
-  async function handleNewWorktree() {
-    const res = await fetch(`/api/projects/${projectId}/worktrees`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    if (res.ok) {
-      const { worktree, session } = await res.json()
-      setWorktrees((prev) => [...prev, {
-        id: worktree.id,
-        name: worktree.name,
-        branchName: worktree.branchName,
-        sessions: [{ id: session.id, name: session.name }],
-      }])
-      setActiveWorktreeId(worktree.id)
-      setActiveSessionId(session.id)
-    }
-  }
-
-  // Add another chat to an existing worktree (collaboration on the same branch).
-  async function handleAddChatToWorktree(worktreeId: string) {
-    const res = await fetch(`/api/projects/${projectId}/chat-sessions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ worktreeId }),
-    })
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/chat-sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: sessionId }),
+      })
+      const fetchMs = Math.round(performance.now() - tStart)
+      console.log(`[opt] mainChat fetch sid=${sessionId.slice(0, 12)} status=${res.status} ms=${fetchMs}`)
+      if (!res.ok) throw new Error(`status=${res.status}`)
       const session = await res.json()
-      setWorktrees((prev) => prev.map((w) =>
-        w.id === worktreeId
-          ? { ...w, sessions: [...w.sessions, { id: session.id, name: session.name }] }
-          : w
+      // Server returned the canonical row. The id matches what we
+      // already have (idempotent), so just patch the name in case the
+      // server normalised it.
+      setMainChats((prev) => prev.map((c) =>
+        c.id === sessionId ? { ...c, name: session.name } : c,
       ))
-      setActiveWorktreeId(worktreeId)
-      setActiveSessionId(session.id)
+      console.log(`[opt] mainChat READY sid=${sessionId.slice(0, 12)} totalMs=${Math.round(performance.now() - tStart)}`)
+    } catch (err) {
+      console.warn(`[opt] mainChat FAILED sid=${sessionId.slice(0, 12)}: ${(err as Error).message}`)
+      // Roll back the optimistic row.
+      setMainChats((prev) => prev.filter((c) => c.id !== sessionId))
+      if (activeSessionId === sessionId) setActiveSessionId(null)
+      setCreateErrorModal({
+        message: 'Couldn\'t create chat. Please try again.',
+        onRetry: () => { setCreateErrorModal(null); void handleNewMainChat() },
+      })
+    }
+  }
+
+  async function handleNewWorktree() {
+    // Safety net for the companion-off gate — the buttons in the sidebar
+    // and empty-state are disabled when offline, but a click could still
+    // race the moment the connection drops. Same modal we use for the
+    // "fell offline mid-creation" path so the copy is consistent.
+    if (companionOffline) {
+      setCreateErrorModal({
+        message: 'Your Mac is offline. Reconnect and try again.',
+        onRetry: () => { setCreateErrorModal(null); void handleNewWorktree() },
+      })
+      return
+    }
+    const worktreeId = companionStore.mintCuid('wt')
+    const sessionId = companionStore.mintCuid('chat')
+    const tStart = performance.now()
+    console.log(`[opt] worktree START wt=${worktreeId.slice(0, 12)} sid=${sessionId.slice(0, 12)}`)
+    // Optimistic insert: a pending worktree appears in the sidebar
+    // instantly, with its first chat already addressable so the user
+    // can click into it and start typing while the server provisions.
+    setWorktrees((prev) => [...prev, {
+      id: worktreeId,
+      name: 'New worktree',
+      branchName: '…',
+      sessions: [{ id: sessionId, name: 'New Chat' }],
+      state: 'pending',
+    }])
+    setActiveWorktreeId(worktreeId)
+    setActiveSessionId(sessionId)
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/worktrees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: worktreeId, sessionId }),
+      })
+      const fetchMs = Math.round(performance.now() - tStart)
+      console.log(`[opt] worktree fetch wt=${worktreeId.slice(0, 12)} status=${res.status} ms=${fetchMs}`)
+      if (!res.ok) throw new Error(`status=${res.status}`)
+      const { worktree, session } = await res.json()
+      // Finalise: drop the 'pending' marker and adopt the real
+      // codename/branchName. The id is already what we minted, so
+      // every reference (active selection, chat slice) keeps working.
+      setWorktrees((prev) => prev.map((w) => w.id === worktreeId
+        ? {
+            ...w,
+            name: worktree.name,
+            branchName: worktree.branchName,
+            sessions: [{ id: session.id, name: session.name }],
+            state: undefined,
+          }
+        : w,
+      ))
+      console.log(`[opt] worktree READY wt=${worktreeId.slice(0, 12)} branch=${worktree.branchName} totalMs=${Math.round(performance.now() - tStart)}`)
+      // Drain any prompts the user typed while the worktree was pending.
+      void companionStore.drainSendsForWorktree(worktreeId)
+      // Nudge components that fetched (and 404'd) while the worktree
+      // was still 'pending' on the server. The FileTree explorer in
+      // particular caches its first fetch result; firing the same
+      // window event the daemon emits on real file changes makes it
+      // re-pull the file listing now that the on-disk worktree exists.
+      window.dispatchEvent(new CustomEvent('bornastar-fs-change', {
+        detail: { projectPath: '', paths: [] },
+      }))
+    } catch (err) {
+      console.warn(`[opt] worktree FAILED wt=${worktreeId.slice(0, 12)}: ${(err as Error).message}`)
+      // Roll back: drop the worktree from the sidebar entirely. Any
+      // queued sends get returned to the chat draft so the user
+      // doesn't lose what they typed.
+      const dropped = companionStore.discardSendsForWorktree(worktreeId)
+      for (const d of dropped) {
+        const prev = companionStore.getDraft(d.sessionId)
+        const merged = prev ? `${prev}\n${d.prompt}` : d.prompt
+        companionStore.setDraft(d.sessionId, merged)
+      }
+      setWorktrees((prev) => prev.filter((w) => w.id !== worktreeId))
+      if (activeWorktreeId === worktreeId) {
+        setActiveWorktreeId(null)
+        setActiveSessionId(null)
+      }
+      // If the daemon dropped during the ~5s provisioning window the
+      // server fails because `ensureSandboxRunning` can't reach it.
+      // Detect that here so the modal copy points the user at the real
+      // cause (Mac offline) instead of the generic retry message.
+      const offlineDuringCreate = companionStore.getStatus() !== 'connected'
+      setCreateErrorModal({
+        message: offlineDuringCreate
+          ? 'Your Mac went offline. Reconnect and try again.'
+          : 'Couldn\'t create the workspace. Please try again.',
+        onRetry: () => { setCreateErrorModal(null); void handleNewWorktree() },
+      })
+    }
+  }
+
+  async function handleAddChatToWorktree(worktreeId: string) {
+    const sessionId = companionStore.mintCuid('chat')
+    const tStart = performance.now()
+    console.log(`[opt] addChat START wt=${worktreeId.slice(0, 12)} sid=${sessionId.slice(0, 12)}`)
+    // Optimistic insert into the worktree's sessions array.
+    setWorktrees((prev) => prev.map((w) =>
+      w.id === worktreeId
+        ? { ...w, sessions: [...w.sessions, { id: sessionId, name: 'New Chat' }] }
+        : w,
+    ))
+    setActiveWorktreeId(worktreeId)
+    setActiveSessionId(sessionId)
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/chat-sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: sessionId, worktreeId }),
+      })
+      const fetchMs = Math.round(performance.now() - tStart)
+      console.log(`[opt] addChat fetch sid=${sessionId.slice(0, 12)} status=${res.status} ms=${fetchMs}`)
+      if (!res.ok) throw new Error(`status=${res.status}`)
+      const session = await res.json()
+      setWorktrees((prev) => prev.map((w) => w.id === worktreeId
+        ? {
+            ...w,
+            sessions: w.sessions.map((s) => s.id === sessionId ? { ...s, name: session.name } : s),
+          }
+        : w,
+      ))
+      console.log(`[opt] addChat READY sid=${sessionId.slice(0, 12)} totalMs=${Math.round(performance.now() - tStart)}`)
+    } catch (err) {
+      console.warn(`[opt] addChat FAILED sid=${sessionId.slice(0, 12)}: ${(err as Error).message}`)
+      // Roll back the optimistic chat entry.
+      setWorktrees((prev) => prev.map((w) => w.id === worktreeId
+        ? { ...w, sessions: w.sessions.filter((s) => s.id !== sessionId) }
+        : w,
+      ))
+      if (activeSessionId === sessionId) setActiveSessionId(null)
+      setCreateErrorModal({
+        message: 'Couldn\'t add chat. Please try again.',
+        onRetry: () => { setCreateErrorModal(null); void handleAddChatToWorktree(worktreeId) },
+      })
     }
   }
 
@@ -1865,6 +2155,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
           onNewMainChat={handleNewMainChat}
           onNewWorktree={handleNewWorktree}
           onAddChatToWorktree={handleAddChatToWorktree}
+          companionOffline={companionOffline}
           onRenameSession={handleRenameSession}
           onRenameWorktree={handleRenameWorktree}
           onToggleUnread={(id, unread) => {
@@ -2089,6 +2380,8 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
                       : mainChats.find((s) => s.id === activeSessionId)?.name ?? 'Chat'
                   }
                   isWorktreeChat={!!activeWorktreeId}
+                  worktreePending={!!activeWorktreeId && worktrees.find((w) => w.id === activeWorktreeId)?.state === 'pending'}
+                  activeWorktreeId={activeWorktreeId}
                   activeMode={activeMode}
                   activeSkillId={activeSkillId}
                   activeTeamId={activeTeamId}
@@ -2192,7 +2485,9 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
             <div className="flex items-center gap-2">
               <button
                 onClick={handleNewWorktree}
-                className="rounded-full border border-white/20 px-4 py-1.5 text-[12px] font-medium text-zinc-200 transition-colors hover:border-white/40 hover:bg-white/5"
+                disabled={companionOffline}
+                title={companionOffline ? 'Local offline. Reconnect to create workspaces.' : ''}
+                className="rounded-full border border-white/20 px-4 py-1.5 text-[12px] font-medium text-zinc-200 transition-colors hover:border-white/40 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-white/20 disabled:hover:bg-transparent"
               >
                 + New workspace
               </button>
@@ -2709,7 +3004,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
           {/* Panel content — takes remaining space above terminal */}
           <div className="min-h-0 flex-1 overflow-hidden" style={{ backgroundColor: '#181818' }}>
             {rightPanelTab === 'explorer' && (
-              <FileTree key={activeWorktreeId ?? 'main'} projectId={projectId} worktreeId={activeWorktreeId} hasActiveSession={!!activeSessionId} mainState={!activeWorktreeId} />
+              <FileTree key={activeWorktreeId ?? 'main'} projectId={projectId} worktreeId={activeWorktreeId} hasActiveSession={!!activeSessionId} mainState={!activeWorktreeId} worktreePending={activeWorktreePending} />
             )}
             {rightPanelTab === 'changes' && (
               <ChangesList
@@ -2935,6 +3230,46 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
                 className="flex-1 px-4 py-2.5 text-[12px] text-red-400 hover:bg-red-500/10"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Central modal for create-operation failures (worktree, chat).
+          Optimistic UI rolls the failed item out of the sidebar and
+          opens this modal so the failure has a clear acknowledgement +
+          a one-click retry. Escape / click-outside closes it; Try
+          again invokes the handler-supplied callback which restarts a
+          fresh attempt with a new minted id. */}
+      {createErrorModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setCreateErrorModal(null)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 shadow-2xl"
+            style={{ backgroundColor: '#1a1a22' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-white/10 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
+              <h3 className="text-sm font-semibold text-zinc-100">Couldn&apos;t complete that</h3>
+            </div>
+            <div className="space-y-3 p-6">
+              <p className="text-xs text-zinc-400">{createErrorModal.message}</p>
+              {createErrorModal.onRetry && (
+                <button
+                  onClick={createErrorModal.onRetry}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-white text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-200"
+                >
+                  Try again
+                </button>
+              )}
+              <button
+                onClick={() => setCreateErrorModal(null)}
+                className="w-full text-center text-xs text-zinc-500 hover:text-zinc-300"
+              >
+                Cancel
               </button>
             </div>
           </div>
@@ -3400,54 +3735,66 @@ function ChangesList({
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   useEffect(() => { if (!selectMode) setSelectedPaths(new Set()) }, [selectMode])
 
-  // Fetch real modified files from the repository API — replaces the old
-  // MOCK_CHANGES array. Polls every 5s so new edits from active chats show
-  // up live, matching the Explorer tree refresh cadence. Hunks aren't
-  // returned here yet, so drill-into-diff view falls back to a simple
-  // header + open-in-explorer action until the per-file diff endpoint ships.
-  const [realChanges, setRealChanges] = useState<MockChangedFile[]>([])
+  // ChangesList consumes the SAME cache slice as the Explorer tree —
+  // both pull from /repository/files. Sharing the snapshot means:
+  //   • Switching tabs (Explorer ↔ Changes) is instant from the second
+  //     visit onwards (cache hit on both sides).
+  //   • A revalidate triggered by either panel updates the other for
+  //     free via the cache subscription.
+  //   • One fs-change → one refetch → both views update.
+  // Mapping: filter `isModified` and project to the ChangesList shape.
+  const cacheKey = worktreeId ?? 'main'
+  const wtqs = worktreeId ? `?worktree=${worktreeId}` : ''
+  function deriveChanges(files: FileEntry[]): MockChangedFile[] {
+    return files.filter((f) => f.isModified).map((f) => ({
+      path: f.path,
+      status: (f.isNew ? 'A' : 'M') as 'M' | 'A' | 'D',
+      added: f.added ?? 0,
+      removed: f.removed ?? 0,
+      hunks: [],
+      worktreeId: worktreeId ?? f.worktrees?.[0]?.id,
+    }))
+  }
+  // Seed from cache — instant render on remount when the Explorer tab
+  // (or a previous Changes mount) populated the cache. Cold start
+  // returns [] and the revalidate effect below fills it shortly.
+  const [realChanges, setRealChanges] = useState<MockChangedFile[]>(() => {
+    const cached = getCachedFiles(cacheKey)
+    return cached ? deriveChanges(cached) : []
+  })
+
+  // Cache subscription — when FileTree (or this component's own
+  // refetch) writes a new snapshot, re-derive the modified-only view
+  // so the two tabs stay in sync without a network round-trip.
+  useEffect(() => {
+    return subscribeCachedFiles(cacheKey, () => {
+      const next = getCachedFiles(cacheKey)
+      if (next) setRealChanges(deriveChanges(next))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey, worktreeId])
+
+  // Revalidate on mount/switch. Live updates are handled by the global
+  // fs-change refresher in WorkPanel — when files change on disk, it
+  // refetches every cached worktree's snapshot and our subscription
+  // above re-derives the modified-only view automatically.
   useEffect(() => {
     let cancelled = false
-    const wtqs = worktreeId ? `?worktree=${worktreeId}` : ''
     async function load() {
       try {
         const res = await fetch(`/api/projects/${projectId}/repository/files${wtqs}`)
         if (!res.ok) return
         const data = await res.json()
         if (cancelled) return
-        const allFiles = data.files ?? []
-        const modFiles = allFiles.filter((f: { isModified?: boolean }) => f.isModified)
-        const mapped: MockChangedFile[] = modFiles.map((f: {
-          path: string; isNew?: boolean; added?: number; removed?: number;
-          worktrees?: { id: string; name: string }[]
-        }) => ({
-          path: f.path,
-          status: (f.isNew ? 'A' : 'M') as 'M' | 'A' | 'D',
-          added: f.added ?? 0,
-          removed: f.removed ?? 0,
-          hunks: [],
-          worktreeId: worktreeId ?? f.worktrees?.[0]?.id,
-        }))
-        setRealChanges(mapped)
+        const allFiles: FileEntry[] = data.files ?? []
+        setCachedFiles(cacheKey, allFiles)
       } catch (err) {
         console.error('[ChangesList] fetch failed:', err)
       }
     }
     load()
-    // Push-based refresh — refetch only when the companion watcher
-    // reports a real filesystem change. Debounced to coalesce burst
-    // saves (editor format-on-save hits us 3-4x per save).
-    let debounce: ReturnType<typeof setTimeout> | null = null
-    function onFsChange() {
-      if (debounce) return
-      debounce = setTimeout(() => { debounce = null; load() }, 400)
-    }
-    window.addEventListener('bornastar-fs-change', onFsChange)
-    return () => {
-      cancelled = true
-      window.removeEventListener('bornastar-fs-change', onFsChange)
-      if (debounce) clearTimeout(debounce)
-    }
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, worktreeId])
 
   const filtered = realChanges
@@ -3968,13 +4315,27 @@ function DiffHunkView({
 
 // ── File Tree ──────────────────────────────────────────────────────────────
 
-function FileTree({ projectId, worktreeId, hasActiveSession, mainState }: { projectId: string; worktreeId?: string | null; hasActiveSession?: boolean; mainState?: boolean }) {
+function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktreePending }: { projectId: string; worktreeId?: string | null; hasActiveSession?: boolean; mainState?: boolean; worktreePending?: boolean }) {
   // Query-string helper: append ?worktree=ID to every file API call so the
   // tree, reads, writes and PATCH operations all stay scoped to the active
   // worktree. Main (no worktree) continues to use the project root.
   const wtqs = worktreeId ? `?worktree=${worktreeId}` : ''
-  const [files, setFiles] = useState<FileEntry[]>([])
-  const [loading, setLoading] = useState(true)
+  // Cache key — `worktreeId` for an active worktree, the literal string
+  // 'main' when no worktree is selected. Same convention as the parent's
+  // `key={activeWorktreeId ?? 'main'}`, so cache reads and component
+  // identity stay aligned.
+  const cacheKey = worktreeId ?? 'main'
+  // Initial state seeds from the cache on first render — that's what
+  // makes returning to a previously-visited worktree feel instant. A
+  // cache hit means `loading` starts false and the tree renders in the
+  // same paint as the layout. Cold hit (no cache yet) falls back to
+  // the previous "show loading spinner, fetch, populate" path.
+  const [files, setFiles] = useState<FileEntry[]>(() => {
+    const seed = getCachedFiles(cacheKey)
+    console.log(`[wt-cache] files mount key=${cacheKey.slice(0, 8)} ${seed ? `HIT count=${seed.length}` : 'MISS'}`)
+    return seed ?? []
+  })
+  const [loading, setLoading] = useState(() => !hasCachedFiles(cacheKey))
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [viewingFile, setViewingFile] = useState<{ path: string; content: string; worktreeId?: string | null } | null>(null)
   // Editor dirty-buffer tracking. When the user tries to close the editor
@@ -3998,9 +4359,6 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState }: { proj
   const [renameValue, setRenameValue] = useState('')
   const [deleteModal, setDeleteModal] = useState<string | null>(null)
   const [noChatModal, setNoChatModal] = useState(false)
-  const [showChangesPanel, setShowChangesPanel] = useState(false)
-  const [reviewingFile, setReviewingFile] = useState<string | null>(null)
-  const [revertingAll, setRevertingAll] = useState(false)
   const [acceptingAll, setAcceptingAll] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [reviewFilePath, setReviewFilePath] = useState<string | null>(null)
@@ -4046,31 +4404,52 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState }: { proj
     return () => window.removeEventListener('explorer-open-file', handleOpenFile)
   }, [])
 
+  // Fetcher writes through to the cache so a future remount of this
+  // (or another) FileTree instance for the same worktree picks up the
+  // result without a network round-trip.
   function fetchFiles() {
     fetch(`/api/projects/${projectId}/repository/files${wtqs}`)
       .then((r) => r.json())
-      .then((data) => { setFiles(data.files ?? []); setLoading(false) })
+      .then((data) => {
+        const next: FileEntry[] = data.files ?? []
+        setCachedFiles(cacheKey, next)
+        setFiles(next)
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }
 
+  // Subscribe to cache invalidations for this key. When another part
+  // of the app (e.g. fs-change handler below, or a future cross-tab
+  // sync) writes to the cache, this listener pushes the new value
+  // into local state so the rendered tree updates without a refetch.
   useEffect(() => {
+    return subscribeCachedFiles(cacheKey, () => {
+      const next = getCachedFiles(cacheKey)
+      if (next) setFiles(next)
+    })
+  }, [cacheKey])
+
+  useEffect(() => {
+    // Optimistic-window gate: while the worktree is still provisioning
+    // (state='pending' on the WorkPanel side, worktreePath='_pending_'
+    // on the server), /repository/files would 400 and the empty result
+    // would flip `loading` to false — leaving the user staring at "No
+    // files" briefly before the real list arrives. Skipping the fetch
+    // keeps `loading=true` and the tree shows "Loading..." until the
+    // worktree is real. When pending flips false this effect re-runs
+    // and the fetch fires.
+    if (worktreePending) return
+    // Revalidate on mount/switch — even on a cache hit we re-fetch in
+    // the background so the snapshot stays fresh. Cache hit users see
+    // instant render + silent update; cold users see "Loading..." and
+    // the result of the same fetch. Live updates while mounted are
+    // covered by the global fs-change refresher in the parent
+    // WorkPanel — it parses paths, refetches every cached worktree
+    // touched, and our cache subscription picks up the result.
     fetchFiles()
-    // No polling — the companion daemon's fs watcher pushes a
-    // `bornastar-fs-change` window event whenever a real file is added,
-    // edited or deleted. We refetch only on that signal (plus a tiny
-    // debounce so burst saves don't fire N requests).
-    let debounce: ReturnType<typeof setTimeout> | null = null
-    function onFsChange() {
-      if (debounce) return
-      debounce = setTimeout(() => { debounce = null; fetchFiles() }, 400)
-    }
-    window.addEventListener('bornastar-fs-change', onFsChange)
-    return () => {
-      window.removeEventListener('bornastar-fs-change', onFsChange)
-      if (debounce) clearTimeout(debounce)
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, worktreeId])
+  }, [projectId, worktreeId, worktreePending])
 
   useEffect(() => {
     if (creatingType && creatingRef.current) creatingRef.current.focus()
@@ -4926,6 +5305,8 @@ function ChatPanel({
   sessionId,
   sessionName,
   isWorktreeChat,
+  worktreePending,
+  activeWorktreeId,
   activeMode,
   activeSkillId,
   activeTeamId,
@@ -4947,6 +5328,8 @@ function ChatPanel({
   sessionId: string
   sessionName: string
   isWorktreeChat: boolean
+  worktreePending: boolean
+  activeWorktreeId: string | null
   onMinimize: () => void
   onOpenScratchpad: () => void
   hunkAttachments: Array<{
@@ -5044,6 +5427,14 @@ function ChatPanel({
   // duplicates or reorders.
   const hydrateFromServer = useCallback(async () => {
     if (!sessionId) return
+    // Optimistic-window gate: while the parent worktree is still being
+    // provisioned, this session row doesn't exist on the server yet, so
+    // /session-state and /messages both 404. The store slice is already
+    // empty (this is a brand-new chat — there's nothing to hydrate from
+    // the buffer or from Supabase), so skipping is correct, not just
+    // quiet. This callback's identity changes when worktreePending flips
+    // false, retriggering the mount-effect → real hydrate runs.
+    if (worktreePending) return
     const sidShort = sessionId.slice(0, 8)
     try {
       const ss = await fetch(`/api/companion/session-state?projectId=${projectId}&sessionId=${sessionId}`)
@@ -5071,7 +5462,7 @@ function ChatPanel({
       setHasMoreOlder(!!data.hasMore)
       setOldestMessageId(msgs[0]?.id ?? null)
     } catch {}
-  }, [projectId, sessionId])
+  }, [projectId, sessionId, worktreePending])
 
   useEffect(() => {
     console.log(`[chat-panel] sessionId=${sessionId.slice(0, 8)} — mounting/switching`)
@@ -5179,6 +5570,17 @@ function ChatPanel({
     return () => window.removeEventListener('bornastar-agent-prompt', handler)
   }, [])
 
+  // Auto-focus chat textarea on chat open / chat switch. When the user
+  // opens a worktree (or jumps between chats inside one), keystrokes
+  // should land in the chat input, not bleed into the terminal that
+  // also lives on the screen. Skipped when the input is disabled
+  // (offline / Claude not signed in) — focusing a disabled textarea
+  // shows a misleading caret.
+  useEffect(() => {
+    if (!canSendToLLM) return
+    chatTextareaRef.current?.focus()
+  }, [sessionId, canSendToLLM])
+
   // Auto-restore prompt on offline-induced stop. When an in-flight turn
   // ends because the system detected the local companion or Claude
   // went offline (NOT because Claude actually finished), pull the
@@ -5220,6 +5622,11 @@ function ChatPanel({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isPaginatingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Chat textarea ref so we can hand it focus on chat open / chat
+  // switch. Without this, the terminal's input (which used to have
+  // autoFocus) was grabbing the window focus and the user's first
+  // keystrokes went to the terminal instead of the chat.
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const ACCEPTED_TYPES = {
     'image/png': 'image',
@@ -5437,13 +5844,41 @@ function ChatPanel({
     window.dispatchEvent(new CustomEvent('bornastar-continue-merged'))
     window.dispatchEvent(new CustomEvent('bornastar-start-over-closed'))
 
-    await companionStore.sendPrompt(sessionId, companionProjectId, content, {
+    const opts = {
       mode: claudeMode,
       model: selectedModel,
       // Haiku has no extended-thinking support — force 'off' regardless
       // of the stored selector state (UI already disables the picker).
-      thinking: selectedModel === 'haiku' ? 'off' : (thinkingLevel as 'off' | 'low' | 'medium' | 'high'),
-    })
+      thinking: (selectedModel === 'haiku' ? 'off' : (thinkingLevel as 'off' | 'low' | 'medium' | 'high')) as 'off' | 'low' | 'medium' | 'high',
+    }
+
+    // If the user fired off this prompt while their worktree is still
+    // being provisioned (state='pending'), the daemon doesn't know about
+    // the chat yet — sending now would 503 with "session not found".
+    // Stash it in the worktree's send queue: the optimistic user msg
+    // already shows in the chat (we add it explicitly below to mirror
+    // sendPrompt's own optimistic insert), the spinner runs via
+    // markBusy inside queueSendForWorktree, and the moment the worktree
+    // finalises (handleNewWorktree's success path) the queue drains.
+    if (worktreePending && activeWorktreeId) {
+      console.log(`[opt] sendMessage QUEUED sid=${sessionId.slice(0, 12)} wt=${activeWorktreeId.slice(0, 12)} (worktree still provisioning)`)
+      const userMsgId = companionStore.mintStableId()
+      companionStore.upsertMessage(sessionId, {
+        id: userMsgId,
+        role: 'user',
+        content,
+        timestamp: Date.now(),
+      })
+      companionStore.queueSendForWorktree(activeWorktreeId, {
+        sessionId,
+        projectId: companionProjectId,
+        prompt: content,
+        opts,
+      })
+      return
+    }
+
+    await companionStore.sendPrompt(sessionId, companionProjectId, content, opts)
   }
 
   const hasAnyone = hiredEmployees.length > 0 || teams.length > 0
@@ -5861,6 +6296,7 @@ function ChatPanel({
             {/* Textarea row */}
             <div className="px-3 pt-3">
               <textarea
+                ref={chatTextareaRef}
                 value={input}
                 onChange={(e) => {
                   const v = e.target.value
@@ -6608,49 +7044,95 @@ function ReminderModal({ projectId, onClose }: { projectId: string; onClose: () 
 // ── Terminal Body ──────────────────────────────────────────────────────────
 
 function TerminalBody({ projectId, sessionId, worktreeId }: { projectId: string; sessionId?: string | null; worktreeId?: string | null }) {
-  const [sandboxStatus, setSandboxStatus] = useState<'disconnected' | 'starting' | 'running'>('disconnected')
-  const [history, setHistory] = useState<{ type: 'input' | 'stdout' | 'stderr' | 'system'; text: string }[]>([])
-  const [input, setInput] = useState('')
-  const [commandHistory, setCommandHistory] = useState<string[]>([])
+  // Cache key per (worktree | session | project). Same convention as
+  // `worktree-cache.ts` so switching back to a previously-visited
+  // context restores the terminal exactly as the user left it —
+  // history, half-typed input, command-up-arrow recall, all of it.
+  const contextKey = worktreeId ?? sessionId ?? projectId
+
+  const [sandboxStatus, setSandboxStatus] = useState<TerminalSandboxStatus>(() => {
+    const seed = getCachedTerminal(contextKey)
+    console.log(`[wt-cache] terminal mount key=${contextKey.slice(0, 8)} ${seed ? `HIT lines=${seed.history.length} status=${seed.sandboxStatus}` : 'MISS'}`)
+    return seed?.sandboxStatus ?? 'disconnected'
+  })
+  const [history, setHistory] = useState<TerminalEntry[]>(() => getCachedTerminal(contextKey)?.history ?? [])
+  const [input, setInput] = useState(() => getCachedTerminal(contextKey)?.input ?? '')
+  const [commandHistory, setCommandHistory] = useState<string[]>(() => getCachedTerminal(contextKey)?.commandHistory ?? [])
+  // historyIndex is transient navigation state for the up-arrow recall.
+  // Always starts at -1 — persisting it would make returning to a
+  // worktree feel like the cursor is in the middle of a recall stack.
   const [historyIndex, setHistoryIndex] = useState(-1)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Tracks the contextKey we're currently "settled into". When the prop
+  // changes, the reload effect below copies cached state into useState,
+  // and only then do we mark the new key as settled — that gates the
+  // persist effect from clobbering the cache with stale state during
+  // the in-between render.
+  const settledKey = useRef(contextKey)
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [history.length])
 
-  // Reset terminal when context changes
-  const contextKey = worktreeId ?? sessionId ?? projectId
+  // ── Cache reload on context switch ──────────────────────────────
+  // Switching worktree / session / project → useState's lazy initialiser
+  // doesn't re-run, so we manually pull the new context's snapshot and
+  // overwrite all four state slots. After the reload commits, mark the
+  // new key as settled so the persist effect can resume.
   useEffect(() => {
-    setHistory([])
-    setInput('')
-    setCommandHistory([])
+    const next = getCachedTerminal(contextKey)
+    setHistory(next?.history ?? [])
+    setInput(next?.input ?? '')
+    setCommandHistory(next?.commandHistory ?? [])
+    setSandboxStatus(next?.sandboxStatus ?? 'disconnected')
     setHistoryIndex(-1)
+    settledKey.current = contextKey
   }, [contextKey])
 
-  // Auto-start on mount or context change
+  // ── Cache write-through ─────────────────────────────────────────
+  // Persist on every state change so a future remount (or a sibling
+  // TerminalBody mounted briefly during a transition) picks up the
+  // freshest snapshot. Skipped on the first render after a key change
+  // because state hasn't been reloaded yet — the reload effect above
+  // marks `settledKey` once that's done.
+  useEffect(() => {
+    if (settledKey.current !== contextKey) return
+    setCachedTerminal(contextKey, { history, input, commandHistory, sandboxStatus })
+  }, [contextKey, history, input, commandHistory, sandboxStatus])
+
+  // ── Auto-start on mount / context change ────────────────────────
+  // Cache hit with a previously-running sandbox: skip the verbose
+  // "Connecting..." banner and verify silently. The sandbox-manager
+  // keeps the underlying Conductor process alive across UI mounts, so
+  // 99% of the time the silent check returns running and the user
+  // never sees a transition state. If the silent check fails (idle
+  // timer reaped, daemon restarted), we fall through to the cold path.
   useEffect(() => {
     let mounted = true
+    const cachedNow = getCachedTerminal(contextKey)
+    const silentVerify = cachedNow?.sandboxStatus === 'running'
 
     async function autoStart() {
-      setSandboxStatus('starting')
-      setHistory([{ type: 'system', text: 'Connecting to sandbox...' }])
+      if (!silentVerify) {
+        setSandboxStatus('starting')
+        setHistory([{ type: 'system', text: 'Connecting to sandbox...' }])
+      }
       try {
-        // Check if already running
         const checkRes = await fetch(`/api/projects/${projectId}/terminal`)
         const checkData = await checkRes.json()
 
         if (checkData.status === 'running' && checkData.sandboxId) {
-          if (mounted) {
-            setSandboxStatus('running')
+          if (!mounted) return
+          setSandboxStatus('running')
+          if (!silentVerify) {
             setHistory([{ type: 'system', text: `Connected to sandbox ${checkData.sandboxId.slice(0, 8)}... (${checkData.repo})` }])
             inputRef.current?.focus()
           }
           return
         }
 
-        // Start new sandbox
+        // Cold path — sandbox not running, ask the server to start it.
         if (mounted) setHistory((prev) => [...prev, { type: 'system', text: 'Starting sandbox...' }])
         const res = await fetch(`/api/projects/${projectId}/terminal`, { method: 'POST' })
         const data = await res.json()
@@ -6677,8 +7159,8 @@ function TerminalBody({ projectId, sessionId, worktreeId }: { projectId: string;
 
     return () => {
       mounted = false
-      // Don't stop sandbox on terminal close — idle timer (15 min) handles it
-      // This way tasks can still use the container after terminal closes
+      // Don't stop sandbox on terminal close — the idle timer (15 min)
+      // handles it. Tasks running in the sandbox keep going.
     }
   }, [projectId, contextKey])
 
@@ -6822,7 +7304,6 @@ function TerminalBody({ projectId, sessionId, worktreeId }: { projectId: string;
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1 bg-transparent text-zinc-200 outline-none caret-emerald-400"
-            autoFocus
             spellCheck={false}
           />
         </div>

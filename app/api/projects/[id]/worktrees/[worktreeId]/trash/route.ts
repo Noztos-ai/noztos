@@ -7,13 +7,21 @@ interface RouteContext {
   params: Promise<{ id: string; worktreeId: string }>
 }
 
-// POST — move a worktree to trash along with every chat it owns.
+// POST — soft-delete the worktree and every chat it owns.
 //
-// State is preserved: uncommitted/staged changes, the open PR, the branch
-// HEAD, everything stays. The trash list GET endpoint promotes entries
-// older than TRASH_TTL_DAYS to 'deleted' lazily; nothing is physically
-// torn down. The UI is responsible for the "heads up, you have dirty
-// changes" confirmation.
+// Trash is **DB-only** — the on-disk worktree dir and the git branch
+// stay completely untouched. This is the user's "Mac Trash" model:
+// uncommitted changes, staged files, the branch HEAD, the PR — all
+// preserved, so restore brings everything back exactly as it was.
+//
+// Real disk + git cleanup happens later, on either of these paths:
+//   - 7-day trash expiration → GET /trash promotes to status='deleted'
+//     and calls cleanupWorktreeOnDisk
+//   - Manual "delete forever" → /delete-forever calls the same helper
+//
+// Codename uniqueness is preserved across all of this because
+// generateWorktreeCodename queries every worktree row regardless of
+// status, so a trashed/deleted branchName is never reissued.
 export async function POST(_request: NextRequest, context: RouteContext) {
   const { id, worktreeId } = await context.params
   const access = await verifyProjectAccess(id)
