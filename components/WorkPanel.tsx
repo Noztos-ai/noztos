@@ -5323,6 +5323,38 @@ function DiffModal({ projectId, files, onClose }: { projectId: string; files: Fi
 
 // ── Chat Panel ─────────────────────────────────────────────────────────────
 
+// Per-session scroll memory shared across every ChatPanel instance in
+// the WorkPanel. Survives chat tab switches (the panel re-renders or
+// re-mounts but this Map persists at module scope), gets garbage
+// collected when the browser tab closes. Key is the chat session id.
+//
+// Two values are recorded together so the restore path can rehydrate
+// both pieces of state at once:
+//
+//   • scrollTop        — exact pixel offset the user was reading at.
+//                        Browser caps it to (scrollHeight - clientHeight)
+//                        on assignment, so a stale value (e.g. saved
+//                        before a work block collapsed) lands the user
+//                        at the new bottom instead of off the page.
+//   • wasNearBottom    — drives `isNearBottomRef` after restore. If
+//                        the user was at the live edge with auto-
+//                        follow engaged, returning to the chat keeps
+//                        them locked to the bottom; if they were
+//                        scrolled up reading older context, returning
+//                        leaves auto-follow disengaged so they don't
+//                        get yanked away from where they were reading.
+//
+// Map at module scope intentionally — putting it inside a Provider /
+// React state would force every chat switch through the React
+// reconciler. The scroll restore needs to be sync inside the same
+// useLayoutEffect that owns the scroll, so a plain reference is the
+// least-friction implementation.
+interface ScrollMemoryEntry {
+  scrollTop: number
+  wasNearBottom: boolean
+}
+const scrollMemory = new Map<string, ScrollMemoryEntry>()
+
 function ChatPanel({
   projectId,
   sessionId,
@@ -5681,6 +5713,15 @@ function ChatPanel({
   // heavy burst. Skipping our own events keeps `isNearBottomRef`
   // user-driven only.
   const programmaticScrollRef = useRef(false)
+  // Tracks the sessionId we last drove the auto-follow effect with.
+  // When sessionId changes (user switched chat tabs), the effect uses
+  // this to take the "restore from scrollMemory" branch instead of
+  // the "auto-scroll to bottom" branch. Without this distinguisher,
+  // any change in scrollSignature (which already changes on every
+  // chat switch because `messages.length` belongs to the new session)
+  // would always run the auto-follow path and overwrite the user's
+  // saved position.
+  const lastSessionIdRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Chat textarea ref so we can hand it focus on chat open / chat
   // switch. Without this, the terminal's input (which used to have
@@ -5769,12 +5810,36 @@ function ChatPanel({
     // scroll-up that prepends content would yank the user right back
     // to the latest message — defeating the whole point of pagination.
     if (isPaginatingRef.current) return
+    const c = scrollContainerRef.current
+    if (!c) return
+    // Chat-switch branch: when sessionId changes, restore the user's
+    // last reading position for THIS chat (if any) instead of running
+    // the standard auto-follow path. This is what makes "scroll up in
+    // chat A, switch to B, come back" land the user back where they
+    // were instead of at the bottom. First visit (no entry yet) falls
+    // through to standard auto-follow so the chat opens at the live
+    // edge as today.
+    const sessionChanged = lastSessionIdRef.current !== sessionId
+    lastSessionIdRef.current = sessionId
+    if (sessionChanged) {
+      const memory = scrollMemory.get(sessionId)
+      if (memory) {
+        isNearBottomRef.current = memory.wasNearBottom
+        const before = c.scrollTop
+        c.scrollTop = memory.scrollTop
+        if (c.scrollTop !== before) programmaticScrollRef.current = true
+        return
+      }
+      // No memory yet — first time visiting this chat in the current
+      // browser session. Reset isNearBottomRef to true (the previous
+      // chat may have left it false if the user was scrolled up) so
+      // the standard auto-follow path below scrolls to the bottom.
+      isNearBottomRef.current = true
+    }
     // Respect the user's reading position: if they scrolled away from
     // the bottom, don't fight them. Auto-follow only resumes when they
     // come back to within the near-bottom band.
     if (!isNearBottomRef.current) return
-    const c = scrollContainerRef.current
-    if (!c) return
     // Only mark the auto-scroll as "ours" when scrollTop actually
     // moved — if it was already at the bottom, no scroll event will
     // fire and a stale flag would silently swallow the user's NEXT
@@ -5783,7 +5848,7 @@ function ChatPanel({
     const before = c.scrollTop
     c.scrollTop = c.scrollHeight
     if (c.scrollTop !== before) programmaticScrollRef.current = true
-  }, [scrollSignature])
+  }, [scrollSignature, sessionId])
 
   // ResizeObserver fallback: tool blocks (Read/Write/Edit/etc.) finish
   // their async render (SyntaxHighlighter, lazy MarkdownRenderer) AFTER
@@ -5859,10 +5924,12 @@ function ChatPanel({
     setShowContextPicker(false)
     setShowClearConfirm(false)
     setShowReminderModal(false)
-    // Switching chats lands the user at the live edge of the new
-    // conversation — pretend they're parked at the bottom so the next
-    // scroll effect anchors to the latest message.
-    isNearBottomRef.current = true
+    // (Scroll position / isNearBottomRef are handled by the chat-
+    // switch branch of the auto-follow useLayoutEffect, which restores
+    // the user's previous reading position when there's a memory entry
+    // for the new session, or resets to bottom when there isn't.
+    // Doing it here too would race with that effect — useEffect runs
+    // after the layout effect and would overwrite the restored value.)
   }, [sessionId])
 
   // Detect / at the START of input
@@ -6069,6 +6136,21 @@ function ChatPanel({
         ref={scrollContainerRef}
         className="chat-scroll flex-1 overflow-y-auto p-4 pb-6 space-y-3"
         onScroll={(e) => {
+          const c = e.currentTarget
+          // Persist current scroll state into the per-session memory
+          // BEFORE the programmatic-skip below — we want the memory to
+          // reflect the chat's actual scroll, regardless of what
+          // caused the event. Programmatic scrolls update the memory
+          // (so a stream that pushed us back to the bottom stamps
+          // wasNearBottom=true), and user scrolls update it too (so
+          // their reading position is captured the moment they pause).
+          // The memory is read on chat switch — `useLayoutEffect`
+          // restores from here when sessionId changes.
+          const distanceFromBottom = c.scrollHeight - c.scrollTop - c.clientHeight
+          scrollMemory.set(sessionId, {
+            scrollTop: c.scrollTop,
+            wasNearBottom: distanceFromBottom < 120,
+          })
           // Skip events fired by our own programmatic auto-scroll.
           // The scroll-to-bottom in useLayoutEffect / ResizeObserver
           // sets the flag; the resulting native scroll event lands
@@ -6082,14 +6164,12 @@ function ChatPanel({
             programmaticScrollRef.current = false
             return
           }
-          const c = e.currentTarget
           // Track "is the user reading the live edge?" — if they are,
           // the streaming effect above will keep auto-following. The
           // 120px band gives slack for two cases at once: a tiny
           // upward nudge during active reading shouldn't unstick auto-
           // scroll, and a user scrolling back down to "the bottom"
           // shouldn't have to be pixel-perfect to re-engage following.
-          const distanceFromBottom = c.scrollHeight - c.scrollTop - c.clientHeight
           isNearBottomRef.current = distanceFromBottom < 120
           // When the user scrolls near the top, fetch the previous page
           // of messages. 100px threshold so the scrollbar settles on the
