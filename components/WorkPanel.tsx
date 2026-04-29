@@ -5670,6 +5670,17 @@ function ChatPanel({
   // back to the latest message every time a page loads.
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isPaginatingRef = useRef(false)
+  // Marker set right before each programmatic auto-scroll (in
+  // useLayoutEffect + ResizeObserver). The browser fires a scroll
+  // event for `c.scrollTop = c.scrollHeight` asynchronously, AFTER
+  // any async growth (lazy SyntaxHighlighter chunk landing) has
+  // changed the layout. Without ignoring those self-fired events in
+  // onScroll, `distanceFromBottom` reads stale values and flips
+  // `isNearBottomRef` to false even though the user never touched
+  // anything — auto-follow then silently dies in the middle of a
+  // heavy burst. Skipping our own events keeps `isNearBottomRef`
+  // user-driven only.
+  const programmaticScrollRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Chat textarea ref so we can hand it focus on chat open / chat
   // switch. Without this, the terminal's input (which used to have
@@ -5764,7 +5775,14 @@ function ChatPanel({
     if (!isNearBottomRef.current) return
     const c = scrollContainerRef.current
     if (!c) return
+    // Only mark the auto-scroll as "ours" when scrollTop actually
+    // moved — if it was already at the bottom, no scroll event will
+    // fire and a stale flag would silently swallow the user's NEXT
+    // real scroll. Cheap before/after compare guarantees the flag
+    // matches a real upcoming scroll event.
+    const before = c.scrollTop
     c.scrollTop = c.scrollHeight
+    if (c.scrollTop !== before) programmaticScrollRef.current = true
   }, [scrollSignature])
 
   // ResizeObserver fallback: tool blocks (Read/Write/Edit/etc.) finish
@@ -5781,7 +5799,11 @@ function ChatPanel({
     const observer = new ResizeObserver(() => {
       if (isPaginatingRef.current) return
       if (!isNearBottomRef.current) return
+      // Same before/after guard as the layout-effect path — only flag
+      // the upcoming scroll event as ours if scrollTop actually moved.
+      const before = c.scrollTop
       c.scrollTop = c.scrollHeight
+      if (c.scrollTop !== before) programmaticScrollRef.current = true
     })
     // Observe each direct child — that's where tool-block growth
     // happens. Observing the container itself fires on container
@@ -6047,6 +6069,19 @@ function ChatPanel({
         ref={scrollContainerRef}
         className="chat-scroll flex-1 overflow-y-auto p-4 pb-6 space-y-3"
         onScroll={(e) => {
+          // Skip events fired by our own programmatic auto-scroll.
+          // The scroll-to-bottom in useLayoutEffect / ResizeObserver
+          // sets the flag; the resulting native scroll event lands
+          // here a tick later — by then async-rendering content may
+          // have grown the page, leaving distanceFromBottom > 120
+          // even though the user never moved. Letting that update
+          // isNearBottomRef would silently kill auto-follow during
+          // bursts. User-driven scrolls don't set the flag and pass
+          // through normally.
+          if (programmaticScrollRef.current) {
+            programmaticScrollRef.current = false
+            return
+          }
           const c = e.currentTarget
           // Track "is the user reading the live edge?" — if they are,
           // the streaming effect above will keep auto-following. The
