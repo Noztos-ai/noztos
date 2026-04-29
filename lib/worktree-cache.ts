@@ -214,6 +214,57 @@ export function parseAffectedCacheKeys(paths: string[]): Set<string> {
   return keys
 }
 
+/**
+ * Optimistic local update for a daemon fs-change batch. For each input
+ * path, find the matching FileEntry inside its cache slice (worktree
+ * id or 'main') and flip `isModified: true` if it isn't already. This
+ * makes the FileTree yellow badge / Changes-list inclusion appear in
+ * the current frame — no network round-trip required. The bg refetch
+ * that follows (parseAffectedCacheKeys → /repository/files) reconciles
+ * added/removed counts and any add/delete the local guess can't
+ * resolve. Files not yet in the cache are skipped: they appear when
+ * the bg refetch lands. A path that was actually deleted on disk stays
+ * incorrectly flagged here until the refetch removes it from the
+ * listing — harmless since the entry vanishes a few hundred ms later.
+ *
+ * Returns the cache keys that actually changed (caller logs / metrics).
+ */
+export function markPathsDirty(paths: string[]): Set<string> {
+  if (paths.length === 0) return new Set()
+
+  // Group input paths by the cache slice they belong to. Worktree paths
+  // get their `.bornastar-worktrees/<id>/` prefix stripped so the
+  // remainder lines up with FileEntry.path inside that slice's listing.
+  const byKey = new Map<string, Set<string>>()
+  for (const p of paths) {
+    const m = WORKTREE_PATH_RE.exec(p)
+    const key = m ? m[1] : 'main'
+    const rel = m ? p.slice(m[0].length) : p
+    let set = byKey.get(key)
+    if (!set) { set = new Set(); byKey.set(key, set) }
+    set.add(rel)
+  }
+
+  const changed = new Set<string>()
+  for (const [key, dirtyRel] of byKey) {
+    const entry = filesCache.get(key)
+    if (!entry) continue
+    let touched = false
+    const next: FileEntry[] = entry.map((f) => {
+      if (dirtyRel.has(f.path) && !f.isModified) {
+        touched = true
+        return { ...f, isModified: true }
+      }
+      return f
+    })
+    if (touched) {
+      filesCache.set(key, next)
+      changed.add(key)
+    }
+  }
+  return changed
+}
+
 // ── Idle eviction sweeper ─────────────────────────────────────────────────
 //
 // Mirrors the pattern `companion-store.ts` uses for chat slices, but with

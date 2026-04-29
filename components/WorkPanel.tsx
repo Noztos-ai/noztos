@@ -16,6 +16,7 @@ import type { FileEntry } from '@/lib/worktree-types'
 import {
   getCachedFiles, setCachedFiles, hasCachedFiles,
   subscribeCachedFiles, getCachedFilesKeys, parseAffectedCacheKeys,
+  markPathsDirty,
   getCachedTerminal, setCachedTerminal,
   setCacheProtector,
   type TerminalEntry, type TerminalSandboxStatus,
@@ -1383,6 +1384,13 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
     function onFsChange(e: Event) {
       const detail = (e as CustomEvent<{ paths?: string[] }>).detail
       const paths = detail?.paths ?? []
+      // Instant local guess: flip every cached path's isModified to true
+      // so the FileTree yellow badge + Changes-list inclusion appear in
+      // the current frame, before any network round-trip. The debounced
+      // refetch below reconciles added/removed counts and resolves
+      // adds/deletes the local guess can't determine. Same trick VSCode
+      // uses to make the SCM badge feel instant.
+      markPathsDirty(paths)
       pendingPaths.push(...paths)
       // Coalesce burst events from editor save-format-lint cycles. 50ms
       // matches the daemon-side debounce — anything bigger is human-
