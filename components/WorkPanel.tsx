@@ -1384,10 +1384,14 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
       const detail = (e as CustomEvent<{ paths?: string[] }>).detail
       const paths = detail?.paths ?? []
       pendingPaths.push(...paths)
-      // Coalesce burst events from editor save-format-lint cycles.
-      // 400ms matches the per-component debounce we removed below.
+      // Coalesce burst events from editor save-format-lint cycles. 50ms
+      // matches the daemon-side debounce — anything bigger is human-
+      // perceptible delay between editing and the explorer/changes badge
+      // flipping. The daemon already collapses the actual save burst,
+      // so on this side we just need a tiny window to merge any inflight
+      // events that arrived in the same tick.
       if (debounce) return
-      debounce = setTimeout(flush, 400)
+      debounce = setTimeout(flush, 50)
     }
     window.addEventListener('bornastar-fs-change', onFsChange)
     return () => {
