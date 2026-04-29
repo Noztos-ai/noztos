@@ -19,7 +19,7 @@
 // Status polls every 15s while mounted so the section updates without a
 // manual refresh.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { MOCK_CONFLICTS, MOCK_GIT_STATUS } from '@/lib/mocks/checks-demo'
 import { SplitCreatePRButton } from './SplitCreatePRButton'
 import { deriveUnsupportedLabel, useGitStatus } from '@/lib/hooks/useGitStatus'
@@ -87,7 +87,6 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
     worktreeId ? (getCachedMeta(worktreeId)?.todos ?? []) : [],
   )
   const [newTodoContent, setNewTodoContent] = useState('')
-  const [addingTodo, setAddingTodo] = useState(false)
   // Inline "Add" input — only shows when the user clicks + Add. Mirrors
   // Conductor: no persistent input at the bottom.
   const [todoInputOpen, setTodoInputOpen] = useState(false)
@@ -106,15 +105,6 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
   // Archive confirmation — only opens when there's unsaved work at archive
   // time. Otherwise we skip the modal and archive immediately.
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
-  const [prDraft, setPrDraft] = useState(false)
-  // Live "Current changes" summary — re-fetched alongside git status.
-  // Renders below the PR body once a PR exists so the user can see what
-  // the branch currently contains (including pushes after the PR opened).
-  // Seed from the cache so a remount with an open PR doesn't flash
-  // empty before the next status-driven refetch.
-  const [currentChangesSummary, setCurrentChangesSummary] = useState(() =>
-    worktreeId ? (getCachedMeta(worktreeId)?.prSuggestion?.body ?? '') : '',
-  )
 
   const qs = useCallback(() => {
     const p = new URLSearchParams()
@@ -199,22 +189,6 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
     setCachedMeta(worktreeId, { todos })
   }, [worktreeId, todos])
 
-  // Pull the live "Current changes" summary while a PR is open — lets the
-  // user see every push that landed after PR creation. Polled on the same
-  // 15s cadence as git status via the status change.
-  useEffect(() => {
-    const pr = status?.pr
-    const hasOpen = !!pr && pr.state === 'open'
-    if (!worktreeId || !hasOpen) { setCurrentChangesSummary(''); return }
-    fetch(`/api/projects/${projectId}/worktrees/${worktreeId}/pr-suggestion`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => {
-        if (!d?.body) return
-        setCurrentChangesSummary(d.body)
-        setCachedMeta(worktreeId, { prSuggestion: { title: d.title ?? '', body: d.body } })
-      })
-      .catch(() => {})
-  }, [projectId, worktreeId, status])
 
   async function addTodo() {
     const content = newTodoContent.trim()

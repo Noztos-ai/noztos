@@ -18,7 +18,7 @@ import {
   subscribeCachedFiles, getCachedFilesKeys, parseAffectedCacheKeys,
   markPathsDirty,
   getCachedTerminal, setCachedTerminal,
-  getCachedMeta, setCachedMeta, subscribeCachedMeta,
+  getCachedMeta, setCachedMeta,
   getCachedHunk, setCachedHunk, subscribeCachedHunks,
   setCacheProtector,
   type TerminalEntry, type TerminalSandboxStatus,
@@ -1509,23 +1509,6 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
       } catch {}
     }
 
-    async function prefetchSuggestion() {
-      // pr-suggestion is heavier (server runs git log + diff summary)
-      // and only meaningful while a PR is open. The endpoint 404s
-      // when there's no PR yet — silent ignore. Skip when already
-      // cached; ChecksPanel's status-driven refetch keeps it fresh
-      // once mounted.
-      if (getCachedMeta(wt)?.prSuggestion) return
-      try {
-        const r = await fetch(`/api/projects/${projectId}/worktrees/${wt}/pr-suggestion`)
-        if (cancelled || !r.ok) return
-        const d = await r.json()
-        if (d?.title || d?.body) {
-          setCachedMeta(wt, { prSuggestion: { title: d.title ?? '', body: d.body ?? '' } })
-        }
-      } catch {}
-    }
-
     function prefetchHunks() {
       // First-entry race: when the worktree opens, the FileTree's mount
       // fetch hasn't landed yet so filesCache for `wt` is empty and the
@@ -1557,11 +1540,10 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
       }
     }
 
-    // Fire the meta/todos/suggestion fetches once — they don't depend
-    // on filesCache being warm.
+    // Fire the meta + todos fetches once — they don't depend on
+    // filesCache being warm.
     prefetchMeta()
     prefetchTodos()
-    prefetchSuggestion()
 
     // Hunks: run once now (covers re-entry to a worktree whose
     // filesCache survived from a previous visit) AND subscribe so the

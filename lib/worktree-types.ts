@@ -43,6 +43,5 @@ export interface Todo {
 // erasing what's already there.
 export interface WorktreeMeta {
   prDraft?: { title: string; body: string }
-  prSuggestion?: { title: string; body: string }
   todos?: Todo[]
 }
