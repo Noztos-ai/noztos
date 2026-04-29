@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment } from 'react'
 import { diffLines } from 'diff'
 import { MarkdownRenderer } from './MarkdownRenderer'
 // ChatTabs removed — companion mode replaced tab-based chat
@@ -5740,24 +5740,57 @@ function ChatPanel({
   // single primitive signature (count + last content length) so the dep
   // array stays a fixed shape and doesn't churn on unrelated state changes.
   //
-  // On the very first scroll for this chat (i.e. ChatPanel just mounted
-  // — switched-to or page-load), snap instantly with behavior:'auto' so
-  // the user lands at the bottom without watching a top-to-bottom
-  // animation. Subsequent scrolls during live streaming use 'smooth' so
-  // tokens feel like they're being typed onto the page.
+  // Auto-follow logic: if the user is parked near the bottom we keep
+  // pinning them to the live edge as new tool/text events stream in.
+  // The moment they scroll up to read older context, we stop yanking
+  // them back — `isNearBottomRef` is updated by the container's
+  // onScroll below. We use a direct `scrollTop = scrollHeight` instead
+  // of smooth scrollIntoView because rapid streaming events would
+  // otherwise interrupt each other's animations and produce a jittery,
+  // never-quite-arriving scroll. Instant tracking matches what
+  // Claude.ai / Cursor / ChatGPT do during streaming.
   const lastCompanion = messages[messages.length - 1]
   const scrollSignature = `${messages.length}:${lastCompanion?.content?.length ?? 0}:${isRunning ? 1 : 0}`
-  const hasScrolledOnceRef = useRef(false)
-  useEffect(() => {
+  const isNearBottomRef = useRef(true)
+  useLayoutEffect(() => {
     // Skip the auto-scroll-to-bottom when the length change came from
     // paginating older messages upward. Without this guard, every
     // scroll-up that prepends content would yank the user right back
     // to the latest message — defeating the whole point of pagination.
     if (isPaginatingRef.current) return
-    const behavior: ScrollBehavior = hasScrolledOnceRef.current ? 'smooth' : 'auto'
-    bottomRef.current?.scrollIntoView({ behavior })
-    hasScrolledOnceRef.current = true
+    // Respect the user's reading position: if they scrolled away from
+    // the bottom, don't fight them. Auto-follow only resumes when they
+    // come back to within the near-bottom band.
+    if (!isNearBottomRef.current) return
+    const c = scrollContainerRef.current
+    if (!c) return
+    c.scrollTop = c.scrollHeight
   }, [scrollSignature])
+
+  // ResizeObserver fallback: tool blocks (Read/Write/Edit/etc.) finish
+  // their async render (SyntaxHighlighter, lazy MarkdownRenderer) AFTER
+  // the React state change that added the message. Without this, the
+  // useLayoutEffect above scrolls to scrollHeight while the block is
+  // still small, then the block grows ~200px and the user sees a stale
+  // gap. Listening for size changes on the inner content lets us re-pin
+  // every time anything grows, as long as the user hasn't scrolled
+  // away from the live edge themselves.
+  useEffect(() => {
+    const c = scrollContainerRef.current
+    if (!c) return
+    const observer = new ResizeObserver(() => {
+      if (isPaginatingRef.current) return
+      if (!isNearBottomRef.current) return
+      c.scrollTop = c.scrollHeight
+    })
+    // Observe each direct child — that's where tool-block growth
+    // happens. Observing the container itself fires on container
+    // resize, which is unrelated.
+    for (const child of Array.from(c.children)) {
+      observer.observe(child)
+    }
+    return () => observer.disconnect()
+  }, [messages.length])
 
   // Listen for pin-context events from the file tree
   useEffect(() => {
@@ -5804,9 +5837,10 @@ function ChatPanel({
     setShowContextPicker(false)
     setShowClearConfirm(false)
     setShowReminderModal(false)
-    // Chat-open scroll should snap instantly — clearing the ref makes
-    // the next scroll effect use behavior:'auto' for the new chat.
-    hasScrolledOnceRef.current = false
+    // Switching chats lands the user at the live edge of the new
+    // conversation — pretend they're parked at the bottom so the next
+    // scroll effect anchors to the latest message.
+    isNearBottomRef.current = true
   }, [sessionId])
 
   // Detect / at the START of input
@@ -6004,12 +6038,21 @@ function ChatPanel({
       {/* Messages — renders companion stream or legacy engine */}
       <div
         ref={scrollContainerRef}
-        className="chat-scroll flex-1 overflow-y-auto p-4 space-y-3"
+        className="chat-scroll flex-1 overflow-y-auto p-4 pb-6 space-y-3"
         onScroll={(e) => {
+          const c = e.currentTarget
+          // Track "is the user reading the live edge?" — if they are,
+          // the streaming effect above will keep auto-following. The
+          // 120px band gives slack for two cases at once: a tiny
+          // upward nudge during active reading shouldn't unstick auto-
+          // scroll, and a user scrolling back down to "the bottom"
+          // shouldn't have to be pixel-perfect to re-engage following.
+          const distanceFromBottom = c.scrollHeight - c.scrollTop - c.clientHeight
+          isNearBottomRef.current = distanceFromBottom < 120
           // When the user scrolls near the top, fetch the previous page
           // of messages. 100px threshold so the scrollbar settles on the
           // loading row without fighting the fetch.
-          if (e.currentTarget.scrollTop < 100) loadOlderMessages()
+          if (c.scrollTop < 100) loadOlderMessages()
         }}
       >
         {/* Infinite-scroll spinner — only while a fetch is in flight. No
