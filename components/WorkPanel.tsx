@@ -2152,11 +2152,15 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
     setActiveTeamId(null)
   }
 
-  // Count changed files for the Changes tab badge — real stats first,
-  // falls back to the mock array length while the backend isn't wired
-  // (so the badge matches the rows the user actually sees).
-  const realChangedCount = Object.values(worktreeStats).reduce((sum, s) => sum + s.files, 0)
-    + Object.values(chatStats).reduce((sum, s) => sum + s.files, 0)
+  // Count changed files for the Changes tab badge — scoped to the
+  // currently active context (worktree or main chat). Each worktree owns
+  // its own count; main chats use chatStats. Falls back to the mock
+  // array length while the backend isn't wired so the badge matches the
+  // rows the user actually sees during demo mode.
+  const activeStat = activeWorktreeId
+    ? worktreeStats[activeWorktreeId]
+    : activeSessionId ? chatStats[activeSessionId] : null
+  const realChangedCount = activeStat?.files ?? 0
   const changedFilesCount = realChangedCount > 0 ? realChangedCount : MOCK_CHANGES.length
 
   const hasOpenChat = activeSessionId !== null
