@@ -1955,6 +1955,51 @@ const MODES: { id: ModeId; label: string; desc: string }[] = [
   { id: 'agent', label: 'Agent', desc: 'Full autonomy, executes everything' },
 ]
 
+// Per-mode accent colors. Tech-vibe palette tuned to read as semantic
+// hints, not branding — amber for plan (cautious / pending review),
+// sky for ask (informational / calm) and rose for agent (active /
+// powerful). Each entry carries the icon color, three background
+// strengths (idle / hover / active), the matching border tone and a
+// label color so the picker's three states all feel painted in the
+// mode's color, not just the icon.
+const MODE_ACCENT: Record<ModeId, {
+  icon: string
+  bgIdle: string
+  bgHover: string
+  bgActive: string
+  border: string
+  borderActive: string
+  label: string
+}> = {
+  plan: {
+    icon: 'text-amber-300',
+    bgIdle: 'bg-amber-500/[0.04]',
+    bgHover: 'hover:bg-amber-500/[0.10]',
+    bgActive: 'bg-amber-500/[0.14]',
+    border: 'border-amber-500/20',
+    borderActive: 'border-amber-400/60',
+    label: 'text-amber-200',
+  },
+  ask: {
+    icon: 'text-sky-300',
+    bgIdle: 'bg-sky-500/[0.04]',
+    bgHover: 'hover:bg-sky-500/[0.10]',
+    bgActive: 'bg-sky-500/[0.14]',
+    border: 'border-sky-500/20',
+    borderActive: 'border-sky-400/60',
+    label: 'text-sky-200',
+  },
+  agent: {
+    icon: 'text-rose-300',
+    bgIdle: 'bg-rose-500/[0.04]',
+    bgHover: 'hover:bg-rose-500/[0.10]',
+    bgActive: 'bg-rose-500/[0.14]',
+    border: 'border-rose-500/20',
+    borderActive: 'border-rose-400/60',
+    label: 'text-rose-200',
+  },
+}
+
 export function ModeSelector({
   mode,
   onChange,
@@ -1970,6 +2015,7 @@ export function ModeSelector({
   // showing a blank label.
   const current = MODES.find((m) => m.id === mode) ?? MODES[2]
   const CurrentIcon = MODE_ICONS[current.id]
+  const currentAccent = MODE_ACCENT[current.id]
 
   useEffect(() => {
     if (!open) return
@@ -1986,34 +2032,38 @@ export function ModeSelector({
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={`Mode: ${current.label} — ${current.desc}`}
-        className="flex items-center gap-1 rounded border border-[#2B2B2B] bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-300 outline-none transition-colors hover:bg-white/10"
+        className={`flex items-center gap-1 rounded border ${currentAccent.border} ${currentAccent.bgActive} px-1.5 py-0.5 text-[10px] outline-none transition-colors ${currentAccent.bgHover}`}
       >
-        <CurrentIcon className="h-3 w-3" />
-        {current.label}
-        <svg className={`h-2.5 w-2.5 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <CurrentIcon className={`h-3 w-3 ${currentAccent.icon}`} />
+        <span className={currentAccent.label}>{current.label}</span>
+        <svg className={`h-2.5 w-2.5 ${currentAccent.icon} transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[200px] overflow-hidden rounded-lg border border-[#2B2B2B] bg-[#1B1B1B] shadow-xl shadow-black/40">
+        <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[220px] overflow-hidden rounded-lg border border-[#2B2B2B] bg-[#1B1B1B] shadow-xl shadow-black/40">
           {MODES.map((m) => {
             const Icon = MODE_ICONS[m.id]
+            const accent = MODE_ACCENT[m.id]
+            const selected = mode === m.id
             return (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => { onChange(m.id); setOpen(false) }}
-                className={`flex w-full items-start gap-2 px-2.5 py-2 text-left text-[11px] transition-colors hover:bg-white/5 ${
-                  mode === m.id ? 'bg-white/5 text-zinc-100' : 'text-zinc-400'
+                className={`flex w-full items-start gap-2 border-l-2 px-2.5 py-2 text-left text-[11px] transition-colors ${accent.bgHover} ${
+                  selected
+                    ? `${accent.borderActive} ${accent.bgActive}`
+                    : `border-l-transparent ${accent.bgIdle}`
                 }`}
               >
-                <Icon className="mt-[1px] h-3.5 w-3.5 text-zinc-400" />
+                <Icon className={`mt-[1px] h-3.5 w-3.5 ${accent.icon}`} />
                 <span className="flex-1">
-                  <span className="block font-medium text-zinc-200">{m.label}</span>
+                  <span className={`block font-medium ${accent.label}`}>{m.label}</span>
                   <span className="block text-[10px] text-zinc-500">{m.desc}</span>
                 </span>
-                {mode === m.id && (
-                  <svg className="mt-[2px] h-3 w-3 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                {selected && (
+                  <svg className={`mt-[2px] h-3 w-3 ${accent.icon}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                     <path d="M5 13l4 4L19 7" />
                   </svg>
                 )}
