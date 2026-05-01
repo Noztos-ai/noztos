@@ -54,7 +54,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const sandboxId = resolvedProjectPath
 
   try {
-    const content = await compute.readFile(sandboxId, `${projectRoot}/${filePath}`)
+    // The path-traversal boundary is `projectRoot` (the worktree dir or
+    // the main project root) — NOT `sandboxId`. With worktrees living
+    // outside the repo (~/.bornastar/worktrees/...), a file inside a
+    // worktree won't `startsWith(sandboxId)` and the boundary check in
+    // compute.readFile would 404 every read. Using projectRoot lets the
+    // check still defend against `..` traversal while accommodating
+    // worktrees being on a sibling path.
+    const content = await compute.readFile(projectRoot, `${projectRoot}/${filePath}`)
 
     // Get committed version of the file for diff comparison.
     // For a worktree we compare against its baseCommit; for main we compare against HEAD.
@@ -125,10 +132,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  const sandboxId = resolvedPath
-
   try {
-    await compute.writeFile(sandboxId, `${projectRoot}/${filePath}`, body.content)
+    // Same boundary rationale as GET: validate against projectRoot
+    // (the worktree or main path) so worktrees outside the repo work.
+    await compute.writeFile(projectRoot, `${projectRoot}/${filePath}`, body.content)
     return NextResponse.json({ ok: true, sizeBytes: Buffer.byteLength(body.content, 'utf-8') })
   } catch {
     return NextResponse.json({ error: 'Failed to write file' }, { status: 500 })

@@ -157,7 +157,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       case 'create': {
         const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
         if (dir) await compute.exec(sandboxId, `mkdir -p ${PROJECT_ROOT}/${dir}`)
-        await compute.writeFile(sandboxId, `${PROJECT_ROOT}/${path}`, body.content ?? '')
+        // Boundary is PROJECT_ROOT (the worktree dir or main path), NOT
+        // sandboxId. Worktrees outside the repo wouldn't pass the
+        // startsWith(sandboxId) check otherwise.
+        await compute.writeFile(PROJECT_ROOT, `${PROJECT_ROOT}/${path}`, body.content ?? '')
         return NextResponse.json({ success: true })
       }
 

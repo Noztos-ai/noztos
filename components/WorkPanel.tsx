@@ -4670,11 +4670,34 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
       ? fileEntry.worktrees[0].id
       : null
     const effectiveWorktreeId = worktreeId ?? singleWorktreeId
+
+    // Cache HIT — same hunksCache the Changes panel uses. Re-clicks
+    // within a worktree paint instantly without a network round trip.
+    // fs-change events from the daemon (file edited by Claude) drop
+    // the entry, so the next click after an edit re-fetches and the
+    // user always sees the freshest version.
+    if (effectiveWorktreeId) {
+      const cached = getCachedHunk(effectiveWorktreeId, path)
+      if (cached) {
+        setViewingFile({ path, content: cached.content, worktreeId: effectiveWorktreeId })
+        return
+      }
+    }
+
     const worktreeParam = effectiveWorktreeId ? `?worktree=${effectiveWorktreeId}` : ''
     const res = await fetch(`/api/projects/${projectId}/repository/files/${encodeURIComponent(path)}${worktreeParam}`)
     if (res.ok) {
       const data = await res.json()
       setViewingFile({ path, content: data.content, worktreeId: effectiveWorktreeId })
+      // Populate the cache so the next open of this file is instant.
+      // Only worktree-scoped opens cache — main-view file reads are
+      // outside the worktree-keyed cache slice by design.
+      if (effectiveWorktreeId) {
+        setCachedHunk(effectiveWorktreeId, path, {
+          content: data.content ?? '',
+          originalContent: data.originalContent ?? '',
+        })
+      }
     }
   }
 

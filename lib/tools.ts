@@ -293,7 +293,10 @@ const READ_FILE_MAX_CHARS = 100_000 // ~25K tokens — prevents context explosio
 
 async function readFile(sandboxId: string, path: string, projectRoot: string): Promise<ToolResult> {
   try {
-    const content = await compute.readFile(sandboxId, `${projectRoot}/${path}`)
+    // Boundary is projectRoot (worktree or main), not sandboxId — see
+    // compute-local.ts. With external worktrees, files inside the
+    // worktree don't startsWith(sandboxId).
+    const content = await compute.readFile(projectRoot, `${projectRoot}/${path}`)
     if (content.length > READ_FILE_MAX_CHARS) {
       const preview = content.slice(0, READ_FILE_MAX_CHARS)
       const totalKB = Math.round(content.length / 1024)
@@ -317,7 +320,7 @@ async function editFile(
   projectRoot: string = DEFAULT_PROJECT_ROOT,
 ): Promise<ToolResult> {
   try {
-    const content = await compute.readFile(sandboxId, `${projectRoot}/${path}`)
+    const content = await compute.readFile(projectRoot, `${projectRoot}/${path}`)
 
     if (!content.includes(oldString)) {
       // Give a useful hint — show the first 200 chars of the file so Claude can fix its old_string
@@ -334,7 +337,7 @@ async function editFile(
 
     const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
     if (dir) await compute.exec(sandboxId, `mkdir -p ${projectRoot}/${dir}`)
-    await compute.writeFile(sandboxId, `${projectRoot}/${path}`, updated)
+    await compute.writeFile(projectRoot, `${projectRoot}/${path}`, updated)
 
     const occurrences = replaceAll
       ? content.split(oldString).length - 1
@@ -351,7 +354,7 @@ async function writeFile(sandboxId: string, path: string, content: string, proje
     if (dir) {
       await compute.exec(sandboxId, `mkdir -p ${projectRoot}/${dir}`)
     }
-    await compute.writeFile(sandboxId, `${projectRoot}/${path}`, content)
+    await compute.writeFile(projectRoot, `${projectRoot}/${path}`, content)
     return { result: `File written: ${path}`, isError: false }
   } catch (err) {
     return { result: `Failed to write ${path}: ${err instanceof Error ? err.message : 'Unknown'}`, isError: true }
