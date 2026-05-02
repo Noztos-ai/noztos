@@ -96,16 +96,24 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
   diskChanged,
   onReload,
 }, ref) {
-  const [value, setValue] = useState(initialContent)
+  // Normalize to a trailing newline so CodeMirror renders one numbered
+  // empty line below the last content line — VS Code-style "click here
+  // to extend" affordance. Files saved POSIX-style already have one;
+  // adding it on the fly makes orphan files behave the same way and
+  // brings them in line with the convention on save.
+  const normalize = (s: string) => (s.endsWith('\n') ? s : s + '\n')
+
+  const [value, setValue] = useState(() => normalize(initialContent))
   // "Last saved" content is what's on disk — used to decide dirty state and
   // to revert on discard. Starts equal to initialContent (just loaded).
-  const [savedContent, setSavedContent] = useState(initialContent)
+  const [savedContent, setSavedContent] = useState(() => normalize(initialContent))
   const [status, setStatus] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle')
 
   // Keep value in sync if the user opens a different file in the same mount.
   useEffect(() => {
-    setValue(initialContent)
-    setSavedContent(initialContent)
+    const normalized = normalize(initialContent)
+    setValue(normalized)
+    setSavedContent(normalized)
     setStatus('idle')
   }, [initialContent, filePath])
 
@@ -123,7 +131,10 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
       Prec.highest(EditorView.theme({
         '&': { fontSize: '13px', backgroundColor: '#1F1F1F' },
         '.cm-scroller': { backgroundColor: '#1F1F1F' },
-        '.cm-content': { backgroundColor: '#1F1F1F' },
+        // Bottom breathing room so the last line of the file isn't glued
+        // to the viewport edge — user can scroll past EOF and edit at
+        // the end comfortably (VS Code's "scrollBeyondLastLine" default).
+        '.cm-content': { backgroundColor: '#1F1F1F', paddingBottom: '200px' },
         '.cm-gutters': { backgroundColor: '#1F1F1F', borderRight: '1px solid #2B2B2B' },
         '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
         '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.04)' },
@@ -199,18 +210,18 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
 
   return (
     <div className="flex h-full flex-col">
-      {/* Status strip — unobtrusive indicator of save state. Hidden
-          in read-only mode since saving is disabled there. */}
-      {!readOnly && (
+      {/* Status strip — unobtrusive indicator of save state. Only renders
+          when there's actually something to say; idle/clean files don't
+          get a stray empty bar above the editor body. */}
+      {!readOnly && status !== 'idle' && (
         <div className="flex items-center justify-end px-3 py-1 text-[10px]" style={{ backgroundColor: '#1F1F1F', borderBottom: '1px solid #2B2B2B' }}>
           <span className={
             status === 'saving' ? 'text-zinc-400'
             : status === 'saved' ? 'text-emerald-500'
             : status === 'dirty' ? 'text-amber-500'
-            : status === 'error' ? 'text-red-500'
-            : 'text-zinc-600'
+            : 'text-red-500'
           }>
-            {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'dirty' ? 'Modified' : status === 'error' ? 'Save failed' : ''}
+            {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'dirty' ? 'Modified' : 'Save failed'}
           </span>
         </div>
       )}

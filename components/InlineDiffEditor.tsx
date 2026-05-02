@@ -250,6 +250,16 @@ function buildDecorations(view: EditorView, plan: DiffPlan): DecorationSet {
 function buildGutters(plan: DiffPlan) {
   const lineNumByDocLine: Array<number | undefined> = plan.docLines.map((d) => d.type === 'add' ? d.newLine : (d.newLine ?? d.oldLine))
   const kindByDocLine: Array<'add' | 'context'> = plan.docLines.map((d) => d.type)
+  // Trailing-newline line: initialDoc appends '\n' so the editor has one
+  // extra empty line below the last doc line — gives the user a clickable
+  // "type here to extend the file" affordance (VS Code style). The custom
+  // gutter would render that extra line as blank without these entries,
+  // so we stretch the arrays by one with the next sequential line number.
+  const lastNewLine = lineNumByDocLine.length > 0
+    ? (lineNumByDocLine[lineNumByDocLine.length - 1] ?? 0)
+    : 0
+  lineNumByDocLine.push(lastNewLine + 1)
+  kindByDocLine.push('context')
 
   return [
     // Line number (right-aligned)
@@ -279,7 +289,11 @@ function buildGutters(plan: DiffPlan) {
 const diffTheme = EditorView.theme({
   '&': { fontSize: '13px', backgroundColor: '#1F1F1F' },
   '.cm-scroller': { overflow: 'auto', backgroundColor: '#1F1F1F' },
-  '.cm-content': { padding: '0', backgroundColor: '#1F1F1F' },
+  // paddingBottom gives "scrollBeyondLastLine" UX — user can scroll past
+  // the file's end and edit comfortably without the last line hugging
+  // the viewport bottom. Top padding stays 0 so the first line aligns
+  // with the header border.
+  '.cm-content': { paddingTop: '0', paddingBottom: '200px', backgroundColor: '#1F1F1F' },
   '.cm-gutters': { backgroundColor: '#1F1F1F', borderRight: 'none', color: '#71717A' },
   '.cm-diff-num-gutter': { minWidth: '2.5rem', padding: '0 0.5rem 0 0.25rem', textAlign: 'right' },
   '.cm-diff-marker-gutter': { width: '1rem', padding: '0', textAlign: 'center' },
@@ -358,7 +372,11 @@ export interface InlineDiffEditorProps {
 export const InlineDiffEditor = forwardRef<InlineDiffEditorHandle, InlineDiffEditorProps>(
   function InlineDiffEditor({ projectId, filePath, lines, worktreeId, sessionId, onSaved, onDirtyChange, agentBusy, diskChanged, onReload }, ref) {
     const plan = useMemo(() => planDiff(lines), [lines])
-    const initialDoc = useMemo(() => plan.docLines.map((d) => d.content).join('\n'), [plan])
+    // Trailing '\n' ensures CodeMirror renders one numbered empty line
+    // below the last content line — VS Code-style "click here to extend
+    // the file" affordance. Without it, buildFullDiffFromContents pops the
+    // file's natural trailing empty line and the doc ends abruptly.
+    const initialDoc = useMemo(() => plan.docLines.map((d) => d.content).join('\n') + '\n', [plan])
 
     const [value, setValue] = useState(initialDoc)
     const [savedContent, setSavedContent] = useState(initialDoc)
@@ -456,17 +474,20 @@ export const InlineDiffEditor = forwardRef<InlineDiffEditorHandle, InlineDiffEdi
 
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-end px-3 py-1 text-[10px]" style={{ backgroundColor: '#1F1F1F', borderBottom: '1px solid #2B2B2B' }}>
-          <span className={
-            status === 'saving' ? 'text-zinc-400'
-            : status === 'saved' ? 'text-emerald-500'
-            : status === 'dirty' ? 'text-amber-500'
-            : status === 'error' ? 'text-red-500'
-            : 'text-zinc-600'
-          }>
-            {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'dirty' ? 'Modified' : status === 'error' ? 'Save failed' : ''}
-          </span>
-        </div>
+        {/* Status strip — only renders when there's actual save state to
+            communicate. Idle/clean files don't get a stray empty bar. */}
+        {status !== 'idle' && (
+          <div className="flex items-center justify-end px-3 py-1 text-[10px]" style={{ backgroundColor: '#1F1F1F', borderBottom: '1px solid #2B2B2B' }}>
+            <span className={
+              status === 'saving' ? 'text-zinc-400'
+              : status === 'saved' ? 'text-emerald-500'
+              : status === 'dirty' ? 'text-amber-500'
+              : 'text-red-500'
+            }>
+              {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'dirty' ? 'Modified' : 'Save failed'}
+            </span>
+          </div>
+        )}
         {/* Same banner pair as CodeMirrorFileView — keep them in sync. */}
         {diskChanged ? (
           <div className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 px-3 py-1.5 text-[11px]" style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)' }}>

@@ -4305,6 +4305,9 @@ function ReadOnlyShikiView({ path, content }: { path: string; content: string })
           />
         </div>
       ))}
+      {/* Bottom breathing room — matches CodeMirror editors so a file
+          opened here scrolls past EOF instead of pinning the last line. */}
+      <div className="h-[200px]" aria-hidden />
     </div>
   )
 }
@@ -4836,20 +4839,21 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
           the plain file editor uses. */}
       {diffViewingFile && (
         <div className="absolute inset-0 z-10 flex flex-col" style={{ backgroundColor: '#181818' }}>
-          <div className="flex shrink-0 items-center gap-2 border-b border-[#2B2B2B] px-3 py-1.5" style={{ backgroundColor: '#313131' }}>
+          <div className="flex shrink-0 items-center gap-2 border-b border-[#2B2B2B] px-2 py-2" style={{ backgroundColor: '#181818' }}>
             <button
               onClick={attemptCloseDiffEditor}
-              className="flex items-center text-zinc-400 hover:text-zinc-200"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
               aria-label="Back to files"
+              title="Back to files"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
               </svg>
             </button>
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <FileIcon name={diffViewingFile.path.split('/').pop() ?? ''} size={14} />
-              <span className="text-[10px] font-medium text-zinc-300">{diffViewingFile.path}</span>
-              {diffEditorDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" title="Unsaved changes" />}
+              <span className="truncate text-[11px] font-medium text-zinc-300">{diffViewingFile.path}</span>
+              {diffEditorDirty && <span className="ml-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" title="Unsaved changes" />}
             </div>
           </div>
           <div className="flex-1 min-h-0">
@@ -4930,21 +4934,22 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
           Closing with unsaved edits triggers the save/discard confirm modal. */}
       {viewingFile && (
         <div className="absolute inset-0 z-10 flex flex-col" style={{ backgroundColor: '#181818' }}>
-          <div className="flex shrink-0 items-center gap-2 border-b border-[#2B2B2B] px-3 py-1.5" style={{ backgroundColor: '#313131' }}>
+          <div className="flex shrink-0 items-center gap-2 border-b border-[#2B2B2B] px-2 py-2" style={{ backgroundColor: '#181818' }}>
             <button
               onClick={attemptCloseEditor}
-              className="flex items-center text-zinc-400 hover:text-zinc-200"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
               aria-label="Back to files"
+              title="Back to files"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
               </svg>
             </button>
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <FileIcon name={viewingFile.path.split('/').pop() ?? ''} size={14} />
-              <span className="text-[10px] font-medium text-zinc-300">{viewingFile.path}</span>
+              <span className="truncate text-[11px] font-medium text-zinc-300">{viewingFile.path}</span>
               {/* Unsaved-indicator dot, VS Code style */}
-              {editorDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" title="Unsaved changes" />}
+              {editorDirty && <span className="ml-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" title="Unsaved changes" />}
             </div>
           </div>
           <div className="flex-1 min-h-0">
