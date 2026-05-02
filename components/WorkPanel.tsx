@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Fragment } from 'react'
 import { diffLines } from 'diff'
 import { MarkdownRenderer } from './MarkdownRenderer'
 // ChatTabs removed — companion mode replaced tab-based chat
@@ -1537,6 +1537,14 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // endpoint 400s. Same gate is reused below for /mark-read, FileTree,
   // and ChatPanel hydrate so all four go quiet during the same window.
   const activeWorktreePending = !!activeWorktreeId && worktrees.find((w) => w.id === activeWorktreeId)?.state === 'pending'
+  // True while any chat session attached to the active worktree is busy
+  // streaming. Editors use this to surface "🤖 Agent editing..." subtle
+  // banner so the user knows changes may land underneath them.
+  const activeWorktreeAgentBusy = useMemo(() => {
+    if (!activeWorktreeId) return false
+    const wt = worktrees.find((w) => w.id === activeWorktreeId)
+    return !!wt?.sessions.some((s) => busySessions.has(s.id))
+  }, [activeWorktreeId, worktrees, busySessions])
   // Same idea as `activeWorktreePending`, but for the chat-only optimistic
   // path: handleAddChatToWorktree mints a cuid and shows the chat in the
   // sidebar before the server-side row exists. Reading endpoints 404
@@ -3145,7 +3153,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
           {/* Panel content — takes remaining space above terminal */}
           <div className="min-h-0 flex-1 overflow-hidden" style={{ backgroundColor: '#181818' }}>
             {rightPanelTab === 'explorer' && (
-              <FileTree key={activeWorktreeId ?? 'main'} projectId={projectId} worktreeId={activeWorktreeId} hasActiveSession={!!activeSessionId} mainState={!activeWorktreeId} worktreePending={activeWorktreePending} />
+              <FileTree key={activeWorktreeId ?? 'main'} projectId={projectId} worktreeId={activeWorktreeId} hasActiveSession={!!activeSessionId} mainState={!activeWorktreeId} worktreePending={activeWorktreePending} agentBusy={activeWorktreeAgentBusy} />
             )}
             {rightPanelTab === 'changes' && (
               <ChangesList
@@ -4453,7 +4461,7 @@ function DiffHunkView({
 
 // ── File Tree ──────────────────────────────────────────────────────────────
 
-function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktreePending }: { projectId: string; worktreeId?: string | null; hasActiveSession?: boolean; mainState?: boolean; worktreePending?: boolean }) {
+function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktreePending, agentBusy }: { projectId: string; worktreeId?: string | null; hasActiveSession?: boolean; mainState?: boolean; worktreePending?: boolean; agentBusy?: boolean }) {
   // Query-string helper: append ?worktree=ID to every file API call so the
   // tree, reads, writes and PATCH operations all stay scoped to the active
   // worktree. Main (no worktree) continues to use the project root.
@@ -4514,6 +4522,11 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
     if (diffEditorRef.current?.isDirty()) { setShowDiffCloseConfirm(true); return }
     setDiffViewingFile(null)
   }, [])
+  // Agent-edited-on-disk banner state. Set when the daemon's fs-watcher
+  // reports a change to the path the user has open AND the editor has
+  // unsaved edits. Cleared by Reload (refetches and replaces content) or
+  // by closing the editor. Clean editors auto-reload silently — no banner.
+  const [diskChangedPath, setDiskChangedPath] = useState<string | null>(null)
   const creatingRef = useRef<HTMLInputElement>(null)
 
   // Listen for cross-panel "open file in explorer" requests
@@ -4651,6 +4664,59 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
     }
   }
 
+  // ── Agent-on-disk reconciliation ─────────────────────────────────
+  // When the daemon's fs-watcher reports a change to the file the user
+  // has open, decide between:
+  //   • Silent reload (clean editor) — refetch and replace content,
+  //     mimicking VS Code/Cursor's behavior of streaming agent edits
+  //     into the open view.
+  //   • Banner (dirty editor) — flag the path so the editor can render
+  //     a "🔄 Agent edited this file. [Reload]" prompt and disable Save.
+  // Triggered for both viewingFile (plain editor) and diffViewingFile
+  // (inline diff editor) — only one is open at a time.
+  useEffect(() => {
+    function onFsChange(e: Event) {
+      const detail = (e as CustomEvent<{ source?: 'project' | 'worktrees'; paths?: string[] }>).detail
+      if (!detail?.paths || detail.source !== 'worktrees') return
+      const openPath = viewingFile?.path ?? diffViewingFile?.path
+      const openWorktree = viewingFile?.worktreeId ?? diffViewingFile?.worktreeId
+      if (!openPath || !openWorktree) return
+      const target = `${openWorktree}/${openPath}`
+      if (!detail.paths.includes(target)) return
+      const dirty = viewingFile
+        ? !!editorRef.current?.isDirty()
+        : !!diffEditorRef.current?.isDirty()
+      if (dirty) {
+        setDiskChangedPath(openPath)
+      } else {
+        // Silent reload — re-runs handleSelectFile which refetches and
+        // updates viewingFile / diffViewingFile; the editor's existing
+        // useEffect on initialContent / lines resets value+savedContent.
+        void handleSelectFile(openPath)
+      }
+    }
+    window.addEventListener('bornastar-fs-change', onFsChange)
+    return () => window.removeEventListener('bornastar-fs-change', onFsChange)
+    // viewingFile / diffViewingFile are objects; we re-bind on identity
+    // change so the listener always sees the current open path.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingFile, diffViewingFile])
+
+  // Reload handler used by the banner's Reload button (and by the
+  // close-confirm modal's Save button when diskChangedPath is set —
+  // saving with stale content would clobber the agent's edit).
+  const reloadOpenFile = useCallback(async () => {
+    const path = viewingFile?.path ?? diffViewingFile?.path
+    if (!path) return
+    setDiskChangedPath(null)
+    await handleSelectFile(path)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingFile, diffViewingFile])
+
+  // Drop the banner whenever the open file changes / closes — stale
+  // flag from a prior file shouldn't block save on the new one.
+  useEffect(() => { setDiskChangedPath(null) }, [viewingFile?.path, diffViewingFile?.path])
+
   function getSelectedFolder(): string {
     if (!selectedPath) return ''
     const file = files.find((f) => f.path === selectedPath)
@@ -4785,14 +4851,26 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
               lines={diffViewingFile.lines}
               worktreeId={diffViewingFile.worktreeId ?? null}
               onDirtyChange={setDiffEditorDirty}
+              agentBusy={agentBusy}
+              diskChanged={diskChangedPath === diffViewingFile.path}
+              onReload={reloadOpenFile}
             />
           </div>
 
           {showDiffCloseConfirm && (
             <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
-              <div className="w-[320px] rounded-md border border-[#2B2B2B] p-4 shadow-xl" style={{ backgroundColor: '#252526' }}>
-                <div className="mb-2 text-[12px] font-medium text-zinc-200">Save changes to {diffViewingFile.path.split('/').pop()}?</div>
-                <div className="mb-4 text-[11px] text-zinc-400">Your changes will be lost if you don&apos;t save them.</div>
+              <div className="w-[340px] rounded-md border border-[#2B2B2B] p-4 shadow-xl" style={{ backgroundColor: '#252526' }}>
+                {diskChangedPath === diffViewingFile.path ? (
+                  <>
+                    <div className="mb-2 text-[12px] font-medium text-amber-200">Agent edited {diffViewingFile.path.split('/').pop()} on disk</div>
+                    <div className="mb-4 text-[11px] text-zinc-400">Saving would overwrite the agent&apos;s changes. Reload to keep them, or discard to drop your edits and close.</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-2 text-[12px] font-medium text-zinc-200">Save changes to {diffViewingFile.path.split('/').pop()}?</div>
+                    <div className="mb-4 text-[11px] text-zinc-400">Your changes will be lost if you don&apos;t save them.</div>
+                  </>
+                )}
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setShowDiffCloseConfirm(false)}
@@ -4810,15 +4888,27 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
                   >
                     Discard
                   </button>
-                  <button
-                    onClick={async () => {
-                      const ok = await diffEditorRef.current?.save()
-                      if (ok) { setShowDiffCloseConfirm(false); setDiffViewingFile(null) }
-                    }}
-                    className="rounded bg-emerald-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-emerald-500"
-                  >
-                    Save
-                  </button>
+                  {diskChangedPath === diffViewingFile.path ? (
+                    <button
+                      onClick={async () => {
+                        setShowDiffCloseConfirm(false)
+                        await reloadOpenFile()
+                      }}
+                      className="rounded bg-amber-500 px-3 py-1 text-[11px] font-medium text-zinc-900 hover:bg-amber-400"
+                    >
+                      Reload
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        const ok = await diffEditorRef.current?.save()
+                        if (ok) { setShowDiffCloseConfirm(false); setDiffViewingFile(null) }
+                      }}
+                      className="rounded bg-emerald-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-emerald-500"
+                    >
+                      Save
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -4860,6 +4950,9 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
                 initialContent={viewingFile.content}
                 worktreeId={viewingFile.worktreeId}
                 onDirtyChange={setEditorDirty}
+                agentBusy={agentBusy}
+                diskChanged={diskChangedPath === viewingFile.path}
+                onReload={reloadOpenFile}
               />
             ) : (
               <ReadOnlyShikiView path={viewingFile.path} content={viewingFile.content} />
@@ -4868,9 +4961,18 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
 
           {showCloseConfirm && (
             <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}>
-              <div className="w-[320px] rounded-md border border-[#2B2B2B] p-4 shadow-xl" style={{ backgroundColor: '#252526' }}>
-                <div className="mb-2 text-[12px] font-medium text-zinc-200">Save changes to {viewingFile.path.split('/').pop()}?</div>
-                <div className="mb-4 text-[11px] text-zinc-400">Your changes will be lost if you don&apos;t save them.</div>
+              <div className="w-[340px] rounded-md border border-[#2B2B2B] p-4 shadow-xl" style={{ backgroundColor: '#252526' }}>
+                {diskChangedPath === viewingFile.path ? (
+                  <>
+                    <div className="mb-2 text-[12px] font-medium text-amber-200">Agent edited {viewingFile.path.split('/').pop()} on disk</div>
+                    <div className="mb-4 text-[11px] text-zinc-400">Saving would overwrite the agent&apos;s changes. Reload to keep them, or discard to drop your edits and close.</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-2 text-[12px] font-medium text-zinc-200">Save changes to {viewingFile.path.split('/').pop()}?</div>
+                    <div className="mb-4 text-[11px] text-zinc-400">Your changes will be lost if you don&apos;t save them.</div>
+                  </>
+                )}
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setShowCloseConfirm(false)}
@@ -4888,15 +4990,27 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
                   >
                     Discard
                   </button>
-                  <button
-                    onClick={async () => {
-                      const ok = await editorRef.current?.save()
-                      if (ok) { setShowCloseConfirm(false); setViewingFile(null) }
-                    }}
-                    className="rounded bg-emerald-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-emerald-500"
-                  >
-                    Save
-                  </button>
+                  {diskChangedPath === viewingFile.path ? (
+                    <button
+                      onClick={async () => {
+                        setShowCloseConfirm(false)
+                        await reloadOpenFile()
+                      }}
+                      className="rounded bg-amber-500 px-3 py-1 text-[11px] font-medium text-zinc-900 hover:bg-amber-400"
+                    >
+                      Reload
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        const ok = await editorRef.current?.save()
+                        if (ok) { setShowCloseConfirm(false); setViewingFile(null) }
+                      }}
+                      className="rounded bg-emerald-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-emerald-500"
+                    >
+                      Save
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

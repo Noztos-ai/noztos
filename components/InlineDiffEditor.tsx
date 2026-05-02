@@ -346,10 +346,17 @@ export interface InlineDiffEditorProps {
   sessionId?: string | null
   onSaved?: (ok: boolean) => void
   onDirtyChange?: (dirty: boolean) => void
+  // True while any chat session attached to this worktree is streaming.
+  // Surfaces a subtle "Agent editing..." banner.
+  agentBusy?: boolean
+  // Set when the daemon's fs-watcher reports a change to this file AND
+  // the buffer is dirty. Renders a yellow Reload banner and blocks save.
+  diskChanged?: boolean
+  onReload?: () => void
 }
 
 export const InlineDiffEditor = forwardRef<InlineDiffEditorHandle, InlineDiffEditorProps>(
-  function InlineDiffEditor({ projectId, filePath, lines, worktreeId, sessionId, onSaved, onDirtyChange }, ref) {
+  function InlineDiffEditor({ projectId, filePath, lines, worktreeId, sessionId, onSaved, onDirtyChange, agentBusy, diskChanged, onReload }, ref) {
     const plan = useMemo(() => planDiff(lines), [lines])
     const initialDoc = useMemo(() => plan.docLines.map((d) => d.content).join('\n'), [plan])
 
@@ -398,6 +405,14 @@ export const InlineDiffEditor = forwardRef<InlineDiffEditorHandle, InlineDiffEdi
     valueRef.current = value
 
     const save = useCallback(async (): Promise<boolean> => {
+      // Disk diverged underneath us (agent edited the file). Saving the
+      // stale buffer would clobber the agent's write — abort and let the
+      // banner's Reload button drive recovery.
+      if (diskChanged) {
+        setStatus('error')
+        onSaved?.(false)
+        return false
+      }
       setStatus('saving')
       const qs = new URLSearchParams()
       if (worktreeId) qs.set('worktree', worktreeId)
@@ -420,7 +435,7 @@ export const InlineDiffEditor = forwardRef<InlineDiffEditorHandle, InlineDiffEdi
         onSaved?.(false)
         return false
       }
-    }, [projectId, filePath, worktreeId, sessionId, onSaved])
+    }, [projectId, filePath, worktreeId, sessionId, onSaved, diskChanged])
 
     const handleChange = useCallback((next: string) => {
       setValue(next)
@@ -452,6 +467,25 @@ export const InlineDiffEditor = forwardRef<InlineDiffEditorHandle, InlineDiffEdi
             {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'dirty' ? 'Modified' : status === 'error' ? 'Save failed' : ''}
           </span>
         </div>
+        {/* Same banner pair as CodeMirrorFileView — keep them in sync. */}
+        {diskChanged ? (
+          <div className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 px-3 py-1.5 text-[11px]" style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)' }}>
+            <span className="text-amber-300">🔄</span>
+            <span className="flex-1 text-amber-200">Agent edited this file. Save is disabled until you reload.</span>
+            <button
+              type="button"
+              onClick={() => onReload?.()}
+              className="rounded border border-amber-500/40 px-2 py-0.5 text-[11px] font-medium text-amber-200 hover:bg-amber-500/10"
+            >
+              Reload
+            </button>
+          </div>
+        ) : agentBusy ? (
+          <div className="flex shrink-0 items-center gap-2 border-b border-sky-500/20 px-3 py-1 text-[11px]" style={{ backgroundColor: 'rgba(14, 165, 233, 0.06)' }}>
+            <span className="text-sky-300">🤖</span>
+            <span className="text-sky-300/80">Agent editing in this branch…</span>
+          </div>
+        ) : null}
         <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ backgroundColor: '#1F1F1F' }}>
           <CodeMirror
             value={value}

@@ -62,6 +62,17 @@ export interface CodeMirrorFileViewProps {
   // writing to /home/user/project (which gets reset --hard every 5 min
   // by the main refresh worker).
   readOnly?: boolean
+  // True while any chat session attached to this worktree is streaming.
+  // Surfaces a subtle "Agent editing..." banner so the user knows their
+  // open file may change underneath them.
+  agentBusy?: boolean
+  // Set by the parent when the daemon's fs-watcher reports a change to
+  // the file the user has open AND the editor is dirty. Renders a yellow
+  // "Reload" banner and blocks save (saving stale content would clobber
+  // whatever the agent just wrote).
+  diskChanged?: boolean
+  // Callback for the banner's Reload button.
+  onReload?: () => void
 }
 
 // Imperative handle so the parent (which owns the back/close button) can ask
@@ -81,6 +92,9 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
   sessionId,
   onSaved,
   onDirtyChange,
+  agentBusy,
+  diskChanged,
+  onReload,
 }, ref) {
   const [value, setValue] = useState(initialContent)
   // "Last saved" content is what's on disk — used to decide dirty state and
@@ -127,6 +141,15 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
   // Explicit save — only runs on Ctrl/Cmd+S or imperative parent call.
   // Returns true on success so callers can sequence (e.g., save-then-close).
   const save = useCallback(async (): Promise<boolean> => {
+    // Disk diverged underneath us (agent edited the file). Abort PUT —
+    // pushing our buffer would clobber the agent's changes silently.
+    // Caller (close-confirm modal / parent) sees `false` and surfaces
+    // the reload banner instead.
+    if (diskChanged) {
+      setStatus('error')
+      onSaved?.(false)
+      return false
+    }
     setStatus('saving')
     const qs = new URLSearchParams()
     if (worktreeId) qs.set('worktree', worktreeId)
@@ -149,7 +172,7 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
       onSaved?.(false)
       return false
     }
-  }, [projectId, filePath, worktreeId, sessionId, onSaved])
+  }, [projectId, filePath, worktreeId, sessionId, onSaved, diskChanged])
 
   const handleChange = useCallback((next: string) => {
     setValue(next)
@@ -191,6 +214,26 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
           </span>
         </div>
       )}
+      {/* Disk-changed banner — agent edited the file underneath. Reload
+          is the only path forward; saving here would clobber. */}
+      {diskChanged ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 px-3 py-1.5 text-[11px]" style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)' }}>
+          <span className="text-amber-300">🔄</span>
+          <span className="flex-1 text-amber-200">Agent edited this file. Save is disabled until you reload.</span>
+          <button
+            type="button"
+            onClick={() => onReload?.()}
+            className="rounded border border-amber-500/40 px-2 py-0.5 text-[11px] font-medium text-amber-200 hover:bg-amber-500/10"
+          >
+            Reload
+          </button>
+        </div>
+      ) : agentBusy ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-sky-500/20 px-3 py-1 text-[11px]" style={{ backgroundColor: 'rgba(14, 165, 233, 0.06)' }}>
+          <span className="text-sky-300">🤖</span>
+          <span className="text-sky-300/80">Agent editing in this branch…</span>
+        </div>
+      ) : null}
       <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ backgroundColor: '#1F1F1F' }}>
         <CodeMirror
           value={value}
