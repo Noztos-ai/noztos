@@ -29,25 +29,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (!resolvedProjectPath) return NextResponse.json({ error: 'Project not available' }, { status: 503 })
 
   let projectRoot = resolvedProjectPath
+  // Conductor-style PR-first model: a worktree's "diff" is the totality of
+  // its work vs where the branch was cut from (baseCommit), regardless of
+  // whether it's been committed yet. Same reference Changes panel uses
+  // (lib/worktree.ts getWorktreeChangedFiles → `git diff <baseCommit>`),
+  // so Explorer and Changes show the same set of files. On main view we
+  // fall back to HEAD (no baseline notion outside a worktree).
+  let diffBase: string | null = null
 
   if (worktreeIdParam) {
     const wt = await prisma.worktree.findUnique({
       where: { id: worktreeIdParam },
-      select: { projectId: true, worktreePath: true },
+      select: { projectId: true, worktreePath: true, baseCommit: true },
     })
     if (wt && wt.projectId === id && wt.worktreePath) {
       projectRoot = wt.worktreePath
+      diffBase = wt.baseCommit ?? null
     }
   } else if (sessionId) {
     const session = await prisma.chatSession.findUnique({
       where: { id: sessionId },
       select: {
         projectId: true,
-        worktree: { select: { worktreePath: true } },
+        worktree: { select: { worktreePath: true, baseCommit: true } },
       },
     })
     if (session && session.projectId === id && session.worktree?.worktreePath) {
       projectRoot = session.worktree.worktreePath
+      diffBase = session.worktree.baseCommit ?? null
     }
   }
 
@@ -64,16 +73,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const content = await compute.readFile(projectRoot, `${projectRoot}/${filePath}`)
 
     // Get committed version of the file for diff comparison.
-    // For a worktree we compare against its baseCommit; for main we compare against HEAD.
-    let originalContent = content
+    // Worktree → compare against baseCommit (full branch work). Main → HEAD.
+    // When `git show <ref>:<path>` fails the file is untracked at that ref —
+    // we surface originalContent='' so Explorer's inline diff renders the
+    // whole file as added (all green), matching VS Code/Cursor behavior.
+    const ref = diffBase ?? 'HEAD'
+    let originalContent = ''
     let isModified = false
     try {
-      const diffResult = await compute.exec(sandboxId, `cd ${projectRoot} && git show HEAD:${filePath} 2>/dev/null`)
+      const diffResult = await compute.exec(sandboxId, `cd ${projectRoot} && git show ${ref}:${filePath} 2>/dev/null`)
       if (diffResult.exitCode === 0) {
         originalContent = diffResult.stdout
         isModified = originalContent !== content
+      } else {
+        isModified = content !== ''
       }
-    } catch {}
+    } catch {
+      isModified = content !== ''
+    }
 
     return NextResponse.json({
       path: filePath,

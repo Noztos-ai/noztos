@@ -190,6 +190,19 @@ function buildDecorations(view: EditorView, plan: DiffPlan): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()
   const doc = view.state.doc
 
+  // RangeSetBuilder requires `add` calls in strictly ascending `from` order.
+  // We have three logical groups (top-of-file removes at 0; add-line decos at
+  // line.from; remove widgets at line.to). The naive 3-pass approach hits
+  // line K's `to` < line K+1's `from`, so we interleave per doc-line in a
+  // single sorted pass.
+  const removesByLine = new Map<number, typeof plan.removeBlocks[number]['lines']>()
+  for (const block of plan.removeBlocks) {
+    if (block.afterDocLine < 0) continue
+    if (block.afterDocLine >= plan.docLines.length) continue
+    if (block.afterDocLine >= doc.lines) continue
+    removesByLine.set(block.afterDocLine, block.lines)
+  }
+
   // Top-of-file remove block (anchored before doc line 0)
   for (const block of plan.removeBlocks) {
     if (block.afterDocLine !== -1) continue
@@ -203,8 +216,9 @@ function buildDecorations(view: EditorView, plan: DiffPlan): DecorationSet {
     }
   }
 
-  // Per-doc-line: line decoration for add, then any remove widgets that
-  // belong after this line.
+  // Per-doc-line: add decoration at line.from FIRST, then trailing removes
+  // at line.to. Because we walk lines in order and from < to within a line
+  // and a line's to ≤ next line's from, the builder receives a sorted stream.
   for (let i = 0; i < plan.docLines.length; i++) {
     if (i >= doc.lines) break
     const line = doc.line(i + 1) // CM lines are 1-based
@@ -216,19 +230,16 @@ function buildDecorations(view: EditorView, plan: DiffPlan): DecorationSet {
         Decoration.line({ class: 'cm-diff-add-line' }),
       )
     }
-  }
-
-  for (const block of plan.removeBlocks) {
-    if (block.afterDocLine < 0 || block.afterDocLine >= plan.docLines.length) continue
-    if (block.afterDocLine >= doc.lines) continue
-    const line = doc.line(block.afterDocLine + 1)
-    for (const rl of block.lines) {
-      const w = Decoration.widget({
-        widget: new RemoveLineWidget(rl.content, rl.oldLine),
-        block: true,
-        side: 1,
-      })
-      builder.add(line.to, line.to, w)
+    const trailingRemoves = removesByLine.get(i)
+    if (trailingRemoves) {
+      for (const rl of trailingRemoves) {
+        const w = Decoration.widget({
+          widget: new RemoveLineWidget(rl.content, rl.oldLine),
+          block: true,
+          side: 1,
+        })
+        builder.add(line.to, line.to, w)
+      }
     }
   }
 
@@ -267,8 +278,8 @@ function buildGutters(plan: DiffPlan) {
 // ── Themed CSS ──────────────────────────────────────────────────────────────
 const diffTheme = EditorView.theme({
   '&': { fontSize: '13px', backgroundColor: '#1F1F1F' },
-  '.cm-scroller': { overflow: 'auto' },
-  '.cm-content': { padding: '0' },
+  '.cm-scroller': { overflow: 'auto', backgroundColor: '#1F1F1F' },
+  '.cm-content': { padding: '0', backgroundColor: '#1F1F1F' },
   '.cm-gutters': { backgroundColor: '#1F1F1F', borderRight: 'none', color: '#71717A' },
   '.cm-diff-num-gutter': { minWidth: '2.5rem', padding: '0 0.5rem 0 0.25rem', textAlign: 'right' },
   '.cm-diff-marker-gutter': { width: '1rem', padding: '0', textAlign: 'center' },
@@ -373,7 +384,9 @@ export const InlineDiffEditor = forwardRef<InlineDiffEditorHandle, InlineDiffEdi
     const extensions = useMemo(() => {
       const exts = [
         EditorView.lineWrapping,
-        diffTheme,
+        // Highest precedence so our background/diff styling wins over
+        // oneDark's #282c34 (blue-tinged) leaking through .cm-scroller/.cm-content.
+        Prec.highest(diffTheme),
         diffDecorationsField,
         ...buildGutters(plan),
       ]

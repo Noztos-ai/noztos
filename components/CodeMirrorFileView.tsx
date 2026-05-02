@@ -5,12 +5,11 @@
 // multi-cursor, undo, keyboard shortcuts) while matching the VS Code /
 // Cursor look via the one-dark theme.
 //
-// Saving strategy:
-//  - Debounced auto-save 800ms after the user stops typing.
-//  - Explicit Ctrl/Cmd+S saves immediately (bypassing the debounce).
-//  - Saves are PUT to /api/projects/[id]/repository/files/[path] with the
-//    same ?worktree= / ?session= query params used to read the file, so the
-//    write lands in the correct working directory (main or a worktree).
+// Saving strategy: explicit only — Ctrl/Cmd+S inside the editor or the
+// "Save" button in the close-confirm modal when leaving with unsaved edits.
+// PUT goes to /api/projects/[id]/repository/files/[path] with the same
+// ?worktree= / ?session= query params used to read, so the write lands in
+// the correct working dir (main or a worktree).
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
@@ -105,12 +104,16 @@ export const CodeMirrorFileView = forwardRef<CodeMirrorFileViewHandle, CodeMirro
   const extensions = useMemo(() => {
     const exts = [
       EditorView.lineWrapping, // never horizontal-scroll
-      EditorView.theme({
+      // Highest precedence so our background override beats oneDark's #282c34
+      // (which has a blue cast and bleeds through .cm-scroller/.cm-content).
+      Prec.highest(EditorView.theme({
         '&': { fontSize: '13px', backgroundColor: '#1F1F1F' },
+        '.cm-scroller': { backgroundColor: '#1F1F1F' },
+        '.cm-content': { backgroundColor: '#1F1F1F' },
         '.cm-gutters': { backgroundColor: '#1F1F1F', borderRight: '1px solid #2B2B2B' },
         '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
         '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.04)' },
-      }),
+      })),
     ]
     if (lang) exts.push(lang)
     if (readOnly) exts.push(EditorView.editable.of(false))

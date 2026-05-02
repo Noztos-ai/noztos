@@ -2246,8 +2246,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   const activeStat = activeWorktreeId
     ? worktreeStats[activeWorktreeId]
     : activeSessionId ? chatStats[activeSessionId] : null
-  const realChangedCount = activeStat?.files ?? 0
-  const changedFilesCount = realChangedCount > 0 ? realChangedCount : MOCK_CHANGES.length
+  const changedFilesCount = activeStat?.files ?? 0
 
   const hasOpenChat = activeSessionId !== null
 
@@ -3672,22 +3671,12 @@ interface MockChangedFile {
   added: number
   removed: number
   hunks: DiffHunk[]
-  fullDiff?: DiffLine[]
   uncommitted?: boolean
   // First worktree that touched this file — used to fetch the correct
   // version when opening the inline diff. Optional because the legacy
   // mock data doesn't carry it.
   worktreeId?: string
 }
-
-function getMockChangeForPath(path: string): MockChangedFile | null {
-  return MOCK_CHANGES.find((f) => f.path === path) ?? null
-}
-
-// Empty until the real change feed is wired. Populate via API once the
-// worktree changes endpoint is hooked in; ChangesList handles empty
-// state natively.
-const MOCK_CHANGES: MockChangedFile[] = []
 
 const STATUS_ICONS: Record<string, { symbol: string; text: string; bg: string; border: string }> = {
   M: { symbol: '•', text: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/30' },
@@ -3771,6 +3760,35 @@ function buildHunksFromContents(original: string, current: string, contextLines 
       lines: hunkLines,
     }
   })
+}
+
+// Same flatten as buildHunksFromContents but returns the FULL file as a flat
+// DiffLine[] (no grouping into hunks). Used by the Explorer file viewer when
+// the file has uncommitted changes — InlineDiffEditor renders the entire file
+// with green/red lines inline, so the user sees changes in context.
+function buildFullDiffFromContents(original: string, current: string): DiffLine[] {
+  const parts = diffLines(original, current)
+  const flat: DiffLine[] = []
+  let oldLine = 0
+  let newLine = 0
+  for (const p of parts) {
+    const pieces = p.value.split('\n')
+    if (pieces.length > 0 && pieces[pieces.length - 1] === '') pieces.pop()
+    for (const piece of pieces) {
+      if (p.added) {
+        newLine += 1
+        flat.push({ type: 'add', content: piece, newLine })
+      } else if (p.removed) {
+        oldLine += 1
+        flat.push({ type: 'remove', content: piece, oldLine })
+      } else {
+        oldLine += 1
+        newLine += 1
+        flat.push({ type: 'context', content: piece, oldLine, newLine })
+      }
+    }
+  }
+  return flat
 }
 
 function InlineDiffView({
@@ -4325,81 +4343,6 @@ function ShikiFileView({
   )
 }
 
-// Full-file diff view — shown in the Explorer when the user opens a file
-// that has mock changes. Renders the whole file with added/removed lines
-// highlighted inline (Cursor / VS Code style).
-function FullFileDiffView({
-  filePath,
-  lines,
-  onClose,
-}: {
-  filePath: string
-  lines: DiffLine[]
-  onClose: () => void
-}) {
-  // Highlight all lines in a single pass so shiki can track multi-line
-  // context (template literals, JSX tags, etc). We join with \n, highlight,
-  // then split back.
-  const joinedContent = lines.map((l) => l.content).join('\n')
-  const highlightedLines = useShikiLines(joinedContent, filePath)
-
-  return (
-    <div className="absolute inset-0 z-10 flex flex-col" style={{ backgroundColor: '#181818' }}>
-      {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-[#2B2B2B] px-3 py-1.5" style={{ backgroundColor: '#313131' }}>
-        <div className="flex items-center gap-1.5">
-          <FileIcon name={filePath.split('/').pop() ?? ''} size={14} />
-          <span className="text-[10px] font-medium text-zinc-300">{filePath}</span>
-          <span className="rounded bg-amber-400/10 px-1 text-[9px] font-bold text-amber-400">diff</span>
-        </div>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300" title="Close">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Body — full file with diff markers inline. NO horizontal scroll. */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden font-mono text-[13px] leading-[1.5]" style={{ backgroundColor: '#1F1F1F' }}>
-        {(() => { const effIndents = getEffectiveIndents(lines.map((l) => l.content)); return lines.map((line, i) => {
-          const bg =
-            line.type === 'add' ? 'bg-emerald-500/25'
-            : line.type === 'remove' ? 'bg-red-500/25'
-            : ''
-          const marker =
-            line.type === 'add' ? '+' : line.type === 'remove' ? '−' : ' '
-          const markerColor =
-            line.type === 'add' ? 'text-emerald-300'
-            : line.type === 'remove' ? 'text-red-300'
-            : 'text-zinc-700'
-          const displayLine = line.type === 'remove' ? line.oldLine : (line.newLine ?? line.oldLine)
-          const html = highlightedLines[i] || ''
-          // Line-number color: on colored diff rows the muted zinc-700 vanishes
-          // against the saturated bg — bump to a tinted zinc that reads clearly
-          // on green/red while staying subtle on context rows.
-          const lineNumColor =
-            line.type === 'add' ? 'text-emerald-200/80'
-            : line.type === 'remove' ? 'text-red-200/80'
-            : 'text-zinc-500'
-          return (
-            <div key={i} className={`flex w-full min-w-0 hover:bg-white/[0.03] ${bg}`}>
-              <span className={`w-12 shrink-0 select-none pr-3 pt-0 text-right text-[11px] ${lineNumColor}`}>
-                {displayLine ?? ''}
-              </span>
-              <span className={`w-4 shrink-0 select-none text-center ${markerColor}`}>{marker}</span>
-              <code
-                className="min-w-0 flex-1 block pr-4"
-                style={getCodeLineStyle(line.content, effIndents[i])}
-                dangerouslySetInnerHTML={{ __html: stripLeadingWhitespaceHtml(html) || '&nbsp;' }}
-              />
-            </div>
-          )
-        }) })()}
-      </div>
-    </div>
-  )
-}
-
 // Renders a single diff hunk as a card with line numbers + colored rows
 function DiffHunkView({
   hunk,
@@ -4589,11 +4532,6 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
       // the user clicks "Open file" on the same path twice in a row.
       setExpandPaths(ancestors)
       setSelectedPath(path)
-      // If the file has mock diff data, open the diff viewer directly
-      const mock = getMockChangeForPath(path)
-      if (mock?.fullDiff) {
-        setDiffViewingFile({ path, lines: mock.fullDiff })
-      }
     }
     window.addEventListener('explorer-open-file', handleOpenFile)
     return () => window.removeEventListener('explorer-open-file', handleOpenFile)
@@ -4671,6 +4609,19 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
       : null
     const effectiveWorktreeId = worktreeId ?? singleWorktreeId
 
+    // Pick viewer: modified files (vs HEAD) open in the inline-diff editor
+    // so green/added + red/removed lines render in context — the standard
+    // industry view. Clean files open in the plain editor.
+    function open(content: string, originalContent: string) {
+      const isModified = content !== originalContent
+      if (effectiveWorktreeId && isModified) {
+        const lines = buildFullDiffFromContents(originalContent, content)
+        setDiffViewingFile({ path, lines, worktreeId: effectiveWorktreeId })
+      } else {
+        setViewingFile({ path, content, worktreeId: effectiveWorktreeId })
+      }
+    }
+
     // Cache HIT — same hunksCache the Changes panel uses. Re-clicks
     // within a worktree paint instantly without a network round trip.
     // fs-change events from the daemon (file edited by Claude) drop
@@ -4679,7 +4630,7 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
     if (effectiveWorktreeId) {
       const cached = getCachedHunk(effectiveWorktreeId, path)
       if (cached) {
-        setViewingFile({ path, content: cached.content, worktreeId: effectiveWorktreeId })
+        open(cached.content, cached.originalContent)
         return
       }
     }
@@ -4688,15 +4639,14 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
     const res = await fetch(`/api/projects/${projectId}/repository/files/${encodeURIComponent(path)}${worktreeParam}`)
     if (res.ok) {
       const data = await res.json()
-      setViewingFile({ path, content: data.content, worktreeId: effectiveWorktreeId })
+      const content = data.content ?? ''
+      const originalContent = data.originalContent ?? ''
+      open(content, originalContent)
       // Populate the cache so the next open of this file is instant.
       // Only worktree-scoped opens cache — main-view file reads are
       // outside the worktree-keyed cache slice by design.
       if (effectiveWorktreeId) {
-        setCachedHunk(effectiveWorktreeId, path, {
-          content: data.content ?? '',
-          originalContent: data.originalContent ?? '',
-        })
+        setCachedHunk(effectiveWorktreeId, path, { content, originalContent })
       }
     }
   }
@@ -5311,17 +5261,16 @@ function FileNodeDraggable({ child, depth, selectedPath, onSelect, onContextMenu
       style={{ paddingLeft: `${depth * 16 + 16}px`, paddingRight: 8 }}
     >
       <FileIcon name={child.name} />
-      <span className={`flex-1 truncate ${child.isNew ? 'text-emerald-400' : child.isModified ? 'text-amber-400' : 'text-zinc-300'}`}>{child.name}</span>
-      {/* +/- stats when at least one chat touched the file */}
+      <span className={`flex-1 truncate ${child.isNew ? 'text-[#73C991]' : child.isModified ? 'text-[#E2C08D]' : 'text-zinc-300'}`}>{child.name}</span>
       {(child.added || child.removed) ? (
         <span className="shrink-0 font-mono text-[9px] tabular-nums">
-          {child.added ? <span className="text-emerald-400">+{child.added}</span> : null}
-          {child.removed ? <span className="ml-1 text-red-400">-{child.removed}</span> : null}
+          {child.added ? <span className="text-[#73C991]">+{child.added}</span> : null}
+          {child.removed ? <span className="ml-1 text-[#c74e39]">-{child.removed}</span> : null}
         </span>
       ) : (
         <>
-          {child.isNew && <span className="shrink-0 text-[9px] font-bold text-emerald-400">U</span>}
-          {child.isModified && !child.isNew && <span className="shrink-0 text-[9px] font-bold text-amber-400">M</span>}
+          {child.isNew && <span className="shrink-0 text-[9px] font-bold text-[#73C991]">U</span>}
+          {child.isModified && !child.isNew && <span className="shrink-0 text-[9px] font-bold text-[#E2C08D]">M</span>}
         </>
       )}
     </button>
@@ -5374,7 +5323,7 @@ function FolderNode({ node, depth, selectedPath, onSelect, collapseKey, expandPa
         onDrop={handleDrop}
         draggable
         onDragStart={(e) => { e.dataTransfer.setData('text/plain', node.path); e.dataTransfer.effectAllowed = 'move' }}
-        className={`flex w-full min-w-0 items-center py-1 text-left text-[13px] text-zinc-300 hover:bg-white/5 cursor-grab active:cursor-grabbing ${dragOver ? 'bg-blue-100 ring-1 ring-blue-400' : ''}`}
+        className={`flex w-full min-w-0 items-center py-1 text-left text-[13px] text-zinc-300 hover:bg-white/5 cursor-grab active:cursor-grabbing ${dragOver ? 'bg-[#062F4A]' : ''}`}
         style={{ paddingLeft: `${depth * 16 + 4}px`, paddingRight: 8 }}
       >
         <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center text-zinc-400 transition-transform ${expanded ? 'rotate-90' : ''}`}>
@@ -5383,9 +5332,9 @@ function FolderNode({ node, depth, selectedPath, onSelect, collapseKey, expandPa
           </svg>
         </span>
         <span className="mr-1.5 text-sm">{expanded ? '📂' : '📁'}</span>
-        <span className={`flex-1 truncate ${node.isNew ? 'text-emerald-600' : node.isModified ? 'text-amber-600' : ''}`}>{node.name}</span>
-        {node.isNew && <span className="shrink-0 text-[9px] font-bold text-emerald-500">U</span>}
-        {node.isModified && !node.isNew && <span className="shrink-0 text-[9px] font-bold text-amber-500">M</span>}
+        <span className={`flex-1 truncate ${node.isNew ? 'text-[#73C991]' : node.isModified ? 'text-[#E2C08D]' : ''}`}>{node.name}</span>
+        {node.isNew && <span className="shrink-0 text-[9px] font-bold text-[#73C991]">U</span>}
+        {node.isModified && !node.isNew && <span className="shrink-0 text-[9px] font-bold text-[#E2C08D]">M</span>}
       </button>
       {expanded && <TreeNode node={node} depth={depth + 1} selectedPath={selectedPath} onSelect={onSelect} collapseKey={collapseKey} expandPaths={expandPaths} onContextMenu={onContextMenu} onMove={onMove} />}
     </div>
