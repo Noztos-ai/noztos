@@ -112,7 +112,7 @@ function BashBlock({ message }: { message: ChatMessage }) {
   const hidden = Math.max(0, outLines.length - PREVIEW_LINES)
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 text-[11px] leading-5">
       <div className="flex border-b border-white/5 bg-white/[0.02] px-2 py-1">
         <span className="mr-2 font-mono text-[10px] uppercase tracking-wide text-zinc-500">IN</span>
         <span className={`min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-zinc-300 ${cmdClamp}`}>{cmd}</span>
@@ -185,7 +185,7 @@ function ReadBlock({ message }: { message: ChatMessage }) {
   const language = langFromPath(path)
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="font-mono text-zinc-300">
           {shortPath(path) || 'file'}
@@ -285,7 +285,7 @@ function WriteBlock({ message }: { message: ChatMessage }) {
   const statusTone = isError ? 'text-red-400' : isLoading ? 'text-zinc-500' : 'text-emerald-400'
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="font-mono text-zinc-300">
           {shortPath(path) || 'file'}
@@ -443,7 +443,7 @@ function GrepBlock({ message }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between gap-2 border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="min-w-0 truncate font-mono text-zinc-300">
           <span className="text-zinc-500">grep </span>
@@ -542,7 +542,7 @@ function GlobBlock({ message }: { message: ChatMessage }) {
   const headerPath = shortPath(path)
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between gap-2 border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="min-w-0 truncate font-mono text-zinc-300">
           <span className="text-zinc-500">glob </span>
@@ -660,7 +660,7 @@ function LSBlock({ message }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between gap-2 border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="min-w-0 truncate font-mono text-zinc-300">
           <span className="text-zinc-500">ls </span>
@@ -739,7 +739,7 @@ function WebFetchBlock({ message }: { message: ChatMessage }) {
   const statusTone = isError ? 'text-red-400' : isLoading ? 'text-zinc-500' : 'text-emerald-400'
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between gap-2 border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="min-w-0 truncate font-mono text-zinc-300">
           <span className="text-zinc-500">fetch </span>
@@ -866,7 +866,7 @@ function WebSearchBlock({ message }: { message: ChatMessage }) {
     : 'text-zinc-500'
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between gap-2 border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="min-w-0 truncate font-mono text-zinc-300">
           <span className="text-zinc-500">search </span>
@@ -961,7 +961,7 @@ export function ExitPlanModeBlock({ message }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-amber-500/20 bg-amber-500/[0.04] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-amber-500/20 bg-amber-500/[0.04] text-[11px] leading-5">
       <div className="flex items-center justify-between border-b border-amber-500/15 bg-amber-500/[0.06] px-2 py-1 text-[10px]">
         <span className="font-mono text-amber-300">Plan ready for review</span>
         <span className="font-mono text-[10px] text-zinc-500">{planText.split('\n').length} lines</span>
@@ -1183,7 +1183,7 @@ function EditDiffBlock({ message }: { message: ChatMessage }) {
   const language = langFromPath(message.filePath ?? '')
 
   return (
-    <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
+    <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 bg-white/[0.02] text-[11px] leading-5">
       <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px]">
         <span className="font-mono text-zinc-300">
           {message.filePath ? shortPath(message.filePath) : 'Edit'}
@@ -1287,7 +1287,7 @@ export function TodoBlock({ message, variant = 'inline', active = false }: { mes
   // ── Inline variant — full list, framed, used inside the log ────
   if (variant === 'inline') {
     return (
-      <div className="ml-3 mt-0.5 max-w-2xl overflow-hidden rounded border border-white/5 text-[11px] leading-5">
+      <div className="ml-3 mt-0.5 min-w-0 max-w-2xl overflow-hidden rounded border border-white/5 text-[11px] leading-5">
         <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-2 py-1 text-[10px] text-zinc-500">
           <span className="font-medium">Tasks</span>
           <span className="space-x-2 font-mono">

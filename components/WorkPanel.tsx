@@ -6443,10 +6443,15 @@ function ChatPanel({
         </div>
       )}
 
-      {/* Messages — renders companion stream or legacy engine */}
+      {/* Messages — renders companion stream or legacy engine. min-w-0 on
+          the scroll viewport so flex children (tool cards, code fences,
+          wide diff blocks) stay inside the chat panel even when the right
+          panel is expanded and the chat shrinks. Without it, any item
+          with intrinsic min-content forces the chat wider than its
+          container and clips the input toolbar off the right edge. */}
       <div
         ref={scrollContainerRef}
-        className="chat-scroll flex-1 overflow-y-auto p-4 pb-6 space-y-3"
+        className="chat-scroll min-w-0 flex-1 overflow-y-auto p-4 pb-6 space-y-3"
         onScroll={(e) => {
           const c = e.currentTarget
           // Persist current scroll state into the per-session memory
