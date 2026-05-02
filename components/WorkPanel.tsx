@@ -1655,17 +1655,15 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
       setWorktrees(wts)
 
       if (!preserveActive) {
-        // No previous active — pick the most recent main chat or worktree
-        if (main.length > 0) {
-          setActiveSessionId(main[main.length - 1].id)
-          setActiveWorktreeId(null)
-        } else if (wts.length > 0) {
-          setActiveWorktreeId(wts[wts.length - 1].id)
-          setActiveSessionId(wts[wts.length - 1].sessions[0]?.id ?? null)
-        } else {
-          setActiveSessionId(null)
-          setActiveWorktreeId(null)
-        }
+        // Always land in the minimized state on project entry — no chat
+        // active, no worktree active. The work area shows the empty
+        // prompt ("Let's build something") + "New workspace" button, and
+        // the right panel surfaces main's tree. Worktrees stay collapsed
+        // in the sidebar; the user clicks one to enter it. This avoids
+        // dropping the user into stale state from a previous session and
+        // gives a consistent starting point regardless of what's open.
+        setActiveSessionId(null)
+        setActiveWorktreeId(null)
       }
     } catch { /* ignore */ }
   }, [projectId])
@@ -2318,7 +2316,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
               return next
             })
           }}
-          onChanged={() => reloadAll(false)}
+          onChanged={() => reloadAll(true)}
         />}
 
         {/* Center-left: Chat */}
