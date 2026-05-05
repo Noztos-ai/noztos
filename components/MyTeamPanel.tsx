@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 
 interface Employee {
   id: string
@@ -66,66 +66,30 @@ interface Team {
 
 // ── Main Panel ─────────────────────────────────────────────────────────────
 
-interface MyTeamPanelProps {
-  projectId: string
-  hiredIds: string[]
-  onHire: (ids: string[]) => void
-}
-
-export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
-  const [showHireModal, setShowHireModal] = useState(false)
+export function MyTeamPanel() {
   const [showTeamModal, setShowTeamModal] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
 
-  const hiredEmployees = AVAILABLE_EMPLOYEES.filter((e) => hiredIds.includes(e.id))
-  const hasAnyHired = hiredEmployees.length > 0
-
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Left: Employees — 50% */}
-      <div className="flex w-1/2 flex-col border-r border-white/10 p-6" style={{ backgroundColor: '#1e1e28' }}>
+      {/* Left: Agents — 50% */}
+      <div className="flex w-1/2 flex-col border-r border-white/10 p-6" style={{ backgroundColor: '#1F1F1F' }}>
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-200">Employees</h2>
-          <button
-            onClick={() => setShowHireModal(true)}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500"
-          >
-            + Hire
-          </button>
+          <h2 className="text-lg font-semibold text-zinc-200">Agents</h2>
         </div>
 
-        {!hasAnyHired ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="rounded-full bg-white/5 p-4">
-              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-              </svg>
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-zinc-300">Hire your first employee</p>
-              <p className="mt-1 text-xs text-zinc-500">Build your AI team to start working on code</p>
-            </div>
-            <button
-              onClick={() => setShowHireModal(true)}
-              className="rounded-full bg-violet-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
-            >
-              Hire employees
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <EmployeeCard employee={BUILDER_EMPLOYEE} isAutomatic />
-            {hiredEmployees.map((emp) => (
-              <EmployeeCard key={emp.id} employee={emp} />
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-2">
+          <EmployeeCard employee={BUILDER_EMPLOYEE} isAutomatic />
+          {AVAILABLE_EMPLOYEES.map((emp) => (
+            <EmployeeCard key={emp.id} employee={emp} />
+          ))}
+        </div>
       </div>
 
-      {/* Right: Teams — 50% */}
-      <div className="flex w-1/2 flex-col p-6" style={{ backgroundColor: '#1e1e28' }}>
+      {/* Right: Workflows — 50% */}
+      <div className="flex w-1/2 flex-col p-6" style={{ backgroundColor: '#1F1F1F' }}>
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-200">My Teams</h2>
+          <h2 className="text-lg font-semibold text-zinc-200">Workflows</h2>
           <button
             onClick={() => setShowTeamModal(true)}
             className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500"
@@ -142,14 +106,14 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
               </svg>
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-zinc-300">Create your first team</p>
-              <p className="mt-1 text-xs text-zinc-500">Organize employees into teams with execution order</p>
+              <p className="text-sm font-medium text-zinc-300">Create your first workflow</p>
+              <p className="mt-1 text-xs text-zinc-500">Organize agents into workflows with execution order</p>
             </div>
             <button
               onClick={() => setShowTeamModal(true)}
               className="rounded-full bg-violet-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
             >
-              Create team
+              Create workflow
             </button>
           </div>
         ) : (
@@ -161,17 +125,8 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
         )}
       </div>
 
-      {/* Modals */}
-      {showHireModal && (
-        <HiringModal
-          hiredIds={hiredIds}
-          onConfirm={(ids) => { onHire(ids); setShowHireModal(false) }}
-          onClose={() => setShowHireModal(false)}
-        />
-      )}
       {showTeamModal && (
         <TeamBuilderModal
-          hiredIds={hiredIds}
           onConfirm={(team) => { setTeams((prev) => [...prev, team]); setShowTeamModal(false) }}
           onClose={() => setShowTeamModal(false)}
         />
@@ -184,15 +139,23 @@ export function MyTeamPanel({ projectId, hiredIds, onHire }: MyTeamPanelProps) {
 
 function EmployeeCard({ employee, isAutomatic }: { employee: Employee; isAutomatic?: boolean }) {
   return (
-    <div className={`relative overflow-hidden rounded-lg bg-gradient-to-br ${employee.color} px-3 py-2.5 shadow-sm`}>
-      {isAutomatic && (
-        <span className="absolute right-2 top-2 rounded bg-white/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/80">
-          auto
-        </span>
-      )}
-      <p className="text-sm font-bold text-white">{employee.name}</p>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-white/60">{employee.role}</p>
-      <p className="mt-1 text-[11px] leading-relaxed text-white/80">{employee.description}</p>
+    <div className="relative overflow-hidden rounded-lg px-3 py-2.5 shadow-sm">
+      {/* Muted gradient backdrop. Lives on its own layer so reducing
+          opacity dims only the colour, leaving text/badge fully crisp. */}
+      <div
+        aria-hidden
+        className={`absolute inset-0 bg-gradient-to-br ${employee.color} opacity-40`}
+      />
+      <div className="relative">
+        {isAutomatic && (
+          <span className="absolute right-0 top-0 rounded bg-white/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/80">
+            auto
+          </span>
+        )}
+        <p className="text-sm font-bold text-white">{employee.name}</p>
+        <p className="text-[10px] font-medium uppercase tracking-wider text-white/60">{employee.role}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-white/80">{employee.description}</p>
+      </div>
     </div>
   )
 }
@@ -252,93 +215,14 @@ function TeamCard({ team }: { team: Team }) {
   )
 }
 
-// ── Hiring Modal ───────────────────────────────────────────────────────────
-
-function HiringModal({
-  hiredIds,
-  onConfirm,
-  onClose,
-}: {
-  hiredIds: string[]
-  onConfirm: (ids: string[]) => void
-  onClose: () => void
-}) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(hiredIds))
-
-  function toggle(id: string) {
-    const next = new Set(selected)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    setSelected(next)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 p-8 shadow-xl" style={{ backgroundColor: '#1a1a22' }}>
-        <h2 className="mb-1 text-xl font-semibold text-zinc-100">Hire Employees</h2>
-        <p className="mb-6 text-sm text-zinc-400">Select who you want on your team. The Builder is hired automatically.</p>
-
-        <div className="space-y-3">
-          {AVAILABLE_EMPLOYEES.map((emp) => {
-            const isSelected = selected.has(emp.id)
-            return (
-              <button
-                key={emp.id}
-                onClick={() => toggle(emp.id)}
-                className={`flex w-full items-start gap-4 overflow-hidden rounded-xl border-2 bg-gradient-to-br ${emp.color} p-4 text-left transition-all ${
-                  isSelected ? 'border-white/30 shadow-lg' : 'border-transparent opacity-70 hover:opacity-90'
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-white">{emp.name}</p>
-                    <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-medium text-white/80">{emp.role}</span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-white/80">{emp.description}</p>
-                </div>
-                <div className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${
-                  isSelected ? 'border-white bg-white/30' : 'border-white/40'
-                }`}>
-                  {isSelected && (
-                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={() => onConfirm([...selected])}
-            className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500"
-          >
-            Confirm ({selected.size} selected)
-          </button>
-          <button
-            onClick={onClose}
-            className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Team Builder Modal ─────────────────────────────────────────────────────
 
 type TeamStep = 'select' | 'no-builder-warning' | 'order' | 'recreate'
 
 function TeamBuilderModal({
-  hiredIds,
   onConfirm,
   onClose,
 }: {
-  hiredIds: string[]
   onConfirm: (team: Team) => void
   onClose: () => void
 }) {
@@ -349,13 +233,8 @@ function TeamBuilderModal({
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [teamName, setTeamName] = useState('')
 
-  const noHires = hiredIds.length === 0
-
-  // All hired + builder in the selection list
-  const selectableEmployees = noHires ? [] : [
-    ...AVAILABLE_EMPLOYEES.filter((e) => hiredIds.includes(e.id)),
-    BUILDER_EMPLOYEE,
-  ]
+  // The full agent roster is always available — hiring was removed.
+  const selectableEmployees = [...AVAILABLE_EMPLOYEES, BUILDER_EMPLOYEE]
 
   const hasBuilder = selectedIds.has('builder')
 
@@ -416,7 +295,7 @@ function TeamBuilderModal({
 
   function handleConfirm() {
     onConfirm({
-      name: teamName || `Team ${Date.now().toString(36)}`,
+      name: teamName || `Workflow ${Date.now().toString(36)}`,
       memberIds: [...selectedIds].filter((id) => id !== 'builder'),
       hasBuilder,
       order,
@@ -426,79 +305,63 @@ function TeamBuilderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 p-8 shadow-xl" style={{ backgroundColor: '#1a1a22' }}>
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 p-8 shadow-xl" style={{ backgroundColor: '#1F1F1F' }}>
 
         {/* Step 1: Select members (including Builder) */}
         {step === 'select' && (
           <>
-            <h2 className="mb-1 text-xl font-semibold text-zinc-100">Create Team</h2>
-            <p className="mb-4 text-sm text-zinc-400">Select employees for this team.</p>
+            <h2 className="mb-1 text-xl font-semibold text-zinc-100">Create Workflow</h2>
+            <p className="mb-4 text-sm text-zinc-400">Select agents for this workflow.</p>
 
-            {noHires ? (
-              <>
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
-                  <p className="text-sm font-medium text-amber-300">No employees hired yet</p>
-                  <p className="mt-1 text-xs text-amber-400/80">You need to hire employees first before creating a team. Go to the Employees section and hire your team.</p>
-                </div>
-                <div className="mt-6">
-                  <button onClick={onClose} className="flex h-10 w-full items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500">
-                    Got it
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                  placeholder="Team name *"
-                  className="mb-4 block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:border-violet-500/50 focus:outline-none"
-                />
+            <input
+              type="text"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder="Workflow name *"
+              className="mb-4 block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:border-violet-500/50 focus:outline-none"
+            />
 
-                <div className="space-y-2">
-                  {selectableEmployees.map((emp) => {
-                    const isSelected = selectedIds.has(emp.id)
-                    return (
-                      <button
-                        key={emp.id}
-                        onClick={() => toggleSelect(emp.id)}
-                        className={`flex w-full items-center gap-3 rounded-xl bg-gradient-to-br ${emp.color} p-3 text-left transition-all ${
-                          isSelected ? 'shadow-lg ring-2 ring-white/30' : 'opacity-60 hover:opacity-80'
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-white">{emp.name}</p>
-                          <p className="text-[10px] text-white/70">{emp.role} — {emp.description}</p>
-                        </div>
-                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${
-                          isSelected ? 'border-white bg-white/30' : 'border-white/40'
-                        }`}>
-                          {isSelected && (
-                            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                          )}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="mt-6 flex gap-3">
+            <div className="space-y-2">
+              {selectableEmployees.map((emp) => {
+                const isSelected = selectedIds.has(emp.id)
+                return (
                   <button
-                    onClick={handleContinueFromSelect}
-                    disabled={selectedIds.size === 0 || !teamName.trim()}
-                    className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+                    key={emp.id}
+                    onClick={() => toggleSelect(emp.id)}
+                    className={`flex w-full items-center gap-3 rounded-xl bg-gradient-to-br ${emp.color} p-3 text-left transition-all ${
+                      isSelected ? 'shadow-lg ring-2 ring-white/30' : 'opacity-60 hover:opacity-80'
+                    }`}
                   >
-                    Continue
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">{emp.name}</p>
+                      <p className="text-[10px] text-white/70">{emp.role} — {emp.description}</p>
+                    </div>
+                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 ${
+                      isSelected ? 'border-white bg-white/30' : 'border-white/40'
+                    }`}>
+                      {isSelected && (
+                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </div>
                   </button>
-                  <button onClick={onClose} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200">
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
+                )
+              })}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={handleContinueFromSelect}
+                disabled={selectedIds.size === 0 || !teamName.trim()}
+                className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:opacity-30"
+              >
+                Continue
+              </button>
+              <button onClick={onClose} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200">
+                Cancel
+              </button>
+            </div>
           </>
         )}
 
@@ -508,8 +371,8 @@ function TeamBuilderModal({
             <h2 className="mb-4 text-xl font-semibold text-zinc-100">No Builder selected</h2>
 
             <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
-              <p className="text-sm font-medium text-amber-300">This team won&apos;t be able to build.</p>
-              <p className="mt-1 text-xs text-amber-400/80">Without a Builder, this team can only make decisions, have discussions, and review code — it cannot write or edit files.</p>
+              <p className="text-sm font-medium text-amber-300">This workflow won&apos;t be able to build.</p>
+              <p className="mt-1 text-xs text-amber-400/80">Without a Builder, this workflow can only make decisions, have discussions, and review code — it cannot write or edit files.</p>
             </div>
 
             <div className="flex gap-3">
@@ -537,7 +400,7 @@ function TeamBuilderModal({
         {step === 'order' && (
           <>
             <h2 className="mb-1 text-xl font-semibold text-zinc-100">Execution Order</h2>
-            <p className="mb-4 text-sm text-zinc-400">Drag to set the order your team works in. First to last.</p>
+            <p className="mb-4 text-sm text-zinc-400">Drag to set the order your workflow runs in. First to last.</p>
 
             <div className="space-y-2">
               {order.map((id, index) => {
@@ -659,7 +522,7 @@ function TeamBuilderModal({
                 onClick={handleConfirm}
                 className="flex h-10 flex-1 items-center justify-center rounded-full bg-violet-600 text-sm font-medium text-white transition-colors hover:bg-violet-500"
               >
-                Create Team
+                Create Workflow
               </button>
               <button onClick={() => setStep('order')} className="flex h-10 items-center justify-center rounded-full px-5 text-sm text-zinc-400 hover:text-zinc-200">
                 Back

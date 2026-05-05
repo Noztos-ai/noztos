@@ -38,14 +38,17 @@ interface Props {
   tasks: Task[]
 }
 
+// Every project ships with the same fixed roster of agents — there is no
+// hiring step. Listed in the order they appear in MyTeamPanel and feed
+// the chat slash-command picker via WorkPanel.
+const AGENT_IDS = ['ceo', 'architect', 'designer', 'security'] as const
+
 export function ProjectDashboardClient({ project, collaborators, teams, tasks }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('work')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [hiredIds, setHiredIds] = useState<string[]>([])
   const [localTeams, setLocalTeams] = useState<{ name: string; memberIds: string[]; hasBuilder: boolean; order: string[]; canRecreateTasks: Record<string, string> }[]>([])
 
-  // Build hired employees list for WorkPanel
-  const hiredEmployees = hiredIds.map((id) => ({
+  const hiredEmployees = AGENT_IDS.map((id) => ({
     id,
     name: EMPLOYEE_NAMES[id] ?? id,
     color: EMPLOYEE_COLORS[id]?.color ?? 'from-zinc-500 to-zinc-600',
@@ -80,7 +83,7 @@ export function ProjectDashboardClient({ project, collaborators, teams, tasks }:
             <div className="grid grid-cols-3 gap-4">
               <StatCard label="Files" value="-" icon="file" />
               <StatCard label="Tasks" value={String(tasks.length)} icon="task" />
-              <StatCard label="Employees" value={String(hiredIds.length)} icon="team" />
+              <StatCard label="Agents" value={String(AGENT_IDS.length)} icon="team" />
             </div>
             <SourceControl projectId={project.id} />
           </div>
@@ -101,11 +104,7 @@ export function ProjectDashboardClient({ project, collaborators, teams, tasks }:
       )}
 
       {activeTab === 'team' && (
-        <MyTeamPanel
-          projectId={project.id}
-          hiredIds={hiredIds}
-          onHire={setHiredIds}
-        />
+        <MyTeamPanel />
       )}
 
       {activeTab === 'config' && (
