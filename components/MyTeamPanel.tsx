@@ -321,23 +321,23 @@ function TeamBuilderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 p-8 shadow-xl" style={{ backgroundColor: '#1F1F1F' }}>
+      <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl border border-white/10 p-6 shadow-xl" style={{ backgroundColor: '#1F1F1F' }}>
 
         {/* Step 1: Select members (including Builder) */}
         {step === 'select' && (
           <>
-            <h2 className="mb-1 text-xl font-semibold text-zinc-100">Create Workflow</h2>
-            <p className="mb-4 text-sm text-zinc-400">Select agents for this workflow.</p>
+            <h2 className="mb-1 text-lg font-semibold text-zinc-100">Create Workflow</h2>
+            <p className="mb-4 text-xs text-zinc-400">Select agents for this workflow.</p>
 
             <input
               type="text"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               placeholder="Workflow name *"
-              className="mb-4 block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:border-violet-500/50 focus:outline-none"
+              className="mb-3 block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:border-violet-500/50 focus:outline-none"
             />
 
-            <div className="space-y-2">
+            <div className="chat-scroll min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {selectableEmployees.map((emp) => {
                 const isSelected = selectedIds.has(emp.id)
                 return (
@@ -366,7 +366,7 @@ function TeamBuilderModal({
               })}
             </div>
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-4 flex shrink-0 gap-3">
               <button
                 onClick={handleContinueFromSelect}
                 disabled={selectedIds.size === 0 || !teamName.trim()}
