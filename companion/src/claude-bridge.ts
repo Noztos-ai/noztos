@@ -147,6 +147,33 @@ export function setActiveConfig(next: ActiveConfig): void {
   activeConfig = next
 }
 
+// ── Active skills (process-wide, mutable) ──────────────────────────
+//
+// Keyed by lowercase agent name ('ceo', 'tester', 'devops'…). Populated
+// by skill-config.ts after a successful /skills fetch; empty until then,
+// in which case skillId-tagged spawns silently fall back to "no skill
+// prompt" (chat behaves like a regular `/agent` chat). Version is the
+// SHA-256 returned by the server — used by the version-drift poll.
+const activeSkills: Map<string, string> = new Map()
+let activeSkillsVersion = 'bundled'
+
+export function setActiveSkills(skills: Array<{ name: string; prompt: string }>, version: string): void {
+  activeSkills.clear()
+  for (const s of skills) {
+    activeSkills.set(s.name.toLowerCase(), s.prompt)
+  }
+  activeSkillsVersion = version
+}
+
+export function getActiveSkillsVersion(): string {
+  return activeSkillsVersion
+}
+
+function getSkillPromptByName(name: string | null | undefined): string | null {
+  if (!name) return null
+  return activeSkills.get(name.toLowerCase()) ?? null
+}
+
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high'
 // Official Anthropic extended-thinking keywords. The CLI has no
 // --thinking flag — the budget is triggered by wording in the prompt
@@ -161,6 +188,7 @@ const THINKING_KEYWORD: Record<ThinkingLevel, string> = {
 export interface BridgeOptions {
   model?: string       // CLI alias ('haiku'|'sonnet'|'opus') or full id
   thinking?: ThinkingLevel
+  skillId?: string | null   // active agent skill; null = regular chat
 }
 
 export class ClaudeBridge extends EventEmitter {
@@ -171,6 +199,7 @@ export class ClaudeBridge extends EventEmitter {
   private mode: BornastarMode = 'agent'
   private model?: string
   private thinking: ThinkingLevel = 'off'
+  private skillId: string | null = null
 
   constructor(cwd: string, sessionId?: string, mode?: BornastarMode, options?: BridgeOptions) {
     super()
@@ -179,10 +208,15 @@ export class ClaudeBridge extends EventEmitter {
     this.mode = mode ?? 'agent'
     this.model = options?.model
     this.thinking = options?.thinking ?? 'off'
+    this.skillId = options?.skillId ?? null
   }
 
   setMode(mode: BornastarMode): void {
     this.mode = mode
+  }
+
+  setSkillId(skillId: string | null): void {
+    this.skillId = skillId
   }
 
   async prompt(text: string): Promise<void> {
@@ -227,7 +261,15 @@ export class ClaudeBridge extends EventEmitter {
     // Append our mode-specific instruction + the wrapper-naming rule.
     // Plan ships with an empty body so we don't override Anthropic's
     // tuned plan prompt — only the naming rule goes there.
-    const appendPrompt = ((cfg.modePrompts[this.mode] ?? '') + cfg.namingRule).trim()
+    //
+    // When the user activated a skill (e.g. /ceo), prepend that agent's
+    // skillMd. Order matters: skill prompt sets the persona, then mode
+    // prompt scopes the operating envelope. If the skillId is unknown
+    // to the local cache (offline / pre-fetch / typo), we silently
+    // fall back to the bare mode prompt so chat keeps working.
+    const skillPrompt = getSkillPromptByName(this.skillId)
+    const skillBlock = skillPrompt ? `${skillPrompt}\n\n` : ''
+    const appendPrompt = (skillBlock + (cfg.modePrompts[this.mode] ?? '') + cfg.namingRule).trim()
     if (appendPrompt) {
       args.push('--append-system-prompt', appendPrompt)
     }
@@ -241,7 +283,7 @@ export class ClaudeBridge extends EventEmitter {
       args.push('--resume', this.sessionId)
     }
 
-    console.log(`[isolation] claude spawn cwd=${this.cwd} bornastarMode=${this.mode} cliMode=${permissionMode} disallowed=${disallowed.length} prompt=${appendPrompt.length}b configVersion=${cfg.version} model=${this.model ?? 'default'} thinking=${this.thinking} resume=${this.sessionId?.slice(0, 8) ?? 'new'}`)
+    console.log(`[isolation] claude spawn cwd=${this.cwd} bornastarMode=${this.mode} cliMode=${permissionMode} disallowed=${disallowed.length} prompt=${appendPrompt.length}b configVersion=${cfg.version} skill=${this.skillId ?? 'none'}${skillPrompt ? ` skillVersion=${activeSkillsVersion}` : ''} model=${this.model ?? 'default'} thinking=${this.thinking} resume=${this.sessionId?.slice(0, 8) ?? 'new'}`)
     this.process = spawn('claude', args, {
       cwd: this.cwd,
       env: { ...process.env },

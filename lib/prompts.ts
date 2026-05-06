@@ -1,22 +1,19 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { createHash } from 'crypto'
+import { prisma } from '@/lib/db'
 
 // ── Prompt Loader ─────────────────────────────────────────────────────────
 //
-// Loads prompts from /prompts/*.md files.
-// All behavior rules are centralized there — not in code.
+// Behavior rules (base, build, task, modes) are loaded from /prompts/*.md
+// files. Skill prompts (per-agent system prompts like CEO, Architect,
+// Tester...) live in the DB on Collaborator.skillMd — see the skill
+// cache section below for why the file-backed loader stops at skills.
 
 const PROMPTS_DIR = join(process.cwd(), 'prompts')
-const SKILLS_DIR = join(PROMPTS_DIR, 'skills')
 
 // Cache prompts in memory (they don't change at runtime)
 const cache = new Map<string, string>()
-
-// ── Session Prompt Cache ──────────────────────────────────────────────────
-// Memoizes the built prompt parts per (modeFile, isExecution) combo so we
-// don't re-join the same strings on every request. Keyed by a string like
-// "when-debugging.md:false". Cleared only on process restart.
-const builtPromptCache = new Map<string, string[]>()
 
 function load(filePath: string): string {
   if (cache.has(filePath)) return cache.get(filePath)!
@@ -31,30 +28,122 @@ export function getBasePrompt(): string {
   return load(join(PROMPTS_DIR, 'base.md'))
 }
 
-export function getBuildRules(): string {
-  return load(join(PROMPTS_DIR, 'build-rules.md'))
-}
-
-export function getTaskRules(): string {
-  return load(join(PROMPTS_DIR, 'task-rules.md'))
-}
-
-export function getTeamRules(): string {
-  return load(join(PROMPTS_DIR, 'team-rules.md'))
-}
-
 export function getSuggestionsRules(): string {
   return load(join(PROMPTS_DIR, 'suggestions-rules.md'))
 }
 
-// ── Skill Prompts ─────────────────────────────────────────────────────────
+// ── Skill Prompts (DB-backed) ─────────────────────────────────────────────
+//
+// Each agent's system prompt lives on Collaborator.skillMd in Postgres.
+// We pull all platform defaults once on the first miss and keep them in
+// process memory thereafter. Cache key is the lowercase agent name
+// (matches the UI ids: 'ceo', 'tester', 'docs'…). Hits cost a Map.get,
+// so callers see the same latency they had with the previous filesystem
+// loader.
+//
+// Invalidation is explicit: callers that mutate a row (PATCH, seed
+// re-run) should call invalidateSkillCache(name) to drop the entry, and
+// the next read pulls fresh. We don't TTL — skill prompts are stable
+// platform-wide and a stale cache for hours is worse only when an admin
+// edits one, which is rare and they can trigger refresh.
 
-export function getSkillPrompt(skillId: string): string {
-  return load(join(SKILLS_DIR, `${skillId}.md`))
+interface SkillCacheEntry {
+  content: string
+  displayName: string
 }
 
-export function getBuilderPrompt(): string {
-  return load(join(SKILLS_DIR, 'builder.md'))
+const skillCache = new Map<string, SkillCacheEntry>()
+let skillCacheLoaded = false
+let skillCacheLoadPromise: Promise<void> | null = null
+
+export async function ensureSkillCacheLoaded(): Promise<void> {
+  if (skillCacheLoaded) return
+  // Coalesce concurrent first-misses behind a single DB query —
+  // serverless cold starts hit this from N parallel chat requests.
+  if (skillCacheLoadPromise) return skillCacheLoadPromise
+  skillCacheLoadPromise = (async () => {
+    const all = await prisma.collaborator.findMany({
+      where: { isPlatformDefault: true, projectId: null },
+      select: { name: true, skillMd: true },
+    })
+    for (const c of all) {
+      skillCache.set(c.name.toLowerCase(), { content: c.skillMd, displayName: c.name })
+    }
+    skillCacheLoaded = true
+    skillCacheLoadPromise = null
+  })()
+  return skillCacheLoadPromise
+}
+
+/**
+ * Returns the skillMd for the given skillId (case-insensitive). Throws
+ * if the agent is not a platform default — callers should treat that as
+ * a bug, not a runtime fallback.
+ */
+export async function getSkillPrompt(skillId: string): Promise<string> {
+  await ensureSkillCacheLoaded()
+  const hit = skillCache.get(skillId.toLowerCase())
+  if (!hit) throw new Error(`Unknown skill: ${skillId}`)
+  return hit.content
+}
+
+/**
+ * Display name for an agent ('ceo' → 'CEO', 'devops' → 'DevOps'). Used
+ * by task logs / UI labels. Falls back to 'Claude' for unknown ids
+ * (matches the previous SKILL_NAMES behaviour).
+ */
+export async function getSkillName(skillId: string): Promise<string> {
+  await ensureSkillCacheLoaded()
+  return skillCache.get(skillId.toLowerCase())?.displayName ?? 'Claude'
+}
+
+/**
+ * Returns the full set of platform-default skill prompts plus a version
+ * tag the daemon can compare for drift detection. The version is a SHA-
+ * 256 hash of the concatenated (name, prompt) tuples — any edit to any
+ * skill flips the hash automatically, so we don't need a separate
+ * version column or a manual bump on the admin side.
+ *
+ * Used by the companion daemon to mirror the CompanionConfig flow:
+ *   1. fetch on startup → cache in RAM
+ *   2. SSE 'skills_updated' push → refetch
+ *   3. 5-min poll on /skills-version → refetch when hash drifts
+ */
+export async function loadAllSkillsForDaemon(): Promise<{
+  skills: Array<{ name: string; prompt: string }>
+  version: string
+}> {
+  await ensureSkillCacheLoaded()
+  // Iterate the cache in stable name order so the hash is deterministic
+  // across processes — two daemons fetching the same DB state must see
+  // the same version string.
+  const entries = Array.from(skillCache.values()).sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  )
+  const skills = entries.map((e) => ({ name: e.displayName, prompt: e.content }))
+  const hash = createHash('sha256')
+  for (const s of skills) {
+    hash.update(s.name)
+    hash.update('\0')
+    hash.update(s.prompt)
+    hash.update('\0')
+  }
+  const version = hash.digest('hex').slice(0, 16)
+  return { skills, version }
+}
+
+/**
+ * Drops cached entries so the next read pulls fresh from the DB.
+ * Pass a name to invalidate just one agent (case-insensitive) or omit
+ * to wipe everything. Call this from any handler that mutates skillMd.
+ */
+export function invalidateSkillCache(name?: string): void {
+  if (name) {
+    skillCache.delete(name.toLowerCase())
+  } else {
+    skillCache.clear()
+    skillCacheLoaded = false
+  }
 }
 
 // ── Specialty Prompts ─────────────────────────────────────────────────────
@@ -67,183 +156,23 @@ export function getCodeHealthPrompt(mode: 'full' | 'targeted'): string {
   return load(join(PROMPTS_DIR, `codehealth-${mode}.md`))
 }
 
-// ── When Prompts ─────────────────────────────────────────────────────────
-
-const WHEN_FILES = [
-  'when-explaining-what.md',
-  'when-explaining-how.md',
-  'when-comparing.md',
-  'when-discussing-code.md',
-  'when-planning.md',
-  'when-improving-code.md',
-  'when-refactoring.md',
-  'when-debugging.md',
-  'when-testing.md',
-  'when-devops.md',
-  'when-documentation.md',
-  'when-after-execution.md',
-]
-
-const MODES_DIR = join(PROMPTS_DIR, 'modes')
-
-export function getAllWhens(): string {
-  return WHEN_FILES.map(f => load(join(MODES_DIR, f))).join('\n\n')
-}
-
-/** Load a single mode file by filename (e.g. 'when-planning.md') */
-export function getModePrompt(fileName: string): string {
-  return load(join(MODES_DIR, fileName))
-}
-
-// ── Composed Prompts ──────────────────────────────────────────────────────
-
-/** System prompt for direct chat (no skill selected) — repo always present */
-export function buildChatPrompt(): string {
-  return [getBasePrompt(), getAllWhens(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
-}
-
-/** System prompt for skill chat (/ceo, /architect, etc.) — repo always present */
-export function buildSkillChatPrompt(skillId: string): string {
-  return [getBasePrompt(), getSkillPrompt(skillId), getAllWhens(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
-}
-
-/** System prompt for team chat pipeline — repo always present */
-export function buildTeamChatPrompt(): string {
-  return [getBasePrompt(), getTeamRules(), getAllWhens(), getBuildRules(), getTaskRules()].join('\n\n---\n\n')
-}
-
-/** System prompt for a specific employee within a team pipeline */
-export function buildTeamMemberPrompt(skillId: string): string {
-  return [getBasePrompt(), getSkillPrompt(skillId)].join('\n\n---\n\n')
-}
-
-/** System prompt for the builder within a team pipeline */
-export function buildTeamBuilderPrompt(): string {
-  return [getBasePrompt(), getBuilderPrompt()].join('\n\n---\n\n')
-}
-
 // ── Task Prompts ──────────────────────────────────────────────────────────
 
-/** System prompt for task execution (skill mode) */
-export function buildTaskSkillPrompt(skillId: string): string {
-  const parts = [getBasePrompt(), getSkillPrompt(skillId), getSuggestionsRules()]
-  return parts.join('\n\n---\n\n')
+/** System prompt for task execution (skill mode — single agent runs alone) */
+export async function buildTaskSkillPrompt(skillId: string): Promise<string> {
+  const skillMd = await getSkillPrompt(skillId)
+  return [getBasePrompt(), skillMd, getSuggestionsRules()].join('\n\n---\n\n')
 }
 
-/** System prompt for task execution (team member) */
-export function buildTaskTeamMemberPrompt(skillId: string): string {
-  return [getBasePrompt(), getSkillPrompt(skillId), getSuggestionsRules()].join('\n\n---\n\n')
+/** System prompt for task execution (team pipeline — non-builder member) */
+export async function buildTaskTeamMemberPrompt(skillId: string): Promise<string> {
+  const skillMd = await getSkillPrompt(skillId)
+  return [getBasePrompt(), skillMd, getSuggestionsRules()].join('\n\n---\n\n')
 }
 
-/** System prompt for task execution (builder) */
-export function buildTaskBuilderPrompt(): string {
-  return [getBasePrompt(), getBuilderPrompt(), getSuggestionsRules()].join('\n\n---\n\n')
+/** System prompt for task execution (team pipeline — builder step) */
+export async function buildTaskBuilderPrompt(): Promise<string> {
+  const skillMd = await getSkillPrompt('builder')
+  return [getBasePrompt(), skillMd, getSuggestionsRules()].join('\n\n---\n\n')
 }
 
-// ── Environment Block ─────────────────────────────────────────────────────
-
-// ── Permission Mode ───────────────────────────────────────────────────────
-
-export type PermissionMode = 'leitura' | 'planejamento' | 'edicao'
-
-const MODE_DESCRIPTIONS: Record<PermissionMode, string> = {
-  leitura: 'Leitura — você pode ler e analisar código livremente. Edições e execução de comandos requerem aprovação do usuário.',
-  planejamento: 'Planejamento — você pode ler e analisar código livremente. Produza um plano detalhado das ações que executaria, mas não execute nenhuma escrita ou comando.',
-  edicao: 'Edição — acesso total. Você pode ler, editar arquivos e executar comandos sem restrições.',
-}
-
-/**
- * Build a dynamic # Environment block injected as its own system prompt block.
- * Tells Claude which model it's running on, current date, and active permission mode.
- * Goes AFTER the static blocks so it never busts the static cache.
- */
-export function buildEnvironmentBlock(modelKey?: string, permissionMode?: PermissionMode, projectName?: string, repoName?: string): string {
-  const modelNames: Record<string, string> = {
-    haiku: 'Claude Haiku 4.5 (claude-haiku-4-5-20251001)',
-    sonnet: 'Claude Sonnet 4 (claude-sonnet-4-20250514)',
-    opus: 'Claude Opus 4 (claude-opus-4-20250514)',
-  }
-  const modelName = (modelKey && modelNames[modelKey]) ?? 'Claude Sonnet 4 (claude-sonnet-4-20250514)'
-  const today = new Date().toISOString().slice(0, 10)
-  const mode = permissionMode ?? 'leitura'
-  const modeDesc = MODE_DESCRIPTIONS[mode]
-
-  const permissionInstructions = mode === 'leitura'
-    ? `\n\nIf the user asks you to create, edit, or delete files — or run commands — you MUST NOT do it. Instead, respond normally explaining what you would do, then end your message with:\n[REQUEST_EDIT_PERMISSION: one sentence explaining what change you need to make]`
-    : mode === 'planejamento'
-    ? `\n\nYou may read and analyze files freely. When asked to implement something, produce a detailed step-by-step plan of exactly what you would do — files, changes, commands — but do NOT execute any writes or commands. Do not use [REQUEST_EDIT_PERMISSION].`
-    : ''
-
-  const projectLine = projectName ? `\n- Project: ${projectName}${repoName ? ` (${repoName})` : ''}` : ''
-
-  // Mode context — last instruction, reinforces current mode behavior
-  const modeContext = getModeContextPrompt(permissionMode)
-
-  return `# Environment
-
-- Model: ${modelName}
-- Date: ${today}
-- Latest Claude models — Opus 4.6: claude-opus-4-6, Sonnet 4.6: claude-sonnet-4-6, Haiku 4.5: claude-haiku-4-5-20251001${projectLine}
-
-# Permission Mode
-
-${modeDesc}${permissionInstructions}
-
----
-
-${modeContext}`
-}
-
-// ── Classified Prompt Builder ─────────────────────────────────────────────
-
-/**
- * Build system prompt parts based on classifier result.
- * Returns an array of parts to be sent as separate cached blocks:
- *   [0] base.md — identical across ALL requests → max cache hits
- *   [1] mode-specific behavior — stable per mode
- *   [2] build rules + task rules — stable, same for all
- *
- * The (modeFileName, isExecution) combo is memoized so repeated requests
- * with the same mode don't re-join the same strings.
- * Splitting into blocks lets Anthropic cache base.md independently of the
- * mode file, so a mode change still gets a cache hit on block 0.
- */
-export function buildClassifiedPrompt(modeFileName: string | null, isExecution: boolean): string[] {
-  const cacheKey = `${modeFileName ?? 'null'}:${isExecution}`
-  const cached = builtPromptCache.get(cacheKey)
-  if (cached) return cached
-
-  // Block 0: base — most stable, shared by every single request
-  const base = getBasePrompt()
-
-  // Block 1: mode-specific (stable per mode)
-  const modeParts: string[] = []
-  if (modeFileName) modeParts.push(load(join(MODES_DIR, modeFileName)))
-  if (isExecution) modeParts.push(load(join(MODES_DIR, 'when-after-execution.md')))
-
-  // Block 2: rules — same for all non-skill requests
-  const rules = [getBuildRules(), getTaskRules()].join('\n\n---\n\n')
-
-  const parts: string[] = [base]
-  if (modeParts.length > 0) parts.push(modeParts.join('\n\n---\n\n'))
-  parts.push(rules)
-
-  builtPromptCache.set(cacheKey, parts)
-  return parts
-}
-
-/** Returns the small mode-context prompt based on permission mode — always the last system block */
-export function getModeContextPrompt(permissionMode?: PermissionMode): string {
-  if (permissionMode === 'edicao') return load(join(MODES_DIR, 'when-mode-agent.md'))
-  if (permissionMode === 'planejamento') return load(join(MODES_DIR, 'when-mode-plan.md'))
-  return load(join(MODES_DIR, 'when-mode-ask.md'))
-}
-
-// ── Skill Name Map ────────────────────────────────────────────────────────
-
-export const SKILL_NAMES: Record<string, string> = {
-  ceo: 'CEO',
-  architect: 'Architect',
-  designer: 'Designer',
-  security: 'Security',
-}

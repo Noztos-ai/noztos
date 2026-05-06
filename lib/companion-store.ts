@@ -157,7 +157,7 @@ class CompanionStore {
     // server — without this, a PATCH fired upfront 404s because the
     // chat-session/worktree don't exist yet during provisioning.
     pendingRename?: string
-    opts?: { mode?: 'plan' | 'ask' | 'agent'; model?: string; thinking?: 'off' | 'low' | 'medium' | 'high' }
+    opts?: { mode?: 'plan' | 'ask' | 'agent'; model?: string; thinking?: 'off' | 'low' | 'medium' | 'high'; skillId?: string | null }
   }>> = new Map()
 
   // ── Snapshot helpers (referentially stable between notifies) ──
@@ -332,7 +332,7 @@ class CompanionStore {
       userMsgId?: string
       // Title to apply after the worktree finalises (server-confirmed).
       pendingRename?: string
-      opts?: { mode?: 'plan' | 'ask' | 'agent'; model?: string; thinking?: 'off' | 'low' | 'medium' | 'high' }
+      opts?: { mode?: 'plan' | 'ask' | 'agent'; model?: string; thinking?: 'off' | 'low' | 'medium' | 'high'; skillId?: string | null }
       // Display split — see sendPrompt() for the full rationale. Forwarded
       // through the queue so the eventual drain preserves the user-only
       // bubble content + chips instead of dumping raw diff text.
@@ -736,6 +736,11 @@ class CompanionStore {
       mode?: 'plan' | 'ask' | 'agent'
       model?: string
       thinking?: 'off' | 'low' | 'medium' | 'high'
+      // Active agent skill (e.g. 'ceo', 'tester'). When the user picked
+      // an agent via the slash-command picker, this id is forwarded to
+      // the daemon so it can prepend that agent's skillMd to the system
+      // prompt. null/undefined = regular chat without an agent persona.
+      skillId?: string | null
     },
     // Caller-provided id for the user message row. Used by the
     // worktree-pending queue path so the row inserted optimistically
@@ -780,6 +785,7 @@ class CompanionStore {
           mode: opts?.mode ?? 'agent',
           model: opts?.model,
           thinking: opts?.thinking ?? 'off',
+          skillId: opts?.skillId ?? null,
         }),
       })
       if (!res.ok) {

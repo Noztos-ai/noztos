@@ -11,7 +11,7 @@ import {
   getSecurityScanPrompt,
   getCodeHealthPrompt,
   getSuggestionsRules,
-  SKILL_NAMES,
+  getSkillName,
 } from '@/lib/prompts'
 
 // ── Task Runner ───────────────────────────────────────────────────────────
@@ -351,10 +351,10 @@ async function runSkillTask(options: {
   model?: string
   skillId: string | null
 }): Promise<RunResult> {
-  const skillName = options.skillId ? (SKILL_NAMES[options.skillId] ?? 'Claude') : 'Claude'
+  const skillName = options.skillId ? await getSkillName(options.skillId) : 'Claude'
 
   const systemPrompt = options.skillId
-    ? `${buildTaskSkillPrompt(options.skillId)}\n\nYou are executing a task autonomously. No user interaction — complete the work based on the instructions provided.`
+    ? `${await buildTaskSkillPrompt(options.skillId)}\n\nYou are executing a task autonomously. No user interaction — complete the work based on the instructions provided.`
     : `${getSuggestionsRules()}\n\nYou are a skilled developer executing a task autonomously. Complete the work based on the instructions provided.`
 
   // Conversation/review mode — read tools only (can read files, not write)
@@ -537,9 +537,10 @@ ${isBuilder ? '' : 'CONVERSATION only. Do NOT write code.'}`
 
       if (isBuilder && options.canBuild && options.repositoryId) {
         // Builder executes code
+        const builderPrompt = await buildTaskBuilderPrompt()
         const buildResult = await runBuildLoop({
           encryptedToken: options.encryptedToken,
-          systemPrompt: `${buildTaskBuilderPrompt()}\n\nCONTEXT FROM TEAM:\n${previousOutput}`,
+          systemPrompt: `${builderPrompt}\n\nCONTEXT FROM TEAM:\n${previousOutput}`,
           userMessage: previousOutput,
           repositoryId: options.repositoryId,
           projectId: options.projectId,
@@ -553,7 +554,7 @@ ${isBuilder ? '' : 'CONVERSATION only. Do NOT write code.'}`
         // Non-builder: with read tools to analyze code
         const systemPrompt = collab.skillMd
           ? `${collab.skillMd}\n\n${getSuggestionsRules()}`
-          : `${buildTaskTeamMemberPrompt(collab.name.toLowerCase())}`
+          : await buildTaskTeamMemberPrompt(collab.name.toLowerCase())
         const readResult = await runReadToolLoop({
           encryptedToken: options.encryptedToken,
           systemPrompt: `${systemPrompt}\n\n${memberContext}`,

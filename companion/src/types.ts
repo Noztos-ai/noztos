@@ -69,7 +69,7 @@ export interface CompanionCommand {
   //   • cleanup_project    — best-effort `rm -rf` on the project's worktrees
   //                          dir. Enqueued by DELETE /api/projects when the
   //                          daemon was offline at delete time.
-  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project' | 'init_project' | 'setup_claude' | 'claude_status' | 'scan_repos' | 'query_running' | 'config_updated' | 'pty_attach' | 'pty_input' | 'pty_resize' | 'pty_detach' | 'relabel_project' | 'unregister_project' | 'cleanup_project'
+  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project' | 'init_project' | 'setup_claude' | 'claude_status' | 'scan_repos' | 'query_running' | 'config_updated' | 'skills_updated' | 'pty_attach' | 'pty_input' | 'pty_resize' | 'pty_detach' | 'relabel_project' | 'unregister_project' | 'cleanup_project'
   sessionId?: string
   projectId?: string
   // For relabel_project: id the daemon currently uses for this project (the
@@ -117,6 +117,12 @@ export interface CompanionCommand {
   // at the start of the prompt. 'off' = no injection. Haiku ignores this
   // (model has no extended-thinking support).
   thinking?: 'off' | 'low' | 'medium' | 'high'
+  // Active skill (case-insensitive name like 'ceo', 'tester'). When set,
+  // the daemon prepends that agent's skillMd to --append-system-prompt
+  // alongside the mode prompt. Pulled from the skill cache populated by
+  // skill-config.ts (mirrors how config_updated drives modePrompts).
+  // null/undefined = regular chat without an agent persona.
+  skillId?: string | null
   // Stable id the browser already used for its optimistic render of the
   // user's prompt. When present we use it as the userRow persistRow id
   // so the same id flows browser → daemon queue → ring buffer → DB —

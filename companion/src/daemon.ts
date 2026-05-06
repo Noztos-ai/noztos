@@ -7,6 +7,7 @@ import { loadConfig } from './config.js'
 import { detectClaudeAuth, detectClaudeInstallation, getClaudeVersion } from './auth-detect.js'
 import { ClaudeBridge, getActiveConfig } from './claude-bridge.js'
 import { refreshPromptConfig, startPromptConfigPolling } from './prompt-config.js'
+import { refreshSkillConfig, startSkillConfigPolling } from './skill-config.js'
 import { ProjectWatcher, type FsChangeBatch } from './fs-watcher.js'
 import { SyncQueue, type QueuedEvent } from './sync-queue.js'
 import { SyncWorker } from './sync-worker.js'
@@ -120,6 +121,13 @@ export class Daemon extends EventEmitter {
     // values. Backup polling runs every 5 minutes in case SSE drops.
     void refreshPromptConfig('startup')
     startPromptConfigPolling(() => getActiveConfig().version)
+    // Sibling fetch for skill prompts (CEO/Architect/Tester/…). Same
+    // RAM-only privacy guarantee as the mode prompts above. If the call
+    // fails, the skill cache stays empty and chat falls back to the
+    // bare mode prompt — no slash command crashes, just no agent
+    // persona until the next refresh succeeds.
+    void refreshSkillConfig('startup')
+    startSkillConfigPolling()
   }
 
   stop(): void {
@@ -289,6 +297,14 @@ export class Daemon extends EventEmitter {
         // is just a safety net in case SSE silently dropped.
         console.log('[isolation] received SSE config_updated push — refreshing prompts')
         void refreshPromptConfig('sse-push')
+        break
+      case 'skills_updated':
+        // Sibling channel of config_updated for the agent skill prompts
+        // (CEO, Tester, Builder…). Same shape, different cache —
+        // skill-config.ts owns the in-memory skill store consumed by
+        // claude-bridge.ts on the next spawn.
+        console.log('[isolation] received SSE skills_updated push — refreshing skills')
+        void refreshSkillConfig('sse-push')
         break
       case 'create_project':
         this.handleCreateProject(cmd)
@@ -658,6 +674,7 @@ export class Daemon extends EventEmitter {
     bridge = new ClaudeBridge(cwd, cmd.sessionId ?? undefined, cmd.mode ?? 'agent', {
       model: cmd.model,
       thinking: cmd.thinking,
+      skillId: cmd.skillId ?? null,
     })
     this.bridges.set(bridgeKey, bridge)
 

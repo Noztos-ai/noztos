@@ -6562,6 +6562,11 @@ function ChatPanel({
       // Haiku has no extended-thinking support — force 'off' regardless
       // of the stored selector state (UI already disables the picker).
       thinking: (selectedModel === 'haiku' ? 'off' : (thinkingLevel as 'off' | 'low' | 'medium' | 'high')) as 'off' | 'low' | 'medium' | 'high',
+      // Active agent skill (only when the user picked one via slash). The
+      // daemon prepends that agent's skillMd to the system prompt; chat
+      // without a skill ('no_skill' mode) sends null and the daemon
+      // falls back to the bare mode prompt.
+      skillId: activeMode === 'skill' ? (activeSkillId ?? null) : null,
     }
 
     // If the user fired off this prompt while their worktree is still

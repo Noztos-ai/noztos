@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     type, projectId, prompt, sessionId, repoUrl, targetPath, template,
-    bornastarSessionId, claudeSessionId, mode, model, thinking, userMsgId,
+    bornastarSessionId, claudeSessionId, mode, model, thinking, userMsgId, skillId,
   } = body as {
     type: string
     projectId?: string
@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     // daemon will use it as the persistRow id so the optimistic render,
     // the ring buffer, and the DB all share one id.
     userMsgId?: string
+    // Active agent skill name (e.g. 'ceo', 'tester'). Forwarded to the
+    // daemon so it can prepend that agent's skillMd to the system
+    // prompt during spawn. null = regular chat without an agent persona.
+    skillId?: string | null
   }
 
   if (!type) {
@@ -86,6 +90,7 @@ export async function POST(request: NextRequest) {
     mode,
     model,
     thinking,
+    skillId: skillId ?? null,
     worktreePath,
     bornastarSessionId,
     userMsgId,
