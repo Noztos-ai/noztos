@@ -82,12 +82,33 @@ interface Team {
   canRecreateTasks: Record<string, string> // employeeId → redirectTo employeeId
 }
 
+// ── Built-in workflows (fixed) ─────────────────────────────────────────────
+//
+// V1: workflows são providos por nós (não user-customizable). Lista
+// hardcoded aqui pra UI mostrar pro user. Cada workflow tem trigger
+// (slash command no chat) + sequência fixa de agents.
+
+interface BuiltinWorkflow {
+  id: string
+  name: string
+  trigger: string                 // ex: "/build"
+  description: string
+  agentSequence: string[]         // employee ids na ordem de execução
+}
+
+const BUILTIN_WORKFLOWS: BuiltinWorkflow[] = [
+  {
+    id: 'builder',
+    name: 'Build',
+    trigger: '/build',
+    description: 'Multi-agent code construction. Plans, designs, builds, and reviews end-to-end.',
+    agentSequence: ['architect', 'builder', 'reviewer'],
+  },
+]
+
 // ── Main Panel ─────────────────────────────────────────────────────────────
 
 export function MyTeamPanel() {
-  const [showTeamModal, setShowTeamModal] = useState(false)
-  const [teams, setTeams] = useState<Team[]>([])
-
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left: Agents — 50% */}
@@ -104,51 +125,58 @@ export function MyTeamPanel() {
         </div>
       </div>
 
-      {/* Right: Workflows — 50% */}
+      {/* Right: Workflows — 50% (fixed, no user-customizable workflows in V1) */}
       <div className="flex w-1/2 flex-col p-6" style={{ backgroundColor: '#1F1F1F' }}>
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6">
           <h2 className="text-lg font-semibold text-zinc-200">Workflows</h2>
-          <button
-            onClick={() => setShowTeamModal(true)}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500"
-          >
-            + Create
-          </button>
+          <p className="mt-1 text-xs text-zinc-500">
+            Pre-built multi-agent flows. Invoke from any chat with the trigger.
+          </p>
         </div>
 
-        {teams.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="rounded-full bg-white/5 p-4">
-              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
-              </svg>
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-zinc-300">Create your first workflow</p>
-              <p className="mt-1 text-xs text-zinc-500">Organize agents into workflows with execution order</p>
-            </div>
-            <button
-              onClick={() => setShowTeamModal(true)}
-              className="rounded-full bg-violet-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
-            >
-              Create workflow
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {teams.map((team, i) => (
-              <TeamCard key={i} team={team} />
-            ))}
-          </div>
-        )}
+        <div className="space-y-3">
+          {BUILTIN_WORKFLOWS.map((wf) => (
+            <BuiltinWorkflowCard key={wf.id} workflow={wf} />
+          ))}
+        </div>
       </div>
+    </div>
+  )
+}
 
-      {showTeamModal && (
-        <TeamBuilderModal
-          onConfirm={(team) => { setTeams((prev) => [...prev, team]); setShowTeamModal(false) }}
-          onClose={() => setShowTeamModal(false)}
-        />
-      )}
+// ── Built-in Workflow Card ────────────────────────────────────────────────
+
+function BuiltinWorkflowCard({ workflow }: { workflow: BuiltinWorkflow }) {
+  return (
+    <div className="overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 p-4 shadow-lg">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-white">{workflow.name}</p>
+        <code className="rounded bg-white/10 px-2 py-0.5 text-[11px] font-mono text-emerald-300">
+          {workflow.trigger}
+        </code>
+      </div>
+      <p className="mb-3 text-[11px] leading-relaxed text-zinc-400">{workflow.description}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {workflow.agentSequence.map((id, i) => {
+          const emp = getEmployee(id)
+          if (!emp) return null
+          return (
+            <div key={id} className="flex items-center gap-1">
+              <span className={`rounded-md bg-gradient-to-br ${emp.color} px-2 py-1 text-[10px] font-semibold text-white shadow-sm`}>
+                {emp.name}
+              </span>
+              {i < workflow.agentSequence.length - 1 && (
+                <svg className="h-3 w-3 text-zinc-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <p className="mt-3 text-[10px] text-zinc-500">
+        Type <code className="rounded bg-white/5 px-1 text-zinc-300">{workflow.trigger} {'{task}'}</code> in any worktree-scoped chat to run.
+      </p>
     </div>
   )
 }

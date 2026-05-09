@@ -71,7 +71,8 @@ export const ModelName = {
   SlackLog: 'SlackLog',
   ResourceUsage: 'ResourceUsage',
   TeamRun: 'TeamRun',
-  BuildSession: 'BuildSession'
+  BuildSession: 'BuildSession',
+  WorkflowRun: 'WorkflowRun'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -454,6 +455,25 @@ export const BuildSessionScalarFieldEnum = {
 } as const
 
 export type BuildSessionScalarFieldEnum = (typeof BuildSessionScalarFieldEnum)[keyof typeof BuildSessionScalarFieldEnum]
+
+
+export const WorkflowRunScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  projectId: 'projectId',
+  userId: 'userId',
+  workflowType: 'workflowType',
+  userMessage: 'userMessage',
+  status: 'status',
+  plan: 'plan',
+  progress: 'progress',
+  finalResponse: 'finalResponse',
+  errorReason: 'errorReason',
+  createdAt: 'createdAt',
+  completedAt: 'completedAt'
+} as const
+
+export type WorkflowRunScalarFieldEnum = (typeof WorkflowRunScalarFieldEnum)[keyof typeof WorkflowRunScalarFieldEnum]
 
 
 export const SortOrder = {

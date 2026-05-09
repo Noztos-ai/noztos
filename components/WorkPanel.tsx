@@ -26,13 +26,14 @@ import { XTermPanel } from './Terminal/XTermPanel'
 import { type ChatMessage } from '@/lib/hooks/useCompanionStream'
 import { companionStore } from '@/lib/companion-store'
 import {
-  useChatMessages, useChatIsRunning,
+  useChatMessages, useChatIsRunning, useWorkflowRunId,
   useBusySessions, useUnreadSessions, useCompanionStatus, useCompanionInfo, usePendingSessions,
   usePendingAttachments,
 } from '@/lib/hooks/useCompanionStore'
 import { CompanionProvider, setActiveSessionIdForUnread } from './CompanionProvider'
 import { ClaudeToolCard, SessionResultCard, ModeSelector, ModelSelector, ThinkingSelector, CompanionStatusBadge, WorkBlock, TodoBlock, ExitPlanModeBlock } from './ClaudeToolCard'
 import { ReportBadge } from './ChatReport'
+import { WorkflowRunCard } from './WorkflowRunCard'
 import type { ChatReport } from '@/lib/report-types'
 
 // ── Thinking Indicator ────────────────────────────────────────────────────
@@ -59,6 +60,26 @@ const THINKING_PHASES_TEAM = [
   'Employees analyzing their parts...',
   'Processing through the pipeline...',
   'Consolidating team outputs...',
+]
+
+// ── Built-in workflows (slash-command picker) ──────────────────────────────
+//
+// V1 ships with a single fixed workflow ("/build"). Listed here so the chat
+// slash-command picker can surface them. Mirrors the list in MyTeamPanel.
+interface BuiltinWorkflowItem {
+  id: string
+  name: string
+  trigger: string
+  description: string
+}
+
+const BUILTIN_WORKFLOWS: BuiltinWorkflowItem[] = [
+  {
+    id: 'builder',
+    name: 'Build',
+    trigger: '/build',
+    description: 'Multi-agent code construction. Plans, designs, builds, and reviews end-to-end.',
+  },
 ]
 
 function ThinkingIndicator({ mode, employeeName }: { mode: 'direct' | 'skill' | 'team'; employeeName?: string }) {
@@ -5918,7 +5939,7 @@ function ChatPanel({
   // switching to another chat, pick the text back up.
   const [input, setInput] = useState(() => companionStore.getDraft(sessionId))
   const [showSelector, setShowSelector] = useState(false)
-  const [selectorTab, setSelectorTab] = useState<'employees' | 'teams'>('employees')
+  const [selectorTab, setSelectorTab] = useState<'employees' | 'workflows'>('employees')
   const [attachments, setAttachments] = useState<{ file: File; preview: string; type: 'image' | 'pdf' | 'text' }[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [contextPaths, setContextPaths] = useState<string[]>([])
@@ -5931,6 +5952,8 @@ function ChatPanel({
   // feeding every chat's slice).
   const messages = useChatMessages(sessionId)
   const isRunning = useChatIsRunning(sessionId)
+  // Builder Workflow attached? Renders WorkflowRunCard below messages.
+  const workflowRunId = useWorkflowRunId(sessionId)
   const companionStatus = useCompanionStatus()
   const companionInfo = useCompanionInfo()
   const companionConnected = companionStatus === 'connected'
@@ -6445,8 +6468,19 @@ function ChatPanel({
       const allNames = [
         ...hiredEmployees.map((e) => e.name.toLowerCase()),
         ...teams.map((t) => t.name.toLowerCase()),
+        ...BUILTIN_WORKFLOWS.flatMap((w) => [w.name.toLowerCase(), w.trigger.slice(1).toLowerCase()]),
       ]
       const hasMatch = filter === '' || allNames.some((n) => n.includes(filter))
+
+      // Surface the workflows tab when the filter looks like a workflow name/trigger.
+      // (Pure UX — doesn't gate sending; sendMessage still detects /<trigger> directly.)
+      if (filter.length > 0) {
+        const matchesWorkflow = BUILTIN_WORKFLOWS.some(
+          (w) => w.name.toLowerCase().includes(filter) || w.trigger.slice(1).toLowerCase().includes(filter)
+        )
+        const matchesEmployee = hiredEmployees.some((e) => e.name.toLowerCase().includes(filter))
+        if (matchesWorkflow && !matchesEmployee) setSelectorTab('workflows')
+      }
 
       // Check for exact match — auto-select immediately
       const exactEmp = hiredEmployees.find((e) => e.name.toLowerCase() === filter)
@@ -6620,10 +6654,61 @@ function ChatPanel({
     }
 
     if (autoTitle) onSessionRenamed(autoTitle)
+
+    // ── Slash command detection ──────────────────────────────────
+    // `/build {task}` invoca o Builder Workflow (team delegation in-chat)
+    // em vez de mandar o prompt pro Claude solo. Insere a mensagem do
+    // user normalmente no chat e dispara /api/workflow/start em
+    // paralelo. Card de progresso aparece após o run iniciar.
+    const slashMatch = content.match(/^\s*\/build\s+([\s\S]+)$/)
+    if (slashMatch) {
+      const task = slashMatch[1].trim()
+      if (task.length === 0) {
+        console.warn('[chat] /build with no task ignored')
+        return
+      }
+      // Insere a mensagem do user no chat (visualização)
+      companionStore.upsertMessage(sessionId, {
+        id: companionStore.mintStableId(),
+        role: 'user',
+        content,
+        timestamp: Date.now(),
+      })
+      // Dispara workflow
+      try {
+        const res = await fetch('/api/workflow/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            userMessage: task,
+            mode: claudeMode === 'plan' ? 'ask' : 'agent',
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          console.error('[chat] /build failed:', data.error)
+          companionStore.upsertMessage(sessionId, {
+            id: companionStore.mintStableId(),
+            role: 'system',
+            content: `Builder Workflow falhou ao iniciar: ${data.error ?? res.statusText}`,
+            timestamp: Date.now(),
+          })
+          return
+        }
+        console.log(`[chat] /build started runId=${data.runId.slice(0, 8)}`)
+        companionStore.attachWorkflowRun(sessionId, data.runId)
+      } catch (err) {
+        console.error('[chat] /build exception:', err)
+      }
+      return
+    }
+
     await companionStore.sendPrompt(sessionId, companionProjectId, content, opts, undefined, displaySplit)
   }
 
-  const hasAnyone = hiredEmployees.length > 0 || teams.length > 0
+  // Workflows are always present (built-in), so the picker always has content.
+  const hasAnyone = hiredEmployees.length > 0 || BUILTIN_WORKFLOWS.length > 0
 
   // Get color for sender
   function getSenderColor(sender: string): string {
@@ -6995,7 +7080,10 @@ function ChatPanel({
             )
           })
         })()}
-        {isRunning && (
+        {workflowRunId && (
+          <WorkflowRunCard sessionId={sessionId} runId={workflowRunId} />
+        )}
+        {isRunning && !workflowRunId && (
           <ThinkingIndicator mode="direct" />
         )}
 
@@ -7009,7 +7097,7 @@ function ChatPanel({
         {showSelector && (
           <div className="absolute bottom-full left-0 right-0 z-10 border-t border-zinc-200 bg-white p-3 shadow-lg">
             {!hasAnyone ? (
-              <p className="text-xs text-zinc-500">No employees or teams yet. Go to <strong>My Team</strong> to hire and create teams.</p>
+              <p className="text-xs text-zinc-500">No employees or workflows yet.</p>
             ) : (
               <>
                 <div className="mb-2 flex gap-2">
@@ -7020,10 +7108,10 @@ function ChatPanel({
                     Employees
                   </button>
                   <button
-                    onClick={() => setSelectorTab('teams')}
-                    className={`rounded px-2 py-1 text-[10px] font-medium ${selectorTab === 'teams' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-600'}`}
+                    onClick={() => setSelectorTab('workflows')}
+                    className={`rounded px-2 py-1 text-[10px] font-medium ${selectorTab === 'workflows' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-600'}`}
                   >
-                    Teams
+                    Workflows
                   </button>
                 </div>
 
@@ -7048,24 +7136,35 @@ function ChatPanel({
                   )
                 })()}
 
-                {selectorTab === 'teams' && (() => {
-                  const filtered = teams.filter((t) => !slashFilter || t.name.toLowerCase().includes(slashFilter))
+                {selectorTab === 'workflows' && (() => {
+                  const filtered = BUILTIN_WORKFLOWS.filter((wf) =>
+                    !slashFilter ||
+                    wf.name.toLowerCase().includes(slashFilter) ||
+                    wf.trigger.slice(1).toLowerCase().includes(slashFilter)
+                  )
                   return (
                     <div className="space-y-1.5">
                       {filtered.length === 0 ? (
-                        <p className="text-xs text-zinc-400">{teams.length === 0 ? 'No teams created yet.' : 'No match.'}</p>
+                        <p className="text-xs text-zinc-400">No match.</p>
                       ) : (
-                        filtered.map((team) => (
+                        filtered.map((wf) => (
                           <button
-                            key={team.id}
-                            onClick={() => { onSelectTeam(team); setShowSelector(false); setInput(''); setSlashFilter('') }}
-                            className="flex w-full items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2 text-left transition-colors hover:bg-zinc-700"
+                            key={wf.id}
+                            onClick={() => {
+                              // Pre-fill the input with the trigger so the user just types the task.
+                              setInput(`${wf.trigger} `)
+                              setShowSelector(false)
+                              setSlashFilter('')
+                              // Focus textarea so user can immediately type the task.
+                              requestAnimationFrame(() => chatTextareaRef.current?.focus())
+                            }}
+                            className="flex w-full flex-col gap-0.5 rounded-lg bg-zinc-800 px-3 py-2 text-left transition-colors hover:bg-zinc-700"
                           >
-                            <span className="text-xs font-semibold text-white">{team.name}</span>
-                            <span className="text-[10px] text-zinc-400">{team.order.length} members</span>
-                            {!team.hasBuilder && (
-                              <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[9px] text-amber-400">no builder</span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-white">{wf.name}</span>
+                              <span className="rounded bg-zinc-700 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300">{wf.trigger}</span>
+                            </div>
+                            <span className="text-[10px] text-zinc-400">{wf.description}</span>
                           </button>
                         ))
                       )}

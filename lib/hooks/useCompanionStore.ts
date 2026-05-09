@@ -60,6 +60,20 @@ export function useChatIsRunning(sessionId: string | null | undefined): boolean 
   return !!sessionId && busy.has(sessionId)
 }
 
+// Active Builder Workflow run attached to a chat. Returns null when
+// nenhum workflow está rodando neste chat.
+export function useWorkflowRunId(sessionId: string | null | undefined): string | null {
+  const subscribe = useCallback(
+    (cb: () => void) => sessionId ? companionStore.subscribeSlice(sessionId, cb) : () => {},
+    [sessionId],
+  )
+  const getSnapshot = useCallback(
+    () => sessionId ? companionStore.getWorkflowRunId(sessionId) : null,
+    [sessionId],
+  )
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
 export function useUnreadSessions(): Set<string> {
   return useSyncExternalStore(
     (cb) => companionStore.subscribeUnread(cb),

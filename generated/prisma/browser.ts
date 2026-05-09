@@ -122,3 +122,8 @@ export type TeamRun = Prisma.TeamRunModel
  * 
  */
 export type BuildSession = Prisma.BuildSessionModel
+/**
+ * Model WorkflowRun
+ * 
+ */
+export type WorkflowRun = Prisma.WorkflowRunModel

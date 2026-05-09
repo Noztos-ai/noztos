@@ -66,6 +66,10 @@ interface ChatSlice {
   // Last time any code touched this slice — read, write, or a
   // ChatPanel subscribing to it. Drives LRU + idle eviction.
   lastAccessedAt: number
+  // Active Builder Workflow run attached to this chat. When set, UI
+  // renders WorkflowRunCard polling /api/workflow/[runId]. Cleared
+  // when run reaches terminal status.
+  workflowRunId: string | null
 }
 
 export interface CompanionInfo {
@@ -82,7 +86,14 @@ export interface CompanionInfo {
 type Listener = () => void
 
 function emptySlice(): ChatSlice {
-  return { messages: new Map(), claudeSessionId: null, costUsd: 0, sortedCache: null, lastAccessedAt: Date.now() }
+  return {
+    messages: new Map(),
+    claudeSessionId: null,
+    costUsd: 0,
+    sortedCache: null,
+    lastAccessedAt: Date.now(),
+    workflowRunId: null,
+  }
 }
 
 class CompanionStore {
@@ -664,6 +675,31 @@ class CompanionStore {
     next.delete(sessionId)
     this.runningSessionIds = next
     this.notifyRunning()
+  }
+
+  // ── Workflow run attachment ──────────────────────────────────
+  // Quando user invoca /build, o workflow runner cria uma WorkflowRun
+  // e a UI precisa saber: "esse chat tá com workflow X rodando, poll
+  // /api/workflow/X". O store carrega esse runId por slice.
+
+  attachWorkflowRun(sessionId: string, runId: string): void {
+    const slice = this.getOrCreateSlice(sessionId)
+    if (slice.workflowRunId === runId) return
+    slice.workflowRunId = runId
+    this.markBusy(sessionId)
+    this.notifySlice(sessionId)
+  }
+
+  detachWorkflowRun(sessionId: string): void {
+    const slice = this.slices.get(sessionId)
+    if (!slice || slice.workflowRunId === null) return
+    slice.workflowRunId = null
+    this.markIdle(sessionId)
+    this.notifySlice(sessionId)
+  }
+
+  getWorkflowRunId(sessionId: string): string | null {
+    return this.slices.get(sessionId)?.workflowRunId ?? null
   }
 
   markUnread(sessionId: string): void {

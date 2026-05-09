@@ -100,6 +100,7 @@ model Project {
   tasks          Task[]
   teamRuns       TeamRun[]
   teams          Team[]
+  workflowRuns   WorkflowRun[]
 
   @@index([userId])
   @@index([userId, deletedAt])
@@ -324,6 +325,7 @@ model ChatSession {
   updatedAt      DateTime       @updatedAt
   messages       ChatMessage[]
   todos          Todo[]
+  workflowRuns   WorkflowRun[]
   project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   worktree       Worktree?      @relation(fields: [worktreeId], references: [id], onDelete: Cascade)
 
@@ -589,6 +591,50 @@ model BuildSession {
 
   @@index([projectId, active])
   @@map("build_sessions")
+}
+
+// ── Team Workflow Runs ─────────────────────────────────────────────
+// Persistência da execução de um workflow fixo (Builder, Review, etc).
+// Disparado quando user invoca slash command no chat (ex: /build {task}).
+//
+// `plan` é o output do Planner (blocks com objective rico).
+// `progress` é o estado vivo da run (blocks status, steps por agent,
+// rejection counts, artifacts paths, current step). UI poller lê
+// daqui pra renderizar o card vivo.
+//
+// `finalResponse` é a mensagem que o último Reviewer escreveu pra
+// devolver ao chat — depois de inserida como ChatMessage, pode ser
+// limpa ou mantida pra audit.
+model WorkflowRun {
+  id             String        @id @default(cuid())
+  sessionId      String
+  projectId      String
+  userId         String
+  // Identifica qual workflow fixo: 'builder', 'review', 'test', etc.
+  // V1 só tem 'builder'. Adicionamos outros sem mudar schema.
+  workflowType   String
+  // Mensagem do user (parte depois do slash command).
+  userMessage    String
+  // 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  status         String        @default("pending")
+  // Output do Planner: { rationale?, blocks: [{name, objective, estimatedFiles?}] }
+  plan           Json?
+  // Estado vivo: { blocks: [{ index, name, status, currentStep?, turns: [...] }], currentBlockIndex }
+  progress       Json          @default("{}")
+  // Resposta que o último Reviewer redigiu pro user. Após postar como
+  // ChatMessage, fica aqui pra audit.
+  finalResponse  String?
+  // Quando algo falha, motivo human-readable.
+  errorReason    String?
+  createdAt      DateTime      @default(now())
+  completedAt    DateTime?
+  session        ChatSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status])
+  @@index([projectId, createdAt])
+  @@index([userId])
+  @@map("workflow_runs")
 }
 
 enum TaskStatus {
