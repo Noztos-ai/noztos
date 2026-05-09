@@ -265,6 +265,10 @@ export function setCachedGitStatus<T>(key: string, value: T): void {
   gitStatusCache.set(key, value as unknown)
 }
 
+export function subscribeCachedGitStatus(key: string, listener: Listener): () => void {
+  return gitStatusCache.subscribe(key, listener)
+}
+
 // ── Per-worktree file-diff hunks cache ────────────────────────────────────
 // One slice per worktreeId; inside each slice a Record<filePath, FileDiff>.
 // Stores raw content + originalContent (NOT pre-computed hunks) — hunks

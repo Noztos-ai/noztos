@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { MOCK_GIT_STATUS } from '@/lib/mocks/checks-demo'
-import { getCachedGitStatus, setCachedGitStatus, clearWorktreeCache } from '@/lib/worktree-cache'
+import { getCachedGitStatus, setCachedGitStatus, subscribeCachedGitStatus, clearWorktreeCache } from '@/lib/worktree-cache'
 
 // Module-level dedupe — multiple useGitStatus consumers can mount for the
 // same worktree (ChecksPanel + WorkPanel header). Without this, both would
@@ -199,6 +199,27 @@ export function useGitStatus(projectId: string, sessionId: string | null, worktr
     // worktree's success doesn't carry over.
     advancedRef.current = false
   }, [worktreeId])
+
+  // Cache parity with `subscribeCachedFiles` (Changes panel pattern):
+  //   - On worktree/session switch, snap immediately to whatever the cache
+  //     has for the new key — instant correct render of the Commit/Push
+  //     and Create-PR buttons (they previously showed the prior worktree's
+  //     state until the next fetch resolved, ~200-1500ms of glitch).
+  //   - Subscribe so any other consumer's update (header polling vs
+  //     ChecksPanel polling vs an explicit `clearWorktreeCache`) flows
+  //     into this hook's state too. Single source of truth = one cache
+  //     slice per key, every consumer subscribed.
+  useEffect(() => {
+    const key = gitStatusCacheKey(sessionId, worktreeId)
+    setStatus(getCachedGitStatus<GitStatus>(key) ?? null)
+    return subscribeCachedGitStatus(key, () => {
+      const next = getCachedGitStatus<GitStatus>(key)
+      // `next` is undefined after a `clearWorktreeCache` — surface as null
+      // so dependent UI (buttons, badges) drops to the "no data" branch
+      // until the imminent refetch fills it back in.
+      setStatus(next ?? null)
+    })
+  }, [sessionId, worktreeId])
 
   useEffect(() => {
     mounted.current = true

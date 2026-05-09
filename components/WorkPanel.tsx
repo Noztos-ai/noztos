@@ -1682,6 +1682,29 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
     } catch { /* ignore */ }
   }, [projectId])
 
+  // Self-healing for "active worktree disappeared" — when the user is
+  // viewing a worktree and it gets archived/deleted (from this sidebar,
+  // ChecksPanel, or any other surface), the worktrees list refreshes
+  // without it but `activeWorktreeId` would still point at the gone row.
+  // The work area would render against stale state and bug out. Drop
+  // back to the minimized state instead — same shape as the initial
+  // project-entry landing (`!preserveActive` branch above).
+  // Source-agnostic: triggers whenever `worktrees` updates, regardless
+  // of who caused the deletion. Mirrors the existing handler at
+  // line ~1996 that resets on failed-provision rollback.
+  useEffect(() => {
+    if (!activeWorktreeId) return
+    // No length guard: deleting the user's only worktree leaves the list
+    // legitimately empty, and we still need to drop them back to the
+    // minimized state. Initial mount can't trip this — `activeWorktreeId`
+    // starts null, so the early return above fires first.
+    const stillExists = worktrees.some((w) => w.id === activeWorktreeId)
+    if (!stillExists) {
+      setActiveWorktreeId(null)
+      setActiveSessionId(null)
+    }
+  }, [worktrees, activeWorktreeId])
+
   // Other parts of the app (e.g. the ChecksPanel after move-to-branch) can
   // ask the sidebar to refresh worktrees by dispatching this event.
   useEffect(() => {
