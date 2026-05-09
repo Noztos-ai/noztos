@@ -36,6 +36,7 @@ const DEFAULT_IGNORES = [
   /(?:^|[/\\])venv(?:[/\\]|$)/,
   /(?:^|[/\\])\.venv(?:[/\\]|$)/,
   /(?:^|[/\\])coverage(?:[/\\]|$)/,
+  /(?:^|[/\\])\.team-handoff(?:[/\\]|$)/,    // workflow scratch dir — internal plumbing, not user-visible
 ]
 
 // Minimum gap between batched events (milliseconds). Editors save in

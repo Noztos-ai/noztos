@@ -9,7 +9,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { callClaude } from '../shared/claude-cli'
-import { writePlan } from '../shared/artifacts'
+import { writePlan, writePlannerRawOutput } from '../shared/artifacts'
 import type {
   AgentStepResult,
   PlannerOutput,
@@ -183,6 +183,21 @@ export async function runPlannerStep(input: PlannerInput): Promise<PlannerStepRe
       await writePlan(input.projectPath, planToMarkdown(plan, input.userMessage))
     } catch (err) {
       console.warn(`[planner] failed to write plan.md: ${(err as Error).message}`)
+    }
+  } else {
+    // Parse failed — observability dump so we can see WHAT the model returned.
+    // Pure logging: no behaviour change, run is still marked failed by the runner.
+    const raw = rawResult.output ?? ''
+    const head = raw.slice(0, 500)
+    const tail = raw.length > 1000 ? raw.slice(-500) : ''
+    console.warn(`[planner] PARSE FAILED error="${error}" rawBytes=${raw.length}`)
+    console.warn(`[planner] raw HEAD (≤500B): ${head}`)
+    if (tail) console.warn(`[planner] raw TAIL (≤500B): ${tail}`)
+    try {
+      const path = await writePlannerRawOutput(input.projectPath, raw)
+      console.warn(`[planner] raw output dumped to: ${path}`)
+    } catch (err) {
+      console.warn(`[planner] failed to dump raw output: ${(err as Error).message}`)
     }
   }
 

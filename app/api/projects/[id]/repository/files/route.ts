@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   console.log(`[isolation] files GET scope=${worktreeId ? 'worktree' : 'main'} worktree=${worktreeId?.slice(0, 8) ?? '-'} root=${root}`)
 
   try {
-    const listResult = await compute.exec(sandboxId, `cd ${root} && find . -type f -not -path './.git/*' -not -path './node_modules/*' -not -path './__pycache__/*' -not -path './venv/*' -not -path './.next/*' -not -path './dist/*' | sed 's|^\\./||' | sort`)
+    const listResult = await compute.exec(sandboxId, `cd ${root} && find . -type f -not -path './.git/*' -not -path './node_modules/*' -not -path './__pycache__/*' -not -path './venv/*' -not -path './.next/*' -not -path './dist/*' -not -path './.team-handoff/*' | sed 's|^\\./||' | sort`)
     const diskFiles = listResult.stdout.split('\n').filter(Boolean)
     const diskSet = new Set(diskFiles)
 

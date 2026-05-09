@@ -46,10 +46,32 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
     const toolUseById = new Map<string, AgentStepResult['toolCalls'][number]>()
     let costUsd: number | undefined
 
+    // ── Live observability ──────────────────────────────────────────
+    // The bare spawn → close pair gives us nothing while the model
+    // thinks. These flags + the heartbeat timer let us see in real
+    // time whether the CLI even started, whether claude began
+    // streaming, or whether we're stuck waiting for the first byte.
+    // Pure logging; no behaviour change, no extra exits.
+    let lastByteAt = Date.now()
+    let sawSystem = false
+    let sawAssistantChunk = false
+    let sawFirstStdoutByte = false
+    let assistantChunkCount = 0
+    let toolUseLogged = 0
+    const HEARTBEAT_MS = 30_000
+    const heartbeat = setInterval(() => {
+      if (settled) return
+      const sinceStart = ((Date.now() - startedAt) / 1000).toFixed(1)
+      const sinceLastByte = ((Date.now() - lastByteAt) / 1000).toFixed(1)
+      console.warn(`[wf-cli] heartbeat role=${input.role} totalElapsed=${sinceStart}s sinceLastByte=${sinceLastByte}s sawSystem=${sawSystem} sawAssistant=${sawAssistantChunk} chunks=${assistantChunkCount} tools=${toolUseLogged}`)
+    }, HEARTBEAT_MS)
+    if (typeof heartbeat.unref === 'function') heartbeat.unref()
+
     const finish = (out: AgentStepResult, reason: string) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      clearInterval(heartbeat)
       try { child.kill('SIGTERM') } catch {}
       const tag = out.error ? 'WARN' : 'LOG'
       console[tag === 'WARN' ? 'warn' : 'log'](`[wf-cli] done role=${input.role} reason=${reason} elapsed=${out.durationMs}ms outputBytes=${out.output.length}${out.error ? ` error="${out.error.slice(0, 200)}"` : ''}`)
@@ -67,6 +89,12 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
     }, timeoutMs)
 
     child.stdout.on('data', (chunk: Buffer) => {
+      lastByteAt = Date.now()
+      if (!sawFirstStdoutByte) {
+        sawFirstStdoutByte = true
+        const dt = Date.now() - startedAt
+        console.log(`[wf-cli] first stdout byte role=${input.role} after=${dt}ms (CLI started)`)
+      }
       stdout += chunk.toString('utf-8')
       let nl: number
       while ((nl = stdout.indexOf('\n')) !== -1) {
@@ -90,15 +118,31 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
               }>
             }
           }
+          if (evt.type === 'system' && !sawSystem) {
+            sawSystem = true
+            const dt = Date.now() - startedAt
+            console.log(`[wf-cli] system event role=${input.role} after=${dt}ms (claude session ready)`)
+          }
           if (evt.type === 'assistant' && evt.message?.content) {
             for (const block of evt.message.content) {
               if (block.type === 'text' && typeof block.text === 'string') {
                 assistantChunks.push(block.text)
+                if (!sawAssistantChunk) {
+                  sawAssistantChunk = true
+                  const dt = Date.now() - startedAt
+                  console.log(`[wf-cli] first assistant text role=${input.role} after=${dt}ms (model started replying)`)
+                }
+                assistantChunkCount++
               }
               if (block.type === 'tool_use' && block.id && block.name) {
                 const tc = { name: block.name, input: block.input ?? {} }
                 toolCalls.push(tc)
                 toolUseById.set(block.id, tc)
+                if (toolUseLogged < 5) {
+                  const dt = Date.now() - startedAt
+                  console.log(`[wf-cli] tool_use role=${input.role} after=${dt}ms name=${block.name}`)
+                  toolUseLogged++
+                }
               }
             }
           }

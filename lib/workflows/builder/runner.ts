@@ -10,6 +10,8 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { prisma } from '@/lib/db'
+import { getChannel } from '@/lib/companion-relay'
+import { loadSessionContext, persistRows, type PersistRow } from '@/lib/chat-persist'
 import { buildBridgeInContext } from '../shared/bridge-in'
 import { cleanupHandoff, readArchitectPlan, readBuilderReport, readRejectionList } from '../shared/artifacts'
 import { runPlannerStep, buildRepoSnapshot } from './planner'
@@ -235,7 +237,7 @@ async function executeRun(runId: string, input: StartWorkflowInput): Promise<voi
   // ── Phase final: post final response as chat message ─────────────
 
   if (snapshot.finalResponse) {
-    await postFinalResponseToChat(input.sessionId, snapshot.finalResponse)
+    await postFinalResponseToChat(runId, input, snapshot.finalResponse)
   }
 
   // Cleanup handoff folder (artifacts foram preservados na DB via snapshot)
@@ -438,32 +440,101 @@ async function runBlock(
   }
 }
 
-// ── Post final response to chat as assistant message ──────────────
+// ── Post final response to chat ────────────────────────────────────
+//
+// Three landing zones, all using the same canonical assistant row id
+// (`wf-<runId>-final`) so anything that surfaces it later is upserted,
+// never duplicated:
+//
+//   1. Ring buffer + browser SSE  — pushEvent on the user's relay
+//      channel. Same code path the daemon uses for normal chat: the
+//      browser receives a `claude_event` envelope and the in-memory
+//      ring updates so bridge_in (next workflow run) sees the turn.
+//
+//   2. DB write-through           — persistRows upsert into chat_messages.
+//      Idempotent by id; mobile/F5/replay all read from here.
+//
+//   3. Claude CLI JSONL           — companion-side append of a coherent
+//      (user, assistant) pair into the `--resume` file, so the next
+//      regular chat / skill turn doesn't see a hole where /build was.
+//      Best-effort: silently no-ops if the chat never spoke to claude
+//      yet (no JSONL exists).
+async function postFinalResponseToChat(
+  runId: string,
+  input: StartWorkflowInput,
+  content: string,
+): Promise<void> {
+  console.log(`[wf-runner] ▶ posting final response to chat session=${input.sessionId.slice(0, 8)} contentBytes=${content.length}`)
 
-async function postFinalResponseToChat(sessionId: string, content: string): Promise<void> {
+  // Stable id ties together SSE event, ring entry, and DB row.
+  const finalRowId = `wf-${runId}-final`
+  const createdAt = Date.now()
+  const persistRow: PersistRow = {
+    id: finalRowId,
+    role: 'assistant',
+    content,
+    createdAt,
+  }
+
+  // ── 1. Ring buffer + browser SSE ───────────────────────────────────
   try {
-    console.log(`[wf-runner] ▶ posting final response to chat session=${sessionId.slice(0, 8)} contentBytes=${content.length}`)
-    // Pega projectId/userId do session (precisa pra ChatMessage)
-    const session = await prisma.chatSession.findUnique({
-      where: { id: sessionId },
-      select: { projectId: true, userId: true, worktreeId: true },
-    })
-    if (!session) {
-      console.warn(`[wf-runner] session ${sessionId} not found, skipping chat post`)
-      return
-    }
-    await prisma.chatMessage.create({
-      data: {
-        sessionId,
-        projectId: session.projectId,
-        userId: session.userId,
-        worktreeId: session.worktreeId,
-        role: 'assistant',
-        content,
+    const channel = getChannel(input.userId)
+    const frame = {
+      type: 'claude_event',
+      payload: {
+        bornastarSessionId: input.sessionId,
+        // persistRows path is the daemon-stamped shape bridge_in/companion-store
+        // both already understand — wrap our single row the same way.
+        persistRows: [{
+          id: finalRowId,
+          role: 'assistant',
+          content,
+          createdAt,
+        }],
       },
-    })
-    console.log(`[wf-runner] ✓ final response posted to chat session=${sessionId.slice(0, 8)}`)
+    }
+    channel.pushEvent(frame, input.userId)
+    console.log(`[wf-runner] ✓ pushed assistant frame to relay (ring + SSE) sid=${input.sessionId.slice(0, 8)} rowId=${finalRowId}`)
   } catch (err) {
-    console.warn(`[wf-runner] failed to post final response: ${(err as Error).message}`)
+    console.warn(`[wf-runner] relay push failed: ${(err as Error).message}`)
+  }
+
+  // ── 2. DB write-through ────────────────────────────────────────────
+  let claudeSessionId: string | null = null
+  try {
+    const ctx = await loadSessionContext(input.sessionId, input.userId)
+    if (!ctx) {
+      console.warn(`[wf-runner] loadSessionContext returned null sid=${input.sessionId.slice(0, 8)} — skipping DB write`)
+    } else {
+      await persistRows([persistRow], ctx)
+      console.log(`[wf-runner] ✓ persisted to DB sid=${input.sessionId.slice(0, 8)} rowId=${finalRowId}`)
+    }
+    // Need the CLI session id for the JSONL append regardless of DB outcome.
+    const session = await prisma.chatSession.findUnique({
+      where: { id: input.sessionId },
+      select: { claudeSessionId: true },
+    })
+    claudeSessionId = session?.claudeSessionId ?? null
+  } catch (err) {
+    console.warn(`[wf-runner] DB persist failed: ${(err as Error).message}`)
+  }
+
+  // ── 3. Claude CLI JSONL append (via companion) ─────────────────────
+  if (!claudeSessionId) {
+    console.log(`[wf-runner] no claudeSessionId on chat (first turn?) — skipping JSONL append`)
+    return
+  }
+  try {
+    const channel = getChannel(input.userId)
+    channel.pushCommand({
+      type: 'append_claude_turn',
+      claudeSessionId,
+      worktreePath: input.projectPath,
+      userText: input.userMessage,
+      assistantText: content,
+    })
+    console.log(`[wf-runner] ✓ enqueued append_claude_turn cmd to companion claudeSid=${claudeSessionId.slice(0, 8)}`)
+  } catch (err) {
+    console.warn(`[wf-runner] companion command enqueue failed: ${(err as Error).message}`)
   }
 }

@@ -38,6 +38,20 @@ export async function writePlan(projectPath: string, planMarkdown: string): Prom
   return path
 }
 
+// ── Planner raw output (debug, parse-fail forensics) ────────────────
+//
+// Written when the planner returns text we can't parse as JSON. Lets
+// us inspect what the model actually said instead of guessing — we
+// can't reproduce the exact prompt + temperature on a separate spawn.
+// Survives the regular cleanupHandoff() so it's still there to read
+// after the run is marked failed.
+export async function writePlannerRawOutput(projectPath: string, raw: string): Promise<string> {
+  await ensureHandoffDir(projectPath)
+  const path = join(projectPath, HANDOFF_DIR, 'planner-raw-output.md')
+  await fs.writeFile(path, raw, 'utf-8')
+  return path
+}
+
 // ── Architect plan (per block) ──────────────────────────────────────
 
 export async function writeArchitectPlan(projectPath: string, blockIndex: number, content: string): Promise<string> {

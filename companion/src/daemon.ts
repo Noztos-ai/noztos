@@ -2,6 +2,8 @@ import { EventEmitter } from 'node:events'
 import { hostname, homedir } from 'node:os'
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
+import { promises as fsp } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { loadConfig } from './config.js'
 import { detectClaudeAuth, detectClaudeInstallation, getClaudeVersion } from './auth-detect.js'
@@ -345,6 +347,105 @@ export class Daemon extends EventEmitter {
       case 'cleanup_project':
         this.handleCleanupProject(cmd)
         break
+      case 'append_claude_turn':
+        this.handleAppendClaudeTurn(cmd)
+        break
+    }
+  }
+
+  // ── append_claude_turn ────────────────────────────────────────────
+  //
+  // Append a (user, assistant) pair to the Claude CLI's local JSONL
+  // transcript, so the next `claude --resume <sessionId>` reads a
+  // continuous history that includes what the workflow produced.
+  //
+  // The CLI maps a cwd to a project dir under `~/.claude/projects/`
+  // by replacing every `/` and `.` in the cwd with `-`. Each session
+  // is one `<sessionId>.jsonl` inside that dir. We tail the file to
+  // grab the last uuid (so the parentUuid chain stays linked), then
+  // append two lines.
+  //
+  // No-op if the JSONL doesn't exist yet — that means the chat hasn't
+  // talked to Claude even once, so there's no `--resume` to keep
+  // coherent. The next normal turn will create the file fresh.
+  private async handleAppendClaudeTurn(cmd: CompanionCommand): Promise<void> {
+    const { claudeSessionId, worktreePath, userText, assistantText } = cmd
+    if (!claudeSessionId || !worktreePath || !userText || !assistantText) {
+      console.warn(`[append-jsonl] skip: missing required fields claudeSessionId=${!!claudeSessionId} worktreePath=${!!worktreePath} userText=${!!userText} assistantText=${!!assistantText}`)
+      return
+    }
+
+    // CLI's own encoding: every `/` and `.` in the cwd becomes `-`.
+    const dirName = worktreePath.replace(/[/.]/g, '-')
+    const filePath = join(homedir(), '.claude', 'projects', dirName, `${claudeSessionId}.jsonl`)
+
+    let existing: string
+    try {
+      existing = await fsp.readFile(filePath, 'utf-8')
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === 'ENOENT') {
+        console.log(`[append-jsonl] skip: file not found path=${filePath} (chat hasn't run claude yet)`)
+        return
+      }
+      console.warn(`[append-jsonl] read failed path=${filePath} err=${(err as Error).message}`)
+      return
+    }
+
+    // Find the last non-empty line and parse to grab its uuid (next
+    // parentUuid in the chain). Tolerate noise / partial lines from a
+    // crashed write — fall back to no parent.
+    let parentUuid: string | null = null
+    const lines = existing.split('\n').filter((l) => l.trim().length > 0)
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const obj = JSON.parse(lines[i]) as { uuid?: string; type?: string }
+        if (obj?.uuid && (obj.type === 'user' || obj.type === 'assistant')) {
+          parentUuid = obj.uuid
+          break
+        }
+      } catch { /* skip malformed lines */ }
+    }
+
+    const userUuid = randomUUID()
+    const assistantUuid = randomUUID()
+    const now = new Date().toISOString()
+
+    const userLine = {
+      parentUuid,
+      isSidechain: false,
+      type: 'user',
+      message: { role: 'user', content: userText },
+      uuid: userUuid,
+      timestamp: now,
+      sessionId: claudeSessionId,
+      cwd: worktreePath,
+      userType: 'external',
+      entrypoint: 'bornastar-workflow',
+    }
+
+    const assistantLine = {
+      parentUuid: userUuid,
+      isSidechain: false,
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: assistantText }],
+      },
+      uuid: assistantUuid,
+      timestamp: now,
+      sessionId: claudeSessionId,
+      cwd: worktreePath,
+      userType: 'external',
+      entrypoint: 'bornastar-workflow',
+    }
+
+    const payload = JSON.stringify(userLine) + '\n' + JSON.stringify(assistantLine) + '\n'
+    try {
+      await fsp.appendFile(filePath, payload, 'utf-8')
+      console.log(`[append-jsonl] ok path=${filePath} userBytes=${userText.length} assistantBytes=${assistantText.length} parentUuid=${parentUuid?.slice(0, 8) ?? 'none'}`)
+    } catch (err) {
+      console.warn(`[append-jsonl] write failed path=${filePath} err=${(err as Error).message}`)
     }
   }
 

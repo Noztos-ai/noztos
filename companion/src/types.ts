@@ -69,7 +69,7 @@ export interface CompanionCommand {
   //   • cleanup_project    — best-effort `rm -rf` on the project's worktrees
   //                          dir. Enqueued by DELETE /api/projects when the
   //                          daemon was offline at delete time.
-  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project' | 'init_project' | 'setup_claude' | 'claude_status' | 'scan_repos' | 'query_running' | 'config_updated' | 'skills_updated' | 'pty_attach' | 'pty_input' | 'pty_resize' | 'pty_detach' | 'relabel_project' | 'unregister_project' | 'cleanup_project'
+  type: 'prompt' | 'interrupt' | 'resume' | 'status' | 'clone' | 'create_project' | 'init_project' | 'setup_claude' | 'claude_status' | 'scan_repos' | 'query_running' | 'config_updated' | 'skills_updated' | 'pty_attach' | 'pty_input' | 'pty_resize' | 'pty_detach' | 'relabel_project' | 'unregister_project' | 'cleanup_project' | 'append_claude_turn'
   sessionId?: string
   projectId?: string
   // For relabel_project: id the daemon currently uses for this project (the
@@ -133,6 +133,20 @@ export interface CompanionCommand {
   projectName?: string
   targetPath?: string
   template?: string
+  // ── append_claude_turn ──────────────────────────────────────────────
+  // After a workflow run finishes, the orchestrator (server) writes the
+  // final assistant turn into our DB and broadcasts it via the relay.
+  // But the Claude CLI's own JSONL transcript (read by `claude --resume`)
+  // never saw that turn — so the next regular chat prompt would resume
+  // a session that has a hole where the workflow happened.
+  // This command tells the daemon to append a coherent (user, assistant)
+  // pair to that JSONL, so the next `--resume` reads a continuous history.
+  // claudeSessionId: the CLI session id (stored on chat_sessions.claudeSessionId).
+  // worktreePath: the cwd of the chat (used to derive the project dir name).
+  // userText / assistantText: the pair to append.
+  claudeSessionId?: string
+  userText?: string
+  assistantText?: string
 }
 
 // Messages sent FROM companion TO the server

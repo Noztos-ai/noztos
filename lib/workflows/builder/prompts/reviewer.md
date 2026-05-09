@@ -34,6 +34,7 @@ To decide, audit at least:
 
 - Does what the Builder did match the plan?
 - Did anything break in adjacent code? (Use Grep/Read on call sites and related files.)
+- Are identifiers cited in the output (file paths, symbols, endpoints, params) the same as in the code?
 - Are edge cases covered?
 - Are tests passing, if tests are part of the project setup?
 - Are project patterns respected?
