@@ -6782,9 +6782,13 @@ function ChatPanel({
         console.warn('[chat] /build with no task ignored')
         return
       }
-      // Insere a mensagem do user no chat (visualização)
+      // Optimistic insert with a stable id; the runner reuses the same
+      // id when it persists the user row server-side, so the SSE event
+      // that lands shortly after is an upsert (no duplicate row, no
+      // flicker). Same pattern as normal chat's userMsgId flow.
+      const userMsgId = companionStore.mintStableId()
       companionStore.upsertMessage(sessionId, {
-        id: companionStore.mintStableId(),
+        id: userMsgId,
         role: 'user',
         content,
         timestamp: Date.now(),
@@ -6798,6 +6802,7 @@ function ChatPanel({
             sessionId,
             userMessage: task,
             mode: claudeMode === 'plan' ? 'ask' : 'agent',
+            userMsgId,
           }),
         })
         const data = await res.json()

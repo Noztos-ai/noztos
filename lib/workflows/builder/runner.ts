@@ -22,6 +22,7 @@ import type {
   BlockState,
   RunSnapshot,
   StepState,
+  TranscriptChunk,
   WorkflowMode,
   WorkflowType,
 } from '../shared/types'
@@ -36,6 +37,11 @@ export interface StartWorkflowInput {
   userMessage: string
   mode: WorkflowMode
   projectPath: string
+  // Stable id minted by the browser for its optimistic insert. Reused
+  // here so the runner's persist + relay push lands as an upsert (no
+  // duplicate row on the client). When omitted (e.g. server-driven
+  // run with no UI), the runner falls back to `wf-<runId>-user`.
+  userMsgId?: string
 }
 
 export interface StartWorkflowResult {
@@ -117,6 +123,46 @@ async function markStatus(runId: string, status: string): Promise<void> {
   })
 }
 
+// Live transcript onChunk factory.
+//
+// Returns a callback the agent step passes into callClaude. Each parsed
+// stream-json chunk lands in `snapshot.currentStep.transcript`, which
+// the WorkflowRunCard polls and renders via the same components the
+// chat normal already uses. DB writes are throttled to ~`THROTTLE_MS`
+// so a chatty agent doesn't hammer Postgres — the trailing-edge timer
+// guarantees the latest chunk lands on disk within one window.
+//
+// Fire-and-forget on the persist (no await) so the agent's parse loop
+// is never backpressured; persistProgress is a single Prisma update of
+// one row, fast and idempotent.
+function makeLiveOnChunk(runId: string, snapshot: RunSnapshot): (chunk: TranscriptChunk) => void {
+  const THROTTLE_MS = 500
+  let scheduled: ReturnType<typeof setTimeout> | null = null
+  let lastFlushAt = 0
+
+  function flush() {
+    scheduled = null
+    lastFlushAt = Date.now()
+    void persistProgress(runId, snapshot).catch((err) => {
+      console.warn(`[wf-runner] live transcript persist failed: ${(err as Error).message}`)
+    })
+  }
+
+  return (chunk: TranscriptChunk) => {
+    if (!snapshot.currentStep) return
+    if (!snapshot.currentStep.transcript) snapshot.currentStep.transcript = []
+    snapshot.currentStep.transcript.push(chunk)
+
+    if (scheduled) return  // already a flush queued
+    const elapsed = Date.now() - lastFlushAt
+    if (elapsed >= THROTTLE_MS) {
+      flush()
+    } else {
+      scheduled = setTimeout(flush, THROTTLE_MS - elapsed)
+    }
+  }
+}
+
 // ── Main executor ──────────────────────────────────────────────────
 
 async function executeRun(runId: string, input: StartWorkflowInput): Promise<void> {
@@ -130,6 +176,14 @@ async function executeRun(runId: string, input: StartWorkflowInput): Promise<voi
     blocks: [],
     currentStep: null,
   }
+
+  // Persist the user's prompt before any agent runs. Same trio shape
+  // we use for the final response (relay pushEvent + DB persistRows),
+  // minus the JSONL append — the (user, assistant) pair lands in the
+  // CLI transcript together when the run completes. Without this, F5
+  // wipes the optimistic browser-only insert and the chat looks like
+  // it was started by the assistant out of nowhere.
+  await persistUserMessage(runId, input)
 
   // ── Phase 0: Bridge IN + repo snapshot + Planner ─────────────────
 
@@ -159,6 +213,7 @@ async function executeRun(runId: string, input: StartWorkflowInput): Promise<voi
     repoSnapshot,
     mode: input.mode,
     projectPath: input.projectPath,
+    onChunk: makeLiveOnChunk(runId, snapshot),
   })
 
   if (!plannerResult.plan) {
@@ -304,6 +359,7 @@ async function runBlock(
       isRetry: architectIsRetry,
       previousPlan: previousArchitectPlan,
       rejectionList: previousRejectionList,
+      onChunk: makeLiveOnChunk(runId, snapshot),
     })
 
     archStep.finishedAt = Date.now()
@@ -345,6 +401,7 @@ async function runBlock(
       architectPlan,
       mode: input.mode,
       isRetry: attempt > 1,
+      onChunk: makeLiveOnChunk(runId, snapshot),
     })
 
     buildStep.finishedAt = Date.now()
@@ -390,6 +447,7 @@ async function runBlock(
       attempt,
       isFinalBlock,
       previousRejections: allRejections,
+      onChunk: makeLiveOnChunk(runId, snapshot),
     })
 
     revStep.finishedAt = Date.now()
@@ -437,6 +495,55 @@ async function runBlock(
     architectIsRetry = true
     attempt++
     console.log(`[wf-runner] block=${blockIndex + 1} REJECT #${block.rejectCount} → architect retry attempt=${attempt}`)
+  }
+}
+
+// ── Persist the user prompt at workflow start ─────────────────────
+//
+// Lands in the same two zones as a normal chat user turn:
+//   1. Relay pushEvent → ring + browser SSE (upserts the optimistic
+//      row the browser already inserted with the same id, so there's
+//      no duplicate or flicker)
+//   2. persistRows → DB chat_messages (survives F5)
+//
+// JSONL append happens later in postFinalResponseToChat — both sides
+// of the (user, assistant) pair go in together so `claude --resume`
+// reads a coherent turn. Splitting the two writes here would mean
+// appending a hanging user line with no assistant response yet.
+async function persistUserMessage(runId: string, input: StartWorkflowInput): Promise<void> {
+  const rowId = input.userMsgId ?? `wf-${runId}-user`
+  const createdAt = Date.now()
+  const row: PersistRow = {
+    id: rowId,
+    role: 'user',
+    content: input.userMessage,
+    createdAt,
+  }
+
+  try {
+    const channel = getChannel(input.userId)
+    channel.pushEvent({
+      type: 'claude_event',
+      payload: {
+        bornastarSessionId: input.sessionId,
+        persistRows: [{ id: rowId, role: 'user', content: input.userMessage, createdAt }],
+      },
+    }, input.userId)
+    console.log(`[wf-runner] ✓ pushed user frame to relay sid=${input.sessionId.slice(0, 8)} rowId=${rowId}`)
+  } catch (err) {
+    console.warn(`[wf-runner] user relay push failed: ${(err as Error).message}`)
+  }
+
+  try {
+    const ctx = await loadSessionContext(input.sessionId, input.userId)
+    if (!ctx) {
+      console.warn(`[wf-runner] loadSessionContext null on user persist sid=${input.sessionId.slice(0, 8)}`)
+      return
+    }
+    await persistRows([row], ctx)
+    console.log(`[wf-runner] ✓ persisted user msg to DB sid=${input.sessionId.slice(0, 8)} rowId=${rowId}`)
+  } catch (err) {
+    console.warn(`[wf-runner] user DB persist failed: ${(err as Error).message}`)
   }
 }
 

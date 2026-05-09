@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useWorkflowRunPoller, type WorkflowRunSnapshot } from '@/lib/hooks/useWorkflowRunPoller'
 import { companionStore } from '@/lib/companion-store'
 
@@ -9,7 +9,23 @@ import { companionStore } from '@/lib/companion-store'
 // Polling via useWorkflowRunPoller (1s). Renderiza Planner → blocks →
 // agents step-by-step. Não mostra cost/tokens (user paga via OAuth).
 
+interface TranscriptChunk {
+  ts: number
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking'
+  text?: string
+  toolName?: string
+  toolInput?: Record<string, unknown>
+  toolUseId?: string
+  toolResult?: string
+  toolError?: boolean
+}
+
 interface RunSnapshotProgress {
+  // Worktree absolute path the agents run in. Used to render tool
+  // paths (Read /lib/foo.ts vs Read /Users/.../wt-.../lib/foo.ts) —
+  // we strip this prefix at display time so logs match the chat normal
+  // convention (project-relative).
+  projectPath?: string
   blocks?: Array<{
     index: number
     name: string
@@ -32,6 +48,7 @@ interface RunSnapshotProgress {
     blockIndex: number
     attempt: number
     startedAt: number
+    transcript?: TranscriptChunk[]
   } | null
 }
 
@@ -88,12 +105,24 @@ function Body({ snapshot }: { snapshot: WorkflowRunSnapshot }) {
   const progress = (snapshot.progress ?? {}) as RunSnapshotProgress
   const blocks = progress.blocks ?? []
 
+  // Pre-blocks state: planner is the active step. The other agents
+  // (architect/builder/reviewer) only run AFTER blocks exist, so they
+  // already get their transcript inside BlockRow.expanded below.
+  // Rendering the planner's transcript here closes the gap — without
+  // it, the user sees "Planner thinking… 2m" with zero activity until
+  // either the JSON parses (blocks appear) or the run fails.
   if (blocks.length === 0) {
+    const plannerStep = progress.currentStep?.role === 'planner' ? progress.currentStep : null
     return (
-      <div className="px-3 py-2 text-[11px] italic text-zinc-500">
-        {progress.currentStep?.role === 'planner'
-          ? <ThinkingLine label="Planner" startedAt={progress.currentStep.startedAt} />
-          : 'Planner — decomposing…'}
+      <div className="px-3 py-2 text-[11px]">
+        {plannerStep ? (
+          <>
+            <ThinkingLine label="Planner" startedAt={plannerStep.startedAt} />
+            <LiveTranscript chunks={plannerStep.transcript} projectPath={progress.projectPath} />
+          </>
+        ) : (
+          <span className="italic text-zinc-500">Planner — decomposing…</span>
+        )}
       </div>
     )
   }
@@ -101,7 +130,7 @@ function Body({ snapshot }: { snapshot: WorkflowRunSnapshot }) {
   return (
     <div className="flex flex-col">
       {blocks.map((b) => (
-        <BlockRow key={b.index} block={b} totalBlocks={blocks.length} liveStep={progress.currentStep ?? null} />
+        <BlockRow key={b.index} block={b} totalBlocks={blocks.length} liveStep={progress.currentStep ?? null} projectPath={progress.projectPath} />
       ))}
     </div>
   )
@@ -111,10 +140,12 @@ function BlockRow({
   block,
   totalBlocks,
   liveStep,
+  projectPath,
 }: {
   block: NonNullable<RunSnapshotProgress['blocks']>[number]
   totalBlocks: number
   liveStep: RunSnapshotProgress['currentStep']
+  projectPath?: string
 }) {
   const isActive = block.status === 'running'
   const [expanded, setExpanded] = useState(isActive || block.status === 'failed')
@@ -160,12 +191,169 @@ function BlockRow({
           ))}
 
           {liveStep && liveStep.blockIndex === block.index && (
-            <ThinkingLine label={liveStep.role} startedAt={liveStep.startedAt} attempt={liveStep.attempt} />
+            <>
+              <ThinkingLine label={liveStep.role} startedAt={liveStep.startedAt} attempt={liveStep.attempt} />
+              <LiveTranscript chunks={liveStep.transcript} projectPath={projectPath} />
+            </>
           )}
         </div>
       )}
     </div>
   )
+}
+
+// ── Live transcript ───────────────────────────────────────────────
+//
+// Renders the in-flight agent's stream-json output (text + tool_use +
+// tool_result) inline below the thinking line. Same visual language
+// the chat normal uses for tools — Read / Grep / Bash / Edit / etc —
+// just compact since we live inside a workflow card row.
+//
+// Each tool_use chunk is paired with its matching tool_result via
+// toolUseId so the result renders directly under the call. Latest
+// chunks at the bottom; auto-scroll target lives on the last item.
+function LiveTranscript({ chunks, projectPath }: { chunks?: TranscriptChunk[]; projectPath?: string }) {
+  // Cap height + internal scroll so the card stays a fixed visual
+  // footprint even as the agent emits hundreds of chunks. Without this,
+  // the workflow card would grow unbounded and shove the chat history
+  // off-screen on every poll. Auto-scroll-to-bottom is sticky: as long
+  // as the user is already at the bottom (or within ~30px of it),
+  // new chunks pull the scroll along; if the user scrolls up to read
+  // an earlier chunk, we stop following so they're not yanked back.
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const stickToBottomRef = useRef(true)
+
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    stickToBottomRef.current = distanceFromBottom < 30
+  }
+
+  useEffect(() => {
+    if (!stickToBottomRef.current) return
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [chunks])
+
+  if (!chunks || chunks.length === 0) return null
+
+  // Pair tool_use with its tool_result so we render one combined card
+  // per tool invocation (matches the chat normal layout).
+  const resultByUseId = new Map<string, TranscriptChunk>()
+  for (const c of chunks) {
+    if (c.type === 'tool_result' && c.toolUseId) resultByUseId.set(c.toolUseId, c)
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="mt-2 max-h-72 space-y-1.5 overflow-y-auto border-l border-amber-500/20 pl-2.5"
+    >
+      {chunks.map((chunk, i) => {
+        if (chunk.type === 'text') {
+          return (
+            <div key={i} className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-zinc-300">
+              {chunk.text}
+            </div>
+          )
+        }
+        if (chunk.type === 'tool_use') {
+          const result = chunk.toolUseId ? resultByUseId.get(chunk.toolUseId) : undefined
+          return <ToolChunk key={i} use={chunk} result={result} projectPath={projectPath} />
+        }
+        // tool_result rendered by its tool_use pair (skip standalone)
+        return null
+      })}
+    </div>
+  )
+}
+
+function ToolChunk({ use, result, projectPath }: { use: TranscriptChunk; result?: TranscriptChunk; projectPath?: string }) {
+  const [open, setOpen] = useState(false)
+  const summary = describeTool(use, projectPath)
+  const hasResult = result?.toolResult && result.toolResult.length > 0
+  const isError = result?.toolError === true
+
+  return (
+    <div className={`rounded border ${isError ? 'border-rose-500/30 bg-rose-500/5' : 'border-white/5 bg-white/[0.02]'}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-[10px]"
+      >
+        <span className={`font-mono ${isError ? 'text-rose-400' : 'text-amber-400'}`}>{isError ? '✗' : hasResult ? '✓' : '▶'}</span>
+        <span className="font-medium text-zinc-300">{use.toolName}</span>
+        <span className="truncate text-zinc-500">{summary}</span>
+        {hasResult && (
+          <span className="ml-auto shrink-0 text-[9px] text-zinc-600">{open ? 'hide' : 'show'}</span>
+        )}
+      </button>
+      {open && hasResult && (
+        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-white/5 px-2 py-1 font-mono text-[10px] text-zinc-400">
+          {result?.toolResult}
+        </pre>
+      )}
+    </div>
+  )
+}
+
+// Strip the worktree prefix from any path so logs show the
+// project-relative form ("lib/foo.ts" instead of
+// "/Users/<user>/.bornastar/worktrees/<hash>/wt-.../lib/foo.ts"),
+// matching what the chat normal renders. Tolerates trailing slash
+// differences and absolute paths that happen to live outside the
+// worktree (returns them unchanged).
+function relPath(absPath: string, projectPath?: string): string {
+  if (!projectPath) return absPath
+  const root = projectPath.endsWith('/') ? projectPath.slice(0, -1) : projectPath
+  if (absPath === root) return '/'
+  if (absPath.startsWith(root + '/')) return absPath.slice(root.length + 1)
+  return absPath
+}
+
+// One-line summary of a tool call — file path for Read/Edit/Write,
+// command for Bash, pattern for Grep, etc. Falls back to JSON of input
+// for unknown tools. Paths are stripped of the worktree prefix.
+function describeTool(chunk: TranscriptChunk, projectPath?: string): string {
+  const input = chunk.toolInput ?? {}
+  const name = chunk.toolName ?? ''
+  if (name === 'Bash' && typeof input.command === 'string') {
+    // Bash commands often contain absolute paths inline (e.g. `cat /Users/.../foo.ts`).
+    // String-replace the worktree root globally so those embedded paths shrink too.
+    let cmd = input.command
+    if (projectPath) {
+      const root = projectPath.endsWith('/') ? projectPath.slice(0, -1) : projectPath
+      cmd = cmd.split(root + '/').join('')
+      cmd = cmd.split(root).join('.')
+    }
+    return cmd.slice(0, 120)
+  }
+  if ((name === 'Read' || name === 'Write' || name === 'Edit' || name === 'MultiEdit') && typeof input.file_path === 'string') {
+    return relPath(input.file_path, projectPath)
+  }
+  if (name === 'NotebookEdit' && typeof input.notebook_path === 'string') {
+    return relPath(input.notebook_path, projectPath)
+  }
+  if (name === 'Grep' && typeof input.pattern === 'string') {
+    const path = typeof input.path === 'string' ? ` in ${relPath(input.path, projectPath)}` : ''
+    return `"${input.pattern}"${path}`
+  }
+  if (name === 'Glob' && typeof input.pattern === 'string') {
+    const path = typeof input.path === 'string' ? ` in ${relPath(input.path, projectPath)}` : ''
+    return `${input.pattern}${path}`
+  }
+  if (name === 'WebFetch' && typeof input.url === 'string') return input.url
+  if (name === 'TodoWrite' && Array.isArray(input.todos)) return `${input.todos.length} todos`
+  // Fallback: short JSON
+  try {
+    const s = JSON.stringify(input)
+    return s.length > 100 ? s.slice(0, 100) + '…' : s
+  } catch {
+    return ''
+  }
 }
 
 function StepRow({ step }: { step: NonNullable<NonNullable<RunSnapshotProgress['blocks']>[number]['steps']>[number] }) {

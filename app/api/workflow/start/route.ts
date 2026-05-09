@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const userId = getSessionUserId(cookieStore.get('session')?.value)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  let body: { sessionId?: string; userMessage?: string; mode?: 'ask' | 'agent' }
+  let body: { sessionId?: string; userMessage?: string; mode?: 'ask' | 'agent'; userMsgId?: string }
   try { body = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       userMessage,
       mode: body.mode ?? 'agent',
       projectPath,
+      userMsgId: body.userMsgId,
     })
     return NextResponse.json({ ok: true, runId })
   } catch (err) {

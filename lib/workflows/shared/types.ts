@@ -29,6 +29,25 @@ export type StepRole = 'planner' | 'architect' | 'builder' | 'reviewer'
 
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed'
 
+// Live transcript chunk for an in-flight agent step. Same shape the
+// chat normal already renders via ClaudeToolCard — text grows
+// progressively, tool_use cards appear as the agent invokes tools,
+// tool_result fills in once it returns. Persisted in StepState so a
+// browser landing on this run mid-flight (or post-completion) sees
+// the same activity stream the real-time poller showed.
+export type TranscriptChunkType = 'text' | 'tool_use' | 'tool_result' | 'thinking'
+
+export interface TranscriptChunk {
+  ts: number                    // unix ms
+  type: TranscriptChunkType
+  text?: string                 // for 'text' / 'thinking'
+  toolName?: string             // for 'tool_use' / 'tool_result'
+  toolInput?: Record<string, unknown>  // for 'tool_use'
+  toolUseId?: string            // links 'tool_use' → 'tool_result'
+  toolResult?: string           // for 'tool_result' (may be truncated)
+  toolError?: boolean           // for 'tool_result'
+}
+
 export interface StepState {
   role: StepRole
   attempt: number               // 1 = first try, 2+ = after reject
@@ -43,6 +62,11 @@ export interface StepState {
   // Reviewer-specific: parsed decision
   decision?: 'APPROVED' | 'REJECT' | 'FORCED_APPROVAL'
   errorReason?: string
+  // Live transcript (assistant text + tool calls + tool results) as
+  // they stream from `claude -p`. Empty until the step starts; grows
+  // throughout the run; persists in DB via WorkflowRun.progress so
+  // the user sees full activity even after the run finishes.
+  transcript?: TranscriptChunk[]
 }
 
 // ── Block state (live) ──────────────────────────────────────────────
@@ -77,12 +101,16 @@ export interface RunSnapshot {
   plan?: PlannerOutput
   blocks: BlockState[]
   currentBlockIndex?: number    // -1 / undefined = phase 0 / pre-blocks
-  // Live step indicator pra UI mostrar "▶ Architect thinking..."
+  // Live step indicator pra UI mostrar "▶ Architect thinking..." +
+  // o transcript em tempo real do agent (text + tool_use + tool_result
+  // como vem do stream-json). UI renderiza igual o chat normal renderiza
+  // turns do claude.
   currentStep?: {
     role: StepRole
     blockIndex: number
     attempt: number
     startedAt: number
+    transcript?: TranscriptChunk[]
   } | null
   finalResponse?: string
 }
@@ -99,6 +127,12 @@ export interface AgentStepInput {
   disallowedTools?: string[]
   permissionMode?: 'bypassPermissions' | 'plan' | 'default'
   timeoutMs?: number
+  // Optional live observer fired on every parsed stream-json chunk
+  // (assistant text, tool_use, tool_result). The runner uses this
+  // to grow `StepState.transcript` and surface real-time activity in
+  // the WorkflowRunCard. Synchronous and best-effort; throwing here
+  // is swallowed so the agent itself is unaffected.
+  onChunk?: (chunk: TranscriptChunk) => void
 }
 
 export interface AgentStepResult {

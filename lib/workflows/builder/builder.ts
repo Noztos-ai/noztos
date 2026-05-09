@@ -11,6 +11,7 @@ import { writeBuilderReport } from '../shared/artifacts'
 import type {
   AgentStepResult,
   PlannerBlock,
+  TranscriptChunk,
   WorkflowMode,
 } from '../shared/types'
 
@@ -28,6 +29,7 @@ interface BuilderInput {
   architectPlan: string          // verbatim do architect-plan.md (pra injetar no prompt)
   mode: WorkflowMode
   isRetry?: boolean              // após reject — Architect já ajustou plano
+  onChunk?: (chunk: TranscriptChunk) => void
 }
 
 export interface BuilderStepResult {
@@ -89,6 +91,7 @@ export async function runBuilderStep(input: BuilderInput): Promise<BuilderStepRe
     model: 'sonnet',
     ...(disallowedTools.length > 0 && { disallowedTools }),
     permissionMode: 'bypassPermissions',
+    onChunk: input.onChunk,
   })
 
   let outputPath: string | undefined

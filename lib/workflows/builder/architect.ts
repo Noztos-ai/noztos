@@ -12,6 +12,7 @@ import type {
   AgentStepResult,
   PlannerBlock,
   PlannerOutput,
+  TranscriptChunk,
 } from '../shared/types'
 
 async function loadArchitectSkill(): Promise<string> {
@@ -30,6 +31,7 @@ interface ArchitectInput {
   isRetry?: boolean
   previousPlan?: string          // architect-plan.md anterior verbatim
   rejectionList?: string         // rejection-list-N.md verbatim
+  onChunk?: (chunk: TranscriptChunk) => void
 }
 
 export interface ArchitectStepResult {
@@ -125,6 +127,7 @@ export async function runArchitectStep(input: ArchitectInput): Promise<Architect
     model: 'sonnet',
     disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit', 'MultiEdit'],
     permissionMode: 'bypassPermissions',
+    onChunk: input.onChunk,
   })
 
   let outputPath: string | undefined

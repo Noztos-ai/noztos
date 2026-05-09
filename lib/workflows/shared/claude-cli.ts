@@ -8,9 +8,25 @@
 // Função pure-server (Node child_process). Não importa do client.
 
 import { spawn } from 'node:child_process'
-import type { AgentStepInput, AgentStepResult } from './types'
+import type { AgentStepInput, AgentStepResult, TranscriptChunk } from './types'
 
-const DEFAULT_TIMEOUT_MS = 5 * 60_000
+// Best-effort emit — onChunk is observation; never let it block the
+// stream parse or surface back as a CLI error.
+function emit(onChunk: ((c: TranscriptChunk) => void) | undefined, c: TranscriptChunk): void {
+  if (!onChunk) return
+  try { onChunk(c) } catch { /* swallow */ }
+}
+
+// Two timers cooperate per agent run:
+//   • DEFAULT_TIMEOUT_MS — absolute hard cap. Only fires for truly
+//     zombie processes (deadlock, hung subprocess). Generous so
+//     legitimate long work (deep planner investigation, builder with
+//     compile/test, etc) is never artificially cut short.
+//   • STALL_THRESHOLD_MS — kills if NO bytes flow from claude's stdout
+//     for this long. This is the real "something broke" detector.
+//     Reset on every chunk; dies only on actual silence.
+const DEFAULT_TIMEOUT_MS = 90 * 60_000   // 90min absolute cap
+const STALL_THRESHOLD_MS = 5 * 60_000    // 5min of complete silence = stall
 
 export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
   const startedAt = Date.now()
@@ -46,12 +62,17 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
     const toolUseById = new Map<string, AgentStepResult['toolCalls'][number]>()
     let costUsd: number | undefined
 
-    // ── Live observability ──────────────────────────────────────────
+    // ── Live observability + stall detection ────────────────────────
     // The bare spawn → close pair gives us nothing while the model
     // thinks. These flags + the heartbeat timer let us see in real
     // time whether the CLI even started, whether claude began
     // streaming, or whether we're stuck waiting for the first byte.
-    // Pure logging; no behaviour change, no extra exits.
+    //
+    // The heartbeat doubles as the stall detector: if `sinceLastByte`
+    // crosses STALL_THRESHOLD_MS, we kill with a clear error. This is
+    // the real "broken" detector — the absolute timeout is just a last-
+    // resort cap for zombie processes that somehow keep producing bytes
+    // without finishing.
     let lastByteAt = Date.now()
     let sawSystem = false
     let sawAssistantChunk = false
@@ -61,9 +82,18 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
     const HEARTBEAT_MS = 30_000
     const heartbeat = setInterval(() => {
       if (settled) return
-      const sinceStart = ((Date.now() - startedAt) / 1000).toFixed(1)
-      const sinceLastByte = ((Date.now() - lastByteAt) / 1000).toFixed(1)
-      console.warn(`[wf-cli] heartbeat role=${input.role} totalElapsed=${sinceStart}s sinceLastByte=${sinceLastByte}s sawSystem=${sawSystem} sawAssistant=${sawAssistantChunk} chunks=${assistantChunkCount} tools=${toolUseLogged}`)
+      const sinceStart = Date.now() - startedAt
+      const sinceLastByte = Date.now() - lastByteAt
+      console.warn(`[wf-cli] heartbeat role=${input.role} totalElapsed=${(sinceStart / 1000).toFixed(1)}s sinceLastByte=${(sinceLastByte / 1000).toFixed(1)}s sawSystem=${sawSystem} sawAssistant=${sawAssistantChunk} chunks=${assistantChunkCount} tools=${toolUseLogged}`)
+      if (sinceLastByte > STALL_THRESHOLD_MS) {
+        finish({
+          output: assistantChunks.join(''),
+          toolCalls,
+          durationMs: sinceStart,
+          costUsd,
+          error: `stalled: no stdout for ${Math.round(sinceLastByte / 1000)}s (threshold ${STALL_THRESHOLD_MS / 1000}s)`,
+        }, 'stall')
+      }
     }, HEARTBEAT_MS)
     if (typeof heartbeat.unref === 'function') heartbeat.unref()
 
@@ -133,6 +163,7 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
                   console.log(`[wf-cli] first assistant text role=${input.role} after=${dt}ms (model started replying)`)
                 }
                 assistantChunkCount++
+                emit(input.onChunk, { ts: Date.now(), type: 'text', text: block.text })
               }
               if (block.type === 'tool_use' && block.id && block.name) {
                 const tc = { name: block.name, input: block.input ?? {} }
@@ -143,6 +174,13 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
                   console.log(`[wf-cli] tool_use role=${input.role} after=${dt}ms name=${block.name}`)
                   toolUseLogged++
                 }
+                emit(input.onChunk, {
+                  ts: Date.now(),
+                  type: 'tool_use',
+                  toolName: block.name,
+                  toolInput: block.input ?? {},
+                  toolUseId: block.id,
+                })
               }
             }
           }
@@ -158,6 +196,21 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
                       : ''
                   tc.result = text
                   tc.error = block.is_error ?? false
+                  // Truncate huge tool results before emitting — keeps
+                  // WorkflowRun.progress under control. Full payload
+                  // still lives in toolCalls[].result for the report.
+                  const MAX_RESULT_BYTES = 8 * 1024
+                  const safeText = text.length > MAX_RESULT_BYTES
+                    ? text.slice(0, MAX_RESULT_BYTES) + `\n…[truncated ${text.length - MAX_RESULT_BYTES} bytes]`
+                    : text
+                  emit(input.onChunk, {
+                    ts: Date.now(),
+                    type: 'tool_result',
+                    toolName: tc.name,
+                    toolUseId: block.tool_use_id,
+                    toolResult: safeText,
+                    toolError: block.is_error ?? false,
+                  })
                 }
               }
             }

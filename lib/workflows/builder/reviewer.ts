@@ -21,6 +21,7 @@ import {
 import type {
   AgentStepResult,
   PlannerBlock,
+  TranscriptChunk,
 } from '../shared/types'
 
 async function loadReviewerSkill(): Promise<string> {
@@ -40,6 +41,7 @@ interface ReviewerInput {
   isFinalBlock: boolean             // se true, escreve final response
   // Histórico de rejection lists nesta sessão de review (pra attempt=3)
   previousRejections?: Array<{ attempt: number; content: string }>
+  onChunk?: (chunk: TranscriptChunk) => void
 }
 
 export type ReviewerDecision = 'APPROVED' | 'REJECT' | 'FORCED_APPROVAL'
@@ -160,6 +162,7 @@ export async function runReviewerStep(input: ReviewerInput): Promise<ReviewerSte
     model: 'sonnet',
     disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit', 'MultiEdit'],
     permissionMode: 'bypassPermissions',
+    onChunk: input.onChunk,
   })
 
   const { decision, payload, error } = parseReviewerOutput(rawResult.output)

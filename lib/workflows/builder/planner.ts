@@ -13,6 +13,7 @@ import { writePlan, writePlannerRawOutput } from '../shared/artifacts'
 import type {
   AgentStepResult,
   PlannerOutput,
+  TranscriptChunk,
   WorkflowMode,
 } from '../shared/types'
 
@@ -29,6 +30,7 @@ interface PlannerInput {
   repoSnapshot: string
   mode: WorkflowMode
   projectPath: string
+  onChunk?: (chunk: TranscriptChunk) => void
 }
 
 export interface PlannerStepResult {
@@ -111,35 +113,71 @@ function buildPlannerSystemPrompt(skill: string, input: PlannerInput): string {
   return sections.join('\n')
 }
 
+// XML tag extraction. Non-greedy so the FIRST closing tag wins —
+// the model can put `<` for generics, backticks, quotes, real newlines,
+// markdown code blocks, anything inside a tag without breaking us. The
+// only forbidden literal is the closing tag itself, which the prompt
+// flags for the model.
+function extractTag(source: string, tag: string): string | null {
+  // Built dynamically so we can pass the tag name; flags `i`/`s`-style
+  // via [\s\S] to handle multiline content.
+  const re = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i')
+  const m = source.match(re)
+  return m ? m[1] : null
+}
+
+// Find every <block>...</block> in document order. Same non-greedy
+// rule per match.
+function extractAllBlocks(source: string): string[] {
+  const re = /<block\b[^>]*>([\s\S]*?)<\/block>/gi
+  const blocks: string[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(source)) !== null) {
+    blocks.push(m[1])
+  }
+  return blocks
+}
+
 function parsePlannerOutput(raw: string): { plan: PlannerOutput | null; error?: string } {
-  // Strip optional markdown fence the model may wrap JSON in.
+  // Strip optional markdown fence the model may wrap the XML in. Same
+  // anchored-to-end pattern as before — internal backticks stay intact.
   const cleaned = raw
-    .replace(/^[\s\S]*?```(?:json)?\s*/, '')
-    .replace(/```[\s\S]*$/, '')
+    .replace(/^[\s\S]*?```(?:xml)?\s*\n/, '')
+    .replace(/\n```\s*$/, '')
     .trim()
-  try {
-    const parsed = JSON.parse(cleaned) as PlannerOutput
-    if (!Array.isArray(parsed.blocks) || parsed.blocks.length === 0) {
-      return { plan: null, error: 'planner returned no blocks' }
+
+  // Top-level <plan> wrapper is optional — the model may emit just
+  // <block>...</block> directly. Either works; we extract from whichever
+  // scope contains the blocks.
+  const planInner = extractTag(cleaned, 'plan') ?? cleaned
+
+  const blockSources = extractAllBlocks(planInner)
+  if (blockSources.length === 0) {
+    return { plan: null, error: 'planner output has no <block> tags' }
+  }
+
+  const rationale = (extractTag(planInner, 'rationale') ?? '').trim()
+
+  const blocks: PlannerOutput['blocks'] = []
+  for (let i = 0; i < blockSources.length; i++) {
+    const src = blockSources[i]
+    const name = (extractTag(src, 'name') ?? '').trim()
+    const objective = (extractTag(src, 'objective') ?? '').trim()
+    if (!name || !objective) {
+      return { plan: null, error: `block ${i + 1} missing <name> or <objective>` }
     }
-    for (const b of parsed.blocks) {
-      if (typeof b.name !== 'string' || typeof b.objective !== 'string') {
-        return { plan: null, error: 'planner block missing name/objective' }
-      }
-    }
-    return { plan: parsed }
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/)
-    if (!match) return { plan: null, error: 'planner output is not valid JSON' }
-    try {
-      const parsed = JSON.parse(match[0]) as PlannerOutput
-      if (!Array.isArray(parsed.blocks) || parsed.blocks.length === 0) {
-        return { plan: null, error: 'planner returned no blocks (after recovery)' }
-      }
-      return { plan: parsed }
-    } catch (e) {
-      return { plan: null, error: `planner output JSON parse failed: ${(e as Error).message}` }
-    }
+    const filesRaw = extractTag(src, 'estimated_files')?.trim()
+    const estimatedFiles = filesRaw
+      ? filesRaw.split(/[,\n]/).map((s) => s.trim()).filter(Boolean)
+      : undefined
+    blocks.push({ name, objective, ...(estimatedFiles && estimatedFiles.length > 0 && { estimatedFiles }) })
+  }
+
+  return {
+    plan: {
+      ...(rationale && { rationale }),
+      blocks,
+    },
   }
 }
 
@@ -173,6 +211,7 @@ export async function runPlannerStep(input: PlannerInput): Promise<PlannerStepRe
     // se quiser, mas o snapshot já vem no prompt)
     disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit', 'MultiEdit'],
     permissionMode: 'bypassPermissions',
+    onChunk: input.onChunk,
   })
 
   const { plan, error } = parsePlannerOutput(rawResult.output)
