@@ -125,7 +125,12 @@ export async function runArchitectStep(input: ArchitectInput): Promise<Architect
     userText,
     cwd: input.projectPath,
     model: 'sonnet',
-    disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit', 'MultiEdit'],
+    // Architect investiga livremente — Bash liberado pra enumeração
+    // ergonômica (ls, find, cat, grep, head). Sem ele o modelo cai no
+    // viés de Read seletivo e inventa "convenções novas" pra preencher
+    // gaps do mapa mental. Edit/Write bloqueados garantem que ele não
+    // pode modificar arquivos.
+    disallowedTools: ['Edit', 'Write', 'NotebookEdit', 'MultiEdit'],
     permissionMode: 'bypassPermissions',
     onChunk: input.onChunk,
   })

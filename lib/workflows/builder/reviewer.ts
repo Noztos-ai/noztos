@@ -160,7 +160,11 @@ export async function runReviewerStep(input: ReviewerInput): Promise<ReviewerSte
     userText,
     cwd: input.projectPath,
     model: 'sonnet',
-    disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit', 'MultiEdit'],
+    // Reviewer audita livremente — Bash liberado pra enumeração (ls,
+    // find, cat, grep, head). Sem ele cai no mesmo viés de Read seletivo
+    // que escapa de detalhes do projeto. Edit/Write bloqueados garantem
+    // que ele não pode modificar arquivos durante a auditoria.
+    disallowedTools: ['Edit', 'Write', 'NotebookEdit', 'MultiEdit'],
     permissionMode: 'bypassPermissions',
     onChunk: input.onChunk,
   })
