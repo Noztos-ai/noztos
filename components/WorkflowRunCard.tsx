@@ -66,12 +66,62 @@ export function WorkflowRunCard({ sessionId, runId }: { sessionId: string; runId
   return (
     <div className="my-3 rounded-md border border-white/10 bg-white/[0.02]">
       <Header snapshot={snapshot} />
-      <Body snapshot={snapshot} />
+      <CardScrollBody>
+        <Body snapshot={snapshot} />
+      </CardScrollBody>
       {snapshot.errorReason && (
         <div className="border-t border-white/10 px-3 py-1.5 text-[10px] text-rose-400">
           {snapshot.errorReason}
         </div>
       )}
+    </div>
+  )
+}
+
+// Caps the live workflow content at a sensible height with internal
+// scroll + sticky-bottom — so the card stays a fixed visual footprint
+// no matter how many blocks/steps/tool-calls land. Without this, the
+// card grows unbounded as new blocks complete and steps stream in,
+// shoving the chat out of position. Same sticky-bottom behavior the
+// LiveTranscript itself uses — auto-scrolls to follow new content
+// unless the user scrolled up to read something older.
+function CardScrollBody({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const stickToBottomRef = useRef(true)
+
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    stickToBottomRef.current = distanceFromBottom < 30
+  }
+
+  // ResizeObserver fires when the inner content grows (new step rows,
+  // new block rows, transcript chunks). We re-pin to the bottom only if
+  // the user was already there — preserves their reading position when
+  // they scrolled up.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      if (!stickToBottomRef.current) return
+      el.scrollTop = el.scrollHeight
+    })
+    ro.observe(el)
+    // Also observe the inner child so changes inside it (most common
+    // source of growth) trigger the auto-scroll.
+    const inner = el.firstElementChild
+    if (inner) ro.observe(inner)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="max-h-[480px] overflow-y-auto"
+    >
+      {children}
     </div>
   )
 }
@@ -277,14 +327,19 @@ function ToolChunk({ use, result, projectPath }: { use: TranscriptChunk; result?
   const hasResult = result?.toolResult && result.toolResult.length > 0
   const isError = result?.toolError === true
 
+  // Errors during exploration (Read of a path that doesn't exist, Grep
+  // with zero matches, etc) are normal — the model probes the
+  // codebase. Use amber (neutral "didn't succeed") instead of rose
+  // ("something broke") so the card doesn't look catastrophic when it's
+  // just the agent learning the project shape.
   return (
-    <div className={`rounded border ${isError ? 'border-rose-500/30 bg-rose-500/5' : 'border-white/5 bg-white/[0.02]'}`}>
+    <div className={`rounded border ${isError ? 'border-amber-500/20 bg-amber-500/[0.03]' : 'border-white/5 bg-white/[0.02]'}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-[10px]"
       >
-        <span className={`font-mono ${isError ? 'text-rose-400' : 'text-amber-400'}`}>{isError ? '✗' : hasResult ? '✓' : '▶'}</span>
+        <span className={`font-mono ${isError ? 'text-amber-400/80' : 'text-amber-400'}`}>{isError ? '✗' : hasResult ? '✓' : '▶'}</span>
         <span className="font-medium text-zinc-300">{use.toolName}</span>
         <span className="truncate text-zinc-500">{summary}</span>
         {hasResult && (

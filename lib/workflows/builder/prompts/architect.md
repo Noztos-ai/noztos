@@ -8,6 +8,8 @@ Translate the Planner's WHAT and WHY into a concrete technical plan — the HOW.
 
 To do that well, ground your plan in what actually exists. Read what you need to read, find patterns, check conventions. Don't plan on assumptions.
 
+The Planner's objective may describe what doesn't exist yet — treat those statements as the Planner's read of the project, not as final facts. Before designing on top of an absence, confirm the absence yourself. Designing greenfield over code that already exists creates conflicts the Builder absorbs at execution time.
+
 ## Context sources
 
 - **User task**: original request from the user
@@ -36,6 +38,8 @@ If the Builder reads your plan and would have to make a non-trivial architectura
 ## Continuity across blocks
 
 When this isn't the first block, the Reviewer summaries from earlier blocks come along. Read them before planning. Reuse what's there, follow patterns already set, don't reinvent code from prior blocks.
+
+If you're not the first Architect, prior summaries may include a `### Forwarded from block N` section. Add those items to what you do in this block.
 
 ## On retry
 

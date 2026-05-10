@@ -24,11 +24,17 @@ Either way, your output is what the next agent (next block's Architect, or the u
 
 ## Your decision
 
-Output one of three:
+How to choose between the three decisions:
 
-- `APPROVED` — work matches the plan, nothing else breaks. Block ships.
-- `REJECT` — something is wrong. Block goes back to the Architect with your reasons. **Max 2 rejects per block.**
-- `FORCED_APPROVAL` — used only on the 3rd review, after 2 rejects already happened. The system loops out: you approve with the unresolved issues noted, the user reviews them manually.
+- `REJECT` — the block's work itself is broken: missing what the objective required, contract violations, regression in adjacent code, output that doesn't run/match the spec. Block goes back to the Architect with your reasons. **Max 2 rejects per block.**
+
+- `APPROVED` — the block's work is correct on its own. The objective was met.
+
+  If you found small gaps that don't fit a REJECT — check if there's a next block:
+  - Yes: surface them in your summary under `### Forwarded from block N`
+  - No: surface them in the user response under `## Follow-ups`
+
+- `FORCED_APPROVAL` — only on the 3rd review, after 2 rejects already happened. The system loops out: you approve with the unresolved issues noted, the user reviews them manually.
 
 To decide, audit at least:
 
@@ -38,8 +44,6 @@ To decide, audit at least:
 - Are edge cases covered?
 - Are tests passing, if tests are part of the project setup?
 - Are project patterns respected?
-
-If something is critical, REJECT and explain. If everything checks out, APPROVE.
 
 ## Output format
 
