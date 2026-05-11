@@ -71,6 +71,7 @@ interface BuiltinWorkflowItem {
   name: string
   trigger: string
   description: string
+  color: string                 // tailwind gradient for the chip in the input
 }
 
 const BUILTIN_WORKFLOWS: BuiltinWorkflowItem[] = [
@@ -78,7 +79,8 @@ const BUILTIN_WORKFLOWS: BuiltinWorkflowItem[] = [
     id: 'builder',
     name: 'Build',
     trigger: '/build',
-    description: 'Multi-agent code construction. Plans, designs, builds, and reviews end-to-end.',
+    description: 'Tell it what to build. Planner scopes, Architect designs, Builder writes, Reviewer ships.',
+    color: 'from-emerald-500 to-teal-600',
   },
 ]
 
@@ -1239,7 +1241,7 @@ interface Message {
   createdAt: string
 }
 
-type ChatMode = 'no_skill' | 'skill' | 'team'
+type ChatMode = 'no_skill' | 'skill' | 'team' | 'workflow'
 
 interface WorkPanelProps {
   projectId: string
@@ -1338,6 +1340,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   const [activeMode, setActiveMode] = useState<ChatMode>('no_skill')
   const [activeSkillId, setActiveSkillId] = useState<string | null>(null)
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null)
   // chatMessages state removed — the legacy Bornastar engine that wrote
   // into it is gone. Chat content lives in companion.messages inside the
   // ChatPanel. Kept as a comment marker so nobody re-adds the old poll.
@@ -1772,6 +1775,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
 
   const activeEmployee = hiredEmployees.find((e) => e.id === activeSkillId)
   const activeTeam = teams.find((t) => t.id === activeTeamId)
+  const activeWorkflow = BUILTIN_WORKFLOWS.find((w) => w.id === activeWorkflowId)
 
   // Mirror the active chat id into the provider's unread-filter so
   // incoming events for OTHER chats get marked unread, but not the one
@@ -2520,18 +2524,28 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
     setActiveMode('skill')
     setActiveSkillId(emp.id)
     setActiveTeamId(null)
+    setActiveWorkflowId(null)
   }
 
   function handleSelectTeam(team: TeamInfo) {
     setActiveMode('team')
     setActiveTeamId(team.id)
     setActiveSkillId(null)
+    setActiveWorkflowId(null)
+  }
+
+  function handleSelectWorkflow(wfId: string) {
+    setActiveMode('workflow')
+    setActiveWorkflowId(wfId)
+    setActiveSkillId(null)
+    setActiveTeamId(null)
   }
 
   function handleClearSelection() {
     setActiveMode('no_skill')
     setActiveSkillId(null)
     setActiveTeamId(null)
+    setActiveWorkflowId(null)
   }
 
   // Count changed files for the Changes tab badge — scoped to the
@@ -2822,12 +2836,15 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
                   activeMode={activeMode}
                   activeSkillId={activeSkillId}
                   activeTeamId={activeTeamId}
+                  activeWorkflowId={activeWorkflowId}
+                  activeWorkflow={activeWorkflow}
                   activeEmployee={activeEmployee}
                   activeTeam={activeTeam}
                   hiredEmployees={hiredEmployees}
                   teams={teams}
                   onSelectEmployee={handleSelectEmployee}
                   onSelectTeam={handleSelectTeam}
+                  onSelectWorkflow={handleSelectWorkflow}
                   onClearSelection={handleClearSelection}
                   onSessionRenamed={(name: string) => {
                     handleRenameSession(activeSessionId!, name)
@@ -6068,12 +6085,15 @@ function ChatPanel({
   activeMode,
   activeSkillId,
   activeTeamId,
+  activeWorkflowId,
+  activeWorkflow,
   activeEmployee,
   activeTeam,
   hiredEmployees,
   teams,
   onSelectEmployee,
   onSelectTeam,
+  onSelectWorkflow,
   onClearSelection,
   onSessionRenamed,
   onMinimize,
@@ -6105,12 +6125,15 @@ function ChatPanel({
   activeMode: ChatMode
   activeSkillId: string | null
   activeTeamId: string | null
+  activeWorkflowId: string | null
+  activeWorkflow?: BuiltinWorkflowItem
   activeEmployee?: HiredEmployee
   activeTeam?: TeamInfo
   hiredEmployees: HiredEmployee[]
   teams: TeamInfo[]
   onSelectEmployee: (e: HiredEmployee) => void
   onSelectTeam: (t: TeamInfo) => void
+  onSelectWorkflow: (wfId: string) => void
   onClearSelection: () => void
   onSessionRenamed: (name: string) => void
 }) {
@@ -6710,6 +6733,13 @@ function ChatPanel({
         setSlashFilter('')
       }
     } else if (!openedViaButton) {
+      // Input no longer starts with `/` AND the user didn't open the picker
+      // via the toolbar button — close the picker. Two flows:
+      //   • user typed `/`, picker opened, user deleted the `/` → close
+      //   • user typed `/foo` then cleared the box → close
+      // Button-opened pickers stay until explicit dismiss/select; that
+      // mode keeps `openedViaButton=true`, so this branch leaves them alone.
+      if (showSelector) setShowSelector(false)
       if (slashFilter !== '') setSlashFilter('')
       if (slashMatch) setSlashMatch(null)
     }
@@ -6848,18 +6878,33 @@ function ChatPanel({
 
     if (autoTitle) onSessionRenamed(autoTitle)
 
-    // ── Slash command detection ──────────────────────────────────
-    // `/build {task}` invoca o Builder Workflow (team delegation in-chat)
-    // em vez de mandar o prompt pro Claude solo. Insere a mensagem do
-    // user normalmente no chat e dispara /api/workflow/start em
-    // paralelo. Card de progresso aparece após o run iniciar.
-    const slashMatch = content.match(/^\s*\/build\s+([\s\S]+)$/)
-    if (slashMatch) {
-      const task = slashMatch[1].trim()
+    // ── Workflow dispatch ────────────────────────────────────────
+    // Two entry points feed the same dispatcher:
+    //   1. activeMode === 'workflow'  — user picked a workflow chip and
+    //      typed the task as free-form prompt
+    //   2. legacy slash prefix         — user typed `/build <task>` by hand
+    // Both normalize to a {workflowId, task} pair and fire /api/workflow/start.
+    let workflowDispatch: { workflowId: string; task: string } | null = null
+    if (activeMode === 'workflow' && activeWorkflow) {
+      const task = content.trim()
       if (task.length === 0) {
-        console.warn('[chat] /build with no task ignored')
+        console.warn('[chat] workflow send with empty task ignored')
         return
       }
+      workflowDispatch = { workflowId: activeWorkflow.id, task }
+    } else {
+      const slashMatch = content.match(/^\s*\/build\s+([\s\S]+)$/)
+      if (slashMatch) {
+        const task = slashMatch[1].trim()
+        if (task.length === 0) {
+          console.warn('[chat] /build with no task ignored')
+          return
+        }
+        workflowDispatch = { workflowId: 'builder', task }
+      }
+    }
+    if (workflowDispatch) {
+      const { task } = workflowDispatch
       // Optimistic insert with a stable id; the runner reuses the same
       // id when it persists the user row server-side, so the SSE event
       // that lands shortly after is an upsert (no duplicate row, no
@@ -7291,23 +7336,25 @@ function ChatPanel({
       {/* Input area with selector — no bg / no border, inherits the chat
           background so the floating card sits directly on the messages area */}
       <div className="relative shrink-0">
-        {/* Selector popup — opens ABOVE the input */}
+        {/* Selector popup — opens ABOVE the input. Dark theme harmonized
+            with the chat surface (mirrors the sidebar tone) so it doesn't
+            flash white in a dark chat. */}
         {showSelector && (
-          <div className="absolute bottom-full left-0 right-0 z-10 border-t border-zinc-200 bg-white p-3 shadow-lg">
+          <div className="absolute bottom-full left-2 right-2 z-10 mb-1 rounded-xl border border-white/10 bg-[#232323] p-2.5 shadow-xl shadow-black/40">
             {!hasAnyone ? (
-              <p className="text-xs text-zinc-500">No employees or workflows yet.</p>
+              <p className="text-[11px] text-zinc-500">No agents or workflows yet.</p>
             ) : (
               <>
-                <div className="mb-2 flex gap-2">
+                <div className="mb-2 flex gap-1">
                   <button
                     onClick={() => setSelectorTab('employees')}
-                    className={`rounded px-2 py-1 text-[10px] font-medium ${selectorTab === 'employees' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-600'}`}
+                    className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${selectorTab === 'employees' ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
                   >
-                    Employees
+                    Agents
                   </button>
                   <button
                     onClick={() => setSelectorTab('workflows')}
-                    className={`rounded px-2 py-1 text-[10px] font-medium ${selectorTab === 'workflows' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-600'}`}
+                    className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${selectorTab === 'workflows' ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
                   >
                     Workflows
                   </button>
@@ -7318,13 +7365,13 @@ function ChatPanel({
                   return (
                     <div className="flex flex-wrap gap-1.5">
                       {filtered.length === 0 ? (
-                        <p className="text-xs text-zinc-400">{hiredEmployees.length === 0 ? 'No employees hired yet.' : 'No match.'}</p>
+                        <p className="text-[11px] text-zinc-500">{hiredEmployees.length === 0 ? 'No agents hired yet.' : 'No match.'}</p>
                       ) : (
                         filtered.map((emp) => (
                           <button
                             key={emp.id}
                             onClick={() => { onSelectEmployee(emp); setShowSelector(false); setInput(''); setSlashFilter('') }}
-                            className={`rounded-lg bg-gradient-to-br ${emp.color} px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-transform hover:scale-105`}
+                            className={`rounded-md bg-gradient-to-br ${emp.color} px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition-transform hover:scale-105`}
                           >
                             {emp.name}
                           </button>
@@ -7341,28 +7388,23 @@ function ChatPanel({
                     wf.trigger.slice(1).toLowerCase().includes(slashFilter)
                   )
                   return (
-                    <div className="space-y-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       {filtered.length === 0 ? (
-                        <p className="text-xs text-zinc-400">No match.</p>
+                        <p className="text-[11px] text-zinc-500">No match.</p>
                       ) : (
                         filtered.map((wf) => (
                           <button
                             key={wf.id}
                             onClick={() => {
-                              // Pre-fill the input with the trigger so the user just types the task.
-                              setInput(`${wf.trigger} `)
+                              onSelectWorkflow(wf.id)
                               setShowSelector(false)
+                              setInput('')
                               setSlashFilter('')
-                              // Focus textarea so user can immediately type the task.
                               requestAnimationFrame(() => chatTextareaRef.current?.focus())
                             }}
-                            className="flex w-full flex-col gap-0.5 rounded-lg bg-zinc-800 px-3 py-2 text-left transition-colors hover:bg-zinc-700"
+                            className={`rounded-md bg-gradient-to-br ${wf.color} px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition-transform hover:scale-105`}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-white">{wf.name}</span>
-                              <span className="rounded bg-zinc-700 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300">{wf.trigger}</span>
-                            </div>
-                            <span className="text-[10px] text-zinc-400">{wf.description}</span>
+                            {wf.name}
                           </button>
                         ))
                       )}
@@ -7426,7 +7468,7 @@ function ChatPanel({
               </div>
             )}
 
-            {/* Active skill/team badge */}
+            {/* Active skill/team/workflow badge */}
             {activeMode !== 'no_skill' && (
               <div className="flex items-center gap-1.5 px-3 pt-2.5">
                 {activeMode === 'skill' && activeEmployee && (
@@ -7445,6 +7487,18 @@ function ChatPanel({
                   <div className="flex items-center gap-1">
                     <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-white">
                       {activeTeam.name}
+                    </span>
+                    <button type="button" onClick={onClearSelection} className="text-zinc-400 hover:text-zinc-600">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {activeMode === 'workflow' && activeWorkflow && (
+                  <div className="flex items-center gap-1">
+                    <span className={`rounded bg-gradient-to-br ${activeWorkflow.color} px-2 py-0.5 text-[10px] font-semibold text-white`}>
+                      {activeWorkflow.name}
                     </span>
                     <button type="button" onClick={onClearSelection} className="text-zinc-400 hover:text-zinc-600">
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -7556,7 +7610,7 @@ function ChatPanel({
                     sendMessage(e)
                   }
                 }}
-                placeholder={activeMode === 'team' ? `Message ${activeTeam?.name ?? 'team'}...` : activeMode === 'skill' ? `Message ${activeEmployee?.name ?? 'employee'}...` : 'Message Claude...'}
+                placeholder={activeMode === 'team' ? `Message ${activeTeam?.name ?? 'team'}...` : activeMode === 'skill' ? `Message ${activeEmployee?.name ?? 'agent'}...` : activeMode === 'workflow' ? `Describe what to build for ${activeWorkflow?.name ?? 'this workflow'}...` : 'Message Claude...'}
                 rows={1}
                 className="w-full resize-none bg-transparent text-sm text-zinc-200 placeholder-zinc-500 outline-none"
                 style={{ maxHeight: `${36 * 4}px` }}

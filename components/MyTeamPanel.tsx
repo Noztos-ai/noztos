@@ -17,6 +17,12 @@ const AVAILABLE_EMPLOYEES: Employee[] = [
     color: 'from-violet-500 to-purple-600',
   },
   {
+    id: 'planner',
+    name: 'Planner',
+    description: 'Reads the request and the repo, then decomposes the work into focused blocks each block delivers a coherent piece.',
+    color: 'from-sky-500 to-indigo-600',
+  },
+  {
     id: 'architect',
     name: 'Architect',
     description: 'Defines architecture, data flow, component breakdown. Your technical blueprint before any code.',
@@ -101,8 +107,8 @@ const BUILTIN_WORKFLOWS: BuiltinWorkflow[] = [
     id: 'builder',
     name: 'Build',
     trigger: '/build',
-    description: 'Multi-agent code construction. Plans, designs, builds, and reviews end-to-end.',
-    agentSequence: ['architect', 'builder', 'reviewer'],
+    description: 'Tell it what to build. Planner scopes, Architect designs, Builder writes, Reviewer ships.',
+    agentSequence: ['planner', 'architect', 'builder', 'reviewer'],
   },
 ]
 
@@ -130,7 +136,7 @@ export function MyTeamPanel() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-zinc-200">Workflows</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Pre-built multi-agent flows. Invoke from any chat with the trigger.
+            Multi-agent orchestrations with built-in review loops, engineered to deliver precise results.
           </p>
         </div>
 
@@ -149,12 +155,7 @@ export function MyTeamPanel() {
 function BuiltinWorkflowCard({ workflow }: { workflow: BuiltinWorkflow }) {
   return (
     <div className="overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 p-4 shadow-lg">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-white">{workflow.name}</p>
-        <code className="rounded bg-white/10 px-2 py-0.5 text-[11px] font-mono text-emerald-300">
-          {workflow.trigger}
-        </code>
-      </div>
+      <p className="mb-2 text-sm font-bold text-white">{workflow.name}</p>
       <p className="mb-3 text-[11px] leading-relaxed text-zinc-400">{workflow.description}</p>
       <div className="flex flex-wrap items-center gap-1.5">
         {workflow.agentSequence.map((id, i) => {
@@ -175,7 +176,7 @@ function BuiltinWorkflowCard({ workflow }: { workflow: BuiltinWorkflow }) {
         })}
       </div>
       <p className="mt-3 text-[10px] text-zinc-500">
-        Type <code className="rounded bg-white/5 px-1 text-zinc-300">{workflow.trigger} {'{task}'}</code> in any worktree-scoped chat to run.
+        Requires <span className="text-zinc-300">agent</span> mode in chat. Workflow built to ship code.
       </p>
     </div>
   )
