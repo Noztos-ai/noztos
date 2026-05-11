@@ -38,11 +38,14 @@ export function useWorkflowSnapshot(runId: string | null): WorkflowRunUIState | 
     cancelledRef.current = false
     let timer: ReturnType<typeof setTimeout> | null = null
 
+    let tickCount = 0
+
     async function fetchOnce() {
+      const t0 = Date.now()
       try {
         const res = await fetch(`/api/workflow/${runId}`)
         if (!res.ok) {
-          console.warn(`[wf-snapshot] runId=${runId!.slice(0, 8)} fetch status=${res.status}`)
+          console.warn(`[wf-cache] cold-load fail runId=${runId!.slice(0, 8)} status=${res.status} ms=${Date.now() - t0}`)
           return null
         }
         const data = (await res.json()) as WorkflowRunUIState
@@ -50,17 +53,20 @@ export function useWorkflowSnapshot(runId: string | null): WorkflowRunUIState | 
         companionStore.hydrateWorkflowSnapshot(runId!, data)
         return data
       } catch (err) {
-        console.warn(`[wf-snapshot] runId=${runId!.slice(0, 8)} fetch error:`, err)
+        console.warn(`[wf-cache] cold-load err runId=${runId!.slice(0, 8)} ms=${Date.now() - t0} err=${(err as Error).message}`)
         return null
       }
     }
 
     async function tick() {
       if (cancelledRef.current) return
+      tickCount++
+      const label = tickCount === 1 ? 'initial' : `backup#${tickCount - 1}`
+      console.log(`[wf-cache] cold-load ${label} runId=${runId!.slice(0, 8)}`)
       const data = await fetchOnce()
       if (cancelledRef.current) return
       if (data && TERMINAL.has(data.status)) {
-        console.log(`[wf-snapshot] runId=${runId!.slice(0, 8)} terminal status=${data.status} → stop poll (snapshot retained)`)
+        console.log(`[wf-cache] terminal runId=${runId!.slice(0, 8)} status=${data.status} → stop poll (snapshot retained for dismiss)`)
         return
       }
       if (!cancelledRef.current) timer = setTimeout(tick, BACKUP_POLL_MS)

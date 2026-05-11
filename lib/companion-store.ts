@@ -774,6 +774,7 @@ class CompanionStore {
     const cursor = typeof progress?.chunkSeq === 'number' ? progress.chunkSeq : 0
     this.workflowSnapshots.set(runId, snapshot)
     this.workflowLastSeq.set(runId, cursor)
+    console.log(`[wf-cache] hydrate runId=${runId.slice(0, 8)} status=${snapshot.status} dedupeCursor=${cursor}`)
     this.notifyWorkflow(runId)
   }
 
@@ -792,9 +793,15 @@ class CompanionStore {
     chunk: unknown
   }): void {
     const last = this.workflowLastSeq.get(payload.runId) ?? -1
-    if (payload.seq <= last) return
+    if (payload.seq <= last) {
+      console.log(`[wf-cache] dedupe drop runId=${payload.runId.slice(0, 8)} seq=${payload.seq} lastSeq=${last}`)
+      return
+    }
     const state = this.workflowSnapshots.get(payload.runId)
-    if (!state) return  // not hydrated yet — initial cold-load handles catch-up
+    if (!state) {
+      console.log(`[wf-cache] drop delta runId=${payload.runId.slice(0, 8)} seq=${payload.seq} reason=not_hydrated`)
+      return
+    }
 
     const progress = state.progress as {
       blocks?: Array<{
@@ -837,12 +844,19 @@ class CompanionStore {
     this.workflowLastSeq.set(payload.runId, payload.seq)
     // Force a new object identity so React's useSyncExternalStore notices.
     this.workflowSnapshots.set(payload.runId, { ...state, progress: { ...progress } })
+    // Throughput milestone — every 25th applied delta. Lets the test trace
+    // verify the SSE path is actually feeding the store without spamming
+    // the console for every single chunk (workflow can run hundreds).
+    if (payload.seq % 25 === 0) {
+      console.log(`[wf-cache] applied runId=${payload.runId.slice(0, 8)} seq=${payload.seq} step=${payload.role}@b${payload.blockIndex}/a${payload.attempt}`)
+    }
     this.notifyWorkflow(payload.runId)
   }
 
   // User-driven dismissal of a terminal-state card: drop snapshot from
   // memory, clear the slice's runId so the card unmounts, free listeners.
   dismissWorkflowRun(runId: string, sessionId: string): void {
+    console.log(`[wf-cache] dismiss runId=${runId.slice(0, 8)} sid=${sessionId.slice(0, 8)}`)
     this.workflowSnapshots.delete(runId)
     this.workflowLastSeq.delete(runId)
     this.notifyWorkflow(runId)

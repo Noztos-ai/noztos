@@ -240,7 +240,18 @@ function maybeBufferEvent(event: unknown, userId: string): void {
 
   const rows = env.payload?.persistRows as unknown
   const hasRows = Array.isArray(rows) && rows.length > 0
-  console.log(`[relay-buffer] push sessionId=${sessionId.slice(0, 8)} events=${buf.events.length} bytes=${buf.bytes} hasPersistRows=${hasRows}`)
+  // Workflow chunks fire many per second; throttle their per-push log to
+  // milestones (every 25 frames in the session) so a long run doesn't
+  // bury the rest of the trace. Chat frames keep one log each (lower rate
+  // + persistRows make every push meaningful for debugging).
+  if (env.type === 'workflow_progress') {
+    if (buf.events.length === 1 || buf.events.length % 25 === 0) {
+      const runId = typeof env.payload?.runId === 'string' ? env.payload.runId.slice(0, 8) : '?'
+      console.log(`[relay-buffer] push type=workflow_progress sessionId=${sessionId.slice(0, 8)} runId=${runId} events=${buf.events.length} bytes=${buf.bytes}`)
+    }
+  } else {
+    console.log(`[relay-buffer] push type=${env.type} sessionId=${sessionId.slice(0, 8)} events=${buf.events.length} bytes=${buf.bytes} hasPersistRows=${hasRows}`)
+  }
 
   // Per-session FIFO cap. When we drop from the head we also refund
   // bytes so the global counter stays accurate.

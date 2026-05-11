@@ -153,6 +153,13 @@ export function CompanionProvider({ children }: { children: React.ReactNode }) {
                   chunk?: unknown
                 } | undefined
                 if (payload?.runId && typeof payload.seq === 'number' && payload.role && typeof payload.blockIndex === 'number' && typeof payload.attempt === 'number' && payload.chunk) {
+                  // Throughput milestone log — same cadence as the store's
+                  // applied log on the other side. Lets a test trace verify
+                  // SSE actually delivered to the browser without spamming
+                  // every chunk.
+                  if (payload.seq === 1 || payload.seq % 25 === 0) {
+                    console.log(`[wf-cache] sse delivered runId=${payload.runId.slice(0, 8)} seq=${payload.seq} step=${payload.role}@b${payload.blockIndex}`)
+                  }
                   companionStore.ingestWorkflowProgress({
                     runId: payload.runId,
                     seq: payload.seq,
@@ -161,6 +168,8 @@ export function CompanionProvider({ children }: { children: React.ReactNode }) {
                     attempt: payload.attempt,
                     chunk: payload.chunk,
                   })
+                } else {
+                  console.warn('[wf-cache] sse malformed workflow_progress payload', payload)
                 }
                 continue
               }

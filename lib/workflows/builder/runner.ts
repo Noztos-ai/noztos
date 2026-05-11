@@ -146,8 +146,11 @@ function makeLiveOnChunk(
   ctx: { userId: string; sessionId: string; seqRef: { value: number } },
 ): (chunk: TranscriptChunk) => void {
   const THROTTLE_MS = 500
+  const LOG_EVERY_N = 25      // throughput milestone log cadence
   let scheduled: ReturnType<typeof setTimeout> | null = null
   let lastFlushAt = 0
+  let pushedSinceLastLog = 0
+  let lastLoggedStepKey: string | null = null
 
   function flush() {
     scheduled = null
@@ -158,7 +161,10 @@ function makeLiveOnChunk(
   }
 
   return (chunk: TranscriptChunk) => {
-    if (!snapshot.currentStep) return
+    if (!snapshot.currentStep) {
+      console.log(`[wf-cache] drop chunk runId=${runId.slice(0, 8)} reason=no_currentStep`)
+      return
+    }
     if (!snapshot.currentStep.transcript) snapshot.currentStep.transcript = []
     snapshot.currentStep.transcript.push(chunk)
 
@@ -169,6 +175,7 @@ function makeLiveOnChunk(
     // browser reads it on cold-load to seed its dedupe state.
     const seq = ++ctx.seqRef.value
     snapshot.chunkSeq = seq
+    const stepKey = `${snapshot.currentStep.role}@b${snapshot.currentStep.blockIndex}/a${snapshot.currentStep.attempt}`
     try {
       const channel = getChannel(ctx.userId)
       channel.pushEvent({
@@ -183,8 +190,19 @@ function makeLiveOnChunk(
           chunk,
         },
       }, ctx.userId)
+      // First chunk per step gets a dedicated log so the test trace shows
+      // the cache pipeline boot for each agent (planner → architect → …).
+      if (stepKey !== lastLoggedStepKey) {
+        console.log(`[wf-cache] first chunk pushed runId=${runId.slice(0, 8)} step=${stepKey} seq=${seq}`)
+        lastLoggedStepKey = stepKey
+        pushedSinceLastLog = 0
+      }
+      pushedSinceLastLog++
+      if (pushedSinceLastLog % LOG_EVERY_N === 0) {
+        console.log(`[wf-cache] throughput runId=${runId.slice(0, 8)} step=${stepKey} chunksSinceLog=${pushedSinceLastLog} totalSeq=${seq}`)
+      }
     } catch (err) {
-      console.warn(`[wf-runner] relay push (workflow_progress) failed: ${(err as Error).message}`)
+      console.warn(`[wf-cache] relay push failed runId=${runId.slice(0, 8)} step=${stepKey} err=${(err as Error).message}`)
     }
 
     if (scheduled) return  // already a flush queued
@@ -336,6 +354,11 @@ async function executeRun(runId: string, input: StartWorkflowInput): Promise<voi
   const totalObjBytes = plannerResult.plan.blocks.reduce((acc, b) => acc + b.objective.length, 0)
   const blockNames = plannerResult.plan.blocks.map((b) => `"${b.name}"`).join(', ')
   console.log(`[wf-runner] run=${runId.slice(0, 8)} ✓ planner done blocks=${plannerResult.plan.blocks.length} totalObjBytes=${totalObjBytes} names=[${blockNames}]`)
+
+  // Planner phase is done — its chunks are history now. Evict so cache
+  // holds only the working tip (which will be the current block from
+  // here on). DB still has the planner transcript via the snapshot above.
+  evictBlockFromCache(input.sessionId, runId, -1)
 
   // ── Phase 1..N: blocks ────────────────────────────────────────────
 
