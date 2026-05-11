@@ -30,6 +30,7 @@ interface PlannerInput {
   repoSnapshot: string
   mode: WorkflowMode
   projectPath: string
+  runId?: string
   onChunk?: (chunk: TranscriptChunk) => void
 }
 
@@ -188,6 +189,7 @@ export async function runPlannerStep(input: PlannerInput): Promise<PlannerStepRe
     userText,
     cwd: input.projectPath,
     model: 'sonnet',
+    runId: input.runId,
     // Planner não escreve código, mas precisa explorar livremente.
     // Bash fica permitido (read-only por convenção: ls, find, cat, head,
     // tree) — sem ele o modelo não consegue enumerar diretórios de

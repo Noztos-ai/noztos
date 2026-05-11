@@ -27,6 +27,7 @@ interface ArchitectInput {
   blockIndex: number
   totalBlocks: number
   projectPath: string
+  runId?: string
   // Quando isRetry: previous plan + rejection list
   isRetry?: boolean
   previousPlan?: string          // architect-plan.md anterior verbatim
@@ -125,6 +126,7 @@ export async function runArchitectStep(input: ArchitectInput): Promise<Architect
     userText,
     cwd: input.projectPath,
     model: 'sonnet',
+    runId: input.runId,
     // Architect investiga livremente — Bash liberado pra enumeração
     // ergonômica (ls, find, cat, grep, head). Sem ele o modelo cai no
     // viés de Read seletivo e inventa "convenções novas" pra preencher

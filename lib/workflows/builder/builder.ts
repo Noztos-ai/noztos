@@ -28,6 +28,7 @@ interface BuilderInput {
   projectPath: string
   architectPlan: string          // verbatim do architect-plan.md (pra injetar no prompt)
   mode: WorkflowMode
+  runId?: string
   isRetry?: boolean              // após reject — Architect já ajustou plano
   onChunk?: (chunk: TranscriptChunk) => void
 }
@@ -89,6 +90,7 @@ export async function runBuilderStep(input: BuilderInput): Promise<BuilderStepRe
     userText,
     cwd: input.projectPath,
     model: 'sonnet',
+    runId: input.runId,
     ...(disallowedTools.length > 0 && { disallowedTools }),
     permissionMode: 'bypassPermissions',
     onChunk: input.onChunk,

@@ -298,6 +298,10 @@ function ChatsSidebar({
     // Present only when the target has uncommitted work that the confirmation
     // needs to surface (and that we'll discard if the user confirms).
     stats: { added: number; removed: number; files: number } | null
+    // Present when an in-flight workflow run is operating on this worktree.
+    // The modal raises a louder warning and confirmPendingAction cancels
+    // the run before the destructive cleanup.
+    activeWorkflowRunId: string | null
   } | null>(null)
 
   // Close menu on outside click
@@ -336,13 +340,25 @@ function ChatsSidebar({
       }
       return
     }
-    console.log(`[sidebar] action=delete target=session id=${s.id.slice(0, 8)} (awaiting confirmation)`)
+    // Check for an in-flight workflow on this chat before opening the modal
+    // so confirm can cancel the run before the soft-delete. Same lazy-fetch
+    // pattern used by the worktree delete path.
+    let activeWorkflowRunId: string | null = null
+    try {
+      const res = await fetch(`/api/projects/${projectId}/chat-sessions/${s.id}/active-workflow`)
+      if (res.ok) {
+        const data = (await res.json()) as { activeRunId: string | null }
+        activeWorkflowRunId = data.activeRunId
+      }
+    } catch { /* best-effort */ }
+    console.log(`[sidebar] action=delete target=session id=${s.id.slice(0, 8)} activeWorkflow=${activeWorkflowRunId ? activeWorkflowRunId.slice(0, 8) : 'none'} (awaiting confirmation)`)
     setPendingAction({
       targetType: 'session',
       targetId: s.id,
       targetName: s.name,
       action: 'delete',
       stats: null,
+      activeWorkflowRunId,
     })
   }
 
@@ -356,6 +372,21 @@ function ChatsSidebar({
     const stat = worktreeStats[w.id]
     const hasChanges = !!stat && (stat.added > 0 || stat.removed > 0)
 
+    // For delete only, check for an in-flight workflow on this worktree so
+    // the modal can raise the warning + so confirm cancels it before the
+    // disk wipe. Lazy fetch (not part of the periodic poll) keeps hot paths
+    // free; this only fires when the user actually clicks delete.
+    let activeWorkflowRunId: string | null = null
+    if (action === 'delete') {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/worktrees/${w.id}/active-workflow`)
+        if (res.ok) {
+          const data = (await res.json()) as { activeRunId: string | null }
+          activeWorkflowRunId = data.activeRunId
+        }
+      } catch { /* best-effort — fall through with null */ }
+    }
+
     if (action === 'archive' && !hasChanges) {
       console.log(`[sidebar] action=archive target=worktree id=${w.id.slice(0, 8)} clean (no modal)`)
       try {
@@ -366,7 +397,7 @@ function ChatsSidebar({
       }
       return
     }
-    console.log(`[sidebar] action=${action} target=worktree id=${w.id.slice(0, 8)} hasChanges=${hasChanges} (awaiting confirmation)`)
+    console.log(`[sidebar] action=${action} target=worktree id=${w.id.slice(0, 8)} hasChanges=${hasChanges} activeWorkflow=${activeWorkflowRunId ? activeWorkflowRunId.slice(0, 8) : 'none'} (awaiting confirmation)`)
 
     setPendingAction({
       targetType: 'worktree',
@@ -374,6 +405,7 @@ function ChatsSidebar({
       targetName: w.name,
       action,
       stats: hasChanges ? stat : null,
+      activeWorkflowRunId,
     })
   }
 
@@ -389,6 +421,18 @@ function ChatsSidebar({
       const base = pendingAction.targetType === 'worktree'
         ? `/api/projects/${projectId}/worktrees/${pendingAction.targetId}`
         : `/api/projects/${projectId}/chat-sessions/${pendingAction.targetId}`
+      // Cancel any in-flight workflow first so the runner stops editing
+      // files before discard + delete-forever wipe the worktree underneath
+      // it. The delete-forever endpoint also calls cancel server-side as a
+      // belt-and-suspenders guarantee.
+      if (pendingAction.activeWorkflowRunId) {
+        console.log(`[sidebar] cancelling active workflow runId=${pendingAction.activeWorkflowRunId.slice(0, 8)} (pre-${pendingAction.action})`)
+        try {
+          await fetch(`/api/workflow/${pendingAction.activeWorkflowRunId}/cancel`, { method: 'POST' })
+        } catch (err) {
+          console.warn('[sidebar] workflow cancel failed', err)
+        }
+      }
       if (pendingAction.stats) {
         console.log(`[sidebar] action=discard target=${pendingAction.targetType} id=${pendingAction.targetId.slice(0, 8)} (pre-${pendingAction.action})`)
         await fetch(`${base}/discard`, { method: 'POST' })
@@ -639,6 +683,7 @@ function ChatsSidebar({
           targetType={pendingAction.targetType}
           action={pendingAction.action}
           pendingStats={pendingAction.stats}
+          activeWorkflow={!!pendingAction.activeWorkflowRunId}
           onCancel={() => setPendingAction(null)}
           onConfirm={confirmPendingAction}
         />
@@ -1064,6 +1109,7 @@ function ConfirmActionModal({
   targetType,
   action,
   pendingStats,
+  activeWorkflow,
   onCancel,
   onConfirm,
 }: {
@@ -1071,6 +1117,7 @@ function ConfirmActionModal({
   targetType: 'session' | 'worktree'
   action: 'archive' | 'delete'
   pendingStats: { added: number; removed: number; files: number } | null
+  activeWorkflow: boolean
   onCancel: () => void
   onConfirm: () => void
 }) {
@@ -1079,10 +1126,15 @@ function ConfirmActionModal({
   const noun = isWorktree ? 'worktree' : 'chat'
   const verbCap = isDelete ? 'Delete forever' : 'Archive'
   const verbLow = isDelete ? 'delete' : 'archive'
-  const confirmLabel = pendingStats ? `Discard & ${verbLow}` : verbCap
+  const confirmLabel = activeWorkflow
+    ? `Cancel & ${verbLow}`
+    : pendingStats
+      ? `Discard & ${verbLow}`
+      : verbCap
 
   let title: string
-  if (isDelete && pendingStats) title = `Delete ${noun} with pending changes`
+  if (isDelete && activeWorkflow) title = `Delete ${noun} with running workflow`
+  else if (isDelete && pendingStats) title = `Delete ${noun} with pending changes`
   else if (isDelete) title = `Delete ${noun} forever`
   else title = `Archive ${noun} with pending changes`
 
@@ -1109,6 +1161,18 @@ function ConfirmActionModal({
                 <>This will <span className="text-zinc-200">permanently delete</span> this chat from your view. The transcript stays in our records. <span className="text-red-400">Cannot be undone.</span></>
               )}
             </p>
+          )}
+
+          {activeWorkflow && (
+            <div className="mt-3 rounded-md border border-amber-400/30 bg-amber-500/10 px-3 py-2">
+              <div className="flex items-center gap-2 text-[11px] font-medium text-amber-300">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 7v5l3 2" /></svg>
+                Workflow em execução
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-amber-200/80">
+                Há um workflow rodando neste {noun}. Se continuar, ele será cancelado e o processo encerrado imediatamente.
+              </p>
+            </div>
           )}
 
           {pendingStats && (
@@ -6369,6 +6433,20 @@ function ChatPanel({
   // autoFocus) was grabbing the window focus and the user's first
   // keystrokes went to the terminal instead of the chat.
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Resync textarea height whenever `input` changes by means other than
+  // a keystroke — programmatic clear after send, draft load on chat or
+  // worktree switch. Without this the inline height set by the last
+  // onChange stays glued, leaving an oversized empty input across chats.
+  useLayoutEffect(() => {
+    const ta = chatTextareaRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    if (input.length > 0) {
+      const maxHeight = 36 * 4
+      ta.style.height = Math.min(ta.scrollHeight, maxHeight) + 'px'
+    }
+  }, [input, sessionId])
 
   const ACCEPTED_TYPES = {
     'image/png': 'image',

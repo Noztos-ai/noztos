@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { verifyProjectAccess } from '@/lib/auth'
 import { invalidateWorktreeCache } from '@/lib/tools'
 import { cleanupWorktreeOnDisk } from '@/lib/worktree'
+import { killRun } from '@/lib/workflows/shared/process-registry'
 
 interface RouteContext {
   params: Promise<{ id: string; worktreeId: string }>
@@ -37,6 +38,28 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     where: { worktreeId },
     select: { id: true },
   })).map((s) => s.id)
+
+  // Cancel any in-flight workflow runs first — both the DB flag (so the
+  // runner's next checkpoint exits) and SIGTERM the spawned child (so
+  // file edits stop immediately). Without this, the runner keeps writing
+  // to a directory we're about to wipe.
+  if (sessionIds.length > 0) {
+    const liveRuns = await prisma.workflowRun.findMany({
+      where: { sessionId: { in: sessionIds }, status: { in: ['pending', 'running'] } },
+      select: { id: true },
+    })
+    if (liveRuns.length > 0) {
+      await prisma.workflowRun.updateMany({
+        where: { id: { in: liveRuns.map((r) => r.id) } },
+        data: { status: 'cancelled', completedAt: new Date(), errorReason: 'worktree deleted' },
+      })
+      let killedCount = 0
+      for (const r of liveRuns) {
+        if (killRun(r.id)) killedCount++
+      }
+      console.log(`[wt-delete-forever] cancelled_runs=${liveRuns.length} killed_children=${killedCount} worktreeId=${worktreeId.slice(0, 8)}`)
+    }
+  }
 
   // Flip every chat + its messages to 'deleted' with the same timestamp
   // so every query layer agrees "this worktree is gone". Stamping both

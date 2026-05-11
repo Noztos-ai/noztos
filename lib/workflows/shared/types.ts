@@ -127,6 +127,10 @@ export interface AgentStepInput {
   disallowedTools?: string[]
   permissionMode?: 'bypassPermissions' | 'plan' | 'default'
   timeoutMs?: number
+  // WorkflowRun id. When present, the spawned child is registered so the
+  // cancel endpoint can SIGTERM/SIGKILL it directly instead of waiting
+  // for the runner to reach its next checkpoint.
+  runId?: string
   // Optional live observer fired on every parsed stream-json chunk
   // (assistant text, tool_use, tool_result). The runner uses this
   // to grow `StepState.transcript` and surface real-time activity in

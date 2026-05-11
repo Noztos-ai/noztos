@@ -213,6 +213,7 @@ async function executeRun(runId: string, input: StartWorkflowInput): Promise<voi
     repoSnapshot,
     mode: input.mode,
     projectPath: input.projectPath,
+    runId,
     onChunk: makeLiveOnChunk(runId, snapshot),
   })
 
@@ -356,6 +357,7 @@ async function runBlock(
       blockIndex,
       totalBlocks,
       projectPath: input.projectPath,
+      runId,
       isRetry: architectIsRetry,
       previousPlan: previousArchitectPlan,
       rejectionList: previousRejectionList,
@@ -400,6 +402,7 @@ async function runBlock(
       projectPath: input.projectPath,
       architectPlan,
       mode: input.mode,
+      runId,
       isRetry: attempt > 1,
       onChunk: makeLiveOnChunk(runId, snapshot),
     })
@@ -446,6 +449,7 @@ async function runBlock(
       builderReport,
       attempt,
       isFinalBlock,
+      runId,
       previousRejections: allRejections,
       onChunk: makeLiveOnChunk(runId, snapshot),
     })

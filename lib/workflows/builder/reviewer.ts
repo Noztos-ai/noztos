@@ -39,6 +39,7 @@ interface ReviewerInput {
   builderReport: string             // verbatim
   attempt: number                   // 1 = first review, 2 = after 1 reject, 3 = forced
   isFinalBlock: boolean             // se true, escreve final response
+  runId?: string
   // Histórico de rejection lists nesta sessão de review (pra attempt=3)
   previousRejections?: Array<{ attempt: number; content: string }>
   onChunk?: (chunk: TranscriptChunk) => void
@@ -160,6 +161,7 @@ export async function runReviewerStep(input: ReviewerInput): Promise<ReviewerSte
     userText,
     cwd: input.projectPath,
     model: 'sonnet',
+    runId: input.runId,
     // Reviewer audita livremente — Bash liberado pra enumeração (ls,
     // find, cat, grep, head). Sem ele cai no mesmo viés de Read seletivo
     // que escapa de detalhes do projeto. Edit/Write bloqueados garantem

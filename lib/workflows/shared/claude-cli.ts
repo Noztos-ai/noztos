@@ -9,6 +9,7 @@
 
 import { spawn } from 'node:child_process'
 import type { AgentStepInput, AgentStepResult, TranscriptChunk } from './types'
+import { registerChild, unregisterChild } from './process-registry'
 
 // Best-effort emit — onChunk is observation; never let it block the
 // stream parse or surface back as a CLI error.
@@ -54,6 +55,7 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
       env: { ...process.env },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
+    if (input.runId) registerChild(input.runId, child)
 
     let stdout = ''
     let stderr = ''
@@ -103,6 +105,7 @@ export function callClaude(input: AgentStepInput): Promise<AgentStepResult> {
       clearTimeout(timer)
       clearInterval(heartbeat)
       try { child.kill('SIGTERM') } catch {}
+      if (input.runId) unregisterChild(input.runId, child)
       const tag = out.error ? 'WARN' : 'LOG'
       console[tag === 'WARN' ? 'warn' : 'log'](`[wf-cli] done role=${input.role} reason=${reason} elapsed=${out.durationMs}ms outputBytes=${out.output.length}${out.error ? ` error="${out.error.slice(0, 200)}"` : ''}`)
       resolve(out)

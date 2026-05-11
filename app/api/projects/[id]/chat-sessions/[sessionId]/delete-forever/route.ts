@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyProjectAccess } from '@/lib/auth'
 import { dropSessionBuffer } from '@/lib/companion-relay'
+import { killRun } from '@/lib/workflows/shared/process-registry'
 
 interface RouteContext {
   params: Promise<{ id: string; sessionId: string }>
@@ -38,6 +39,27 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       { error: 'Cannot delete chat individually — worktree is archived. Delete the worktree instead.' },
       { status: 409 },
     )
+  }
+
+  // Cancel any in-flight workflow tied to this session — both the DB flag
+  // (so the runner's next checkpoint exits cleanly) and SIGTERM via the
+  // process registry (so the agent stops editing files immediately). The
+  // chat is about to vanish from the user's view; the runner must not
+  // keep writing into it in the background.
+  const liveRuns = await prisma.workflowRun.findMany({
+    where: { sessionId, status: { in: ['pending', 'running'] } },
+    select: { id: true },
+  })
+  if (liveRuns.length > 0) {
+    await prisma.workflowRun.updateMany({
+      where: { id: { in: liveRuns.map((r) => r.id) } },
+      data: { status: 'cancelled', completedAt: new Date(), errorReason: 'chat deleted' },
+    })
+    let killedCount = 0
+    for (const r of liveRuns) {
+      if (killRun(r.id)) killedCount++
+    }
+    console.log(`[chat-delete-forever] cancelled_runs=${liveRuns.length} killed_children=${killedCount} sessionId=${sessionId.slice(0, 8)}`)
   }
 
   // Mark both `status` and `deletedAt` so every query layer sees the row
