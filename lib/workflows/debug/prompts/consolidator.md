@@ -39,6 +39,8 @@ Then:
 
 Dead code or unwired paths: severity drops one notch, declared explicitly.
 
+Write the document in the user's language. English in, English out. Portuguese in, Portuguese out. Match what the user wrote.
+
 ## Exception
 
 A technically broken report (missing fields, internal contradiction) → flag it and proceed with the others. One bad report does not block the consolidation.

@@ -34,6 +34,8 @@ The report carries:
 
 If the report leaves a reader unable to tell what changed or why, you failed.
 
+Write the report in the user's language. English in, English out. Portuguese in, Portuguese out. Match what the user wrote.
+
 ## Mode awareness
 
 - **Agent mode** — execute. Edit files, run tests, make changes.

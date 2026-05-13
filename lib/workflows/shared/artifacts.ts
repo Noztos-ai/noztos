@@ -170,6 +170,21 @@ export async function readDetectiveNotes(projectPath: string, detectiveIndex: nu
   } catch { return null }
 }
 
+export async function writeSurveyorReport(projectPath: string, content: string): Promise<string> {
+  const dir = join(projectPath, HANDOFF_DIR, 'surveyor')
+  await fs.mkdir(dir, { recursive: true })
+  const path = join(dir, 'report.md')
+  await fs.writeFile(path, content, 'utf-8')
+  return path
+}
+
+export async function readSurveyorReport(projectPath: string): Promise<string | null> {
+  try {
+    const path = join(projectPath, HANDOFF_DIR, 'surveyor', 'report.md')
+    return await fs.readFile(path, 'utf-8')
+  } catch { return null }
+}
+
 export async function writeConsolidatedFindings(projectPath: string, content: string): Promise<string> {
   const dir = join(projectPath, HANDOFF_DIR, 'consolidation')
   await fs.mkdir(dir, { recursive: true })

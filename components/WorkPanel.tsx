@@ -7353,7 +7353,9 @@ function ChatPanel({
           })
         })()}
         {workflowRunId && (
-          <WorkflowRunCard sessionId={sessionId} runId={workflowRunId} />
+          <div className="w-full max-w-2xl min-w-0">
+            <WorkflowRunCard sessionId={sessionId} runId={workflowRunId} />
+          </div>
         )}
         {isRunning && !workflowRunId && (
           <ThinkingIndicator mode="direct" />

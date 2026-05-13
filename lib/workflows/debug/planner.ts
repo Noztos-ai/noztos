@@ -26,7 +26,7 @@ async function loadDebugPlannerSkill(): Promise<string> {
 interface DebugPlannerInput {
   userMessage: string
   chatContextXml: string
-  repoSnapshot: string
+  surveyorReport: string
   mode: WorkflowMode
   projectPath: string
   runId?: string
@@ -54,7 +54,7 @@ function buildSystemPrompt(skill: string, input: DebugPlannerInput): string {
   if (input.chatContextXml.length > 0) {
     sections.push('## Chat context preceding the workflow', input.chatContextXml, '')
   }
-  sections.push('## Repo snapshot', input.repoSnapshot, '')
+  sections.push('## Surveyor report', input.surveyorReport, '')
   sections.push(`## Mode\n${input.mode}`, '')
   return sections.join('\n')
 }
@@ -144,12 +144,20 @@ export async function runDebugPlannerStep(input: DebugPlannerInput): Promise<Deb
     cwd: input.projectPath,
     model: 'sonnet',
     runId: input.runId,
-    // Planner only maps the structure to draw regions. Edit/Write are
-    // blocked at the SDK level; Bash is blocked too because earlier
-    // runs showed the model would `sed -i` the code into a fix when
-    // tempted by a narrow user request — closing that backdoor here.
-    // Read/Grep/Glob/LS are enough to walk the layout and read configs.
-    disallowedTools: ['Edit', 'Write', 'NotebookEdit', 'MultiEdit', 'Bash'],
+    // Planner is tool-less by design. Exploration was pushed up to the
+    // Surveyor; Planner's only job is to reason on the report + user
+    // task and emit XML. With every offensive tool blocked, the fix-
+    // mode backdoor that earlier runs exploited (sed -i via Bash, sub-
+    // claude via Agent) is physically impossible — capability removal,
+    // not behavioral restriction. Read/Grep/Glob/LS also blocked so
+    // the model can't peek at code and get tempted; Surveyor already
+    // packaged everything it needs to see.
+    disallowedTools: [
+      'Edit', 'Write', 'NotebookEdit', 'MultiEdit',
+      'Bash', 'Read', 'Grep', 'Glob', 'LS',
+      'Agent', 'Task', 'ToolSearch',
+      'WebFetch', 'WebSearch',
+    ],
     permissionMode: 'bypassPermissions',
     onChunk: input.onChunk,
   })

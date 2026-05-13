@@ -46,7 +46,7 @@ export interface DebugPlannerOutput {
 
 // ── Step state (live) ───────────────────────────────────────────────
 
-export type StepRole = 'planner' | 'architect' | 'builder' | 'reviewer' | 'detective' | 'consolidator'
+export type StepRole = 'surveyor' | 'planner' | 'architect' | 'builder' | 'reviewer' | 'detective' | 'consolidator'
 
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed'
 
@@ -128,7 +128,7 @@ export interface RunSnapshot {
   // per block; /debug walks "planner → investigating → consolidating
   // → fixing → done". The UI uses this to decide whether to render
   // parallel detective transcripts or the single-step layout.
-  phase?: 'planner' | 'investigating' | 'consolidating' | 'fixing' | 'done'
+  phase?: 'surveying' | 'planner' | 'investigating' | 'consolidating' | 'fixing' | 'done'
   // Monotonic chunk counter — the runner stamps each delta with seq before
   // pushing to the relay; the persist tick writes the latest value here.
   // The browser uses it on cold-load to set its dedupe cursor so any
@@ -150,9 +150,24 @@ export interface RunSnapshot {
   // is a detective running in parallel; UI renders them in a grid.
   // Cleared (or left as historical record) once the consolidator starts.
   parallelSteps?: StepState[]
+  // /debug only — Surveyor's repo study report. Markdown produced by
+  // the agent that explores the repo with tools (Read/Grep/Glob/Bash)
+  // and writes a structured study for the (tool-less) Planner. Phase 0
+  // output, feeds Planner's system prompt.
+  surveyorReport?: string
   // Consolidated diagnostic findings produced by /debug's consolidator.
   // Markdown; feeds into Architect as the source-of-truth for the fix.
   consolidatedFindings?: string
+  // /debug only — audit trail for the three sequential pre-fix roles.
+  // Each StepState carries the role's transcript (shared by ref with
+  // currentStep while live, then frozen once the next role starts),
+  // output, status, timings, and errorReason. Lets us read back the
+  // full process (tool calls + text) for each role after the run is
+  // done. Mirrors the fixAttempts[] pattern, just named per role
+  // because these are single-shot, not retried.
+  surveyorStep?: StepState
+  plannerStep?: StepState
+  consolidatorStep?: StepState
   // /debug only — audit trail for the fix loop. One StepState per role
   // per attempt (architect/builder/reviewer × N attempts). Persisted on
   // every role boundary so a finished run keeps every plan, report,

@@ -22,6 +22,7 @@ import {
   readConsolidatedFindings,
 } from '../shared/artifacts'
 import { buildRepoSnapshot } from '../builder/planner'
+import { runSurveyorStep } from './surveyor'
 import { runDebugPlannerStep } from './planner'
 import { runDetectiveStep } from './detective'
 import { runConsolidatorStep } from './consolidator'
@@ -245,7 +246,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
     mode: input.mode,
     projectPath: input.projectPath,
     blocks: [],
-    phase: 'planner',
+    phase: 'surveying',
     currentStep: null,
   }
 
@@ -254,15 +255,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
   const seqRef = { value: 0 }
   const chunkCtx = { userId: input.userId, sessionId: input.sessionId, seqRef }
 
-  // ── Phase 0: Bridge IN + repo snapshot + Planner ─────────────────
-
-  snapshot.currentStep = {
-    role: 'planner',
-    blockIndex: -1,
-    attempt: 1,
-    startedAt: Date.now(),
-  }
-  await persistProgress(runId, snapshot)
+  // ── Phase 0a: Bridge IN + repo snapshot ──────────────────────────
 
   const chatContextXml = await buildBridgeInContext(input.sessionId, input.userId)
   console.log(`[wf-runner] run=${runId.slice(0, 8)} bridge_in chatBytes=${chatContextXml.length}`)
@@ -270,15 +263,107 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
   console.log(`[wf-runner] run=${runId.slice(0, 8)} repo_snapshot bytes=${repoSnapshot.length}`)
 
   if (await isCancelled(runId)) {
+    console.log(`[wf-runner] run=${runId.slice(0, 8)} cancelled before surveyor`)
+    evictRunFromCache(input.sessionId, runId)
+    return
+  }
+
+  // ── Phase 0b: Surveyor (explores repo, produces report) ──────────
+
+  // Persisted StepState slot — same transcript array as currentStep so
+  // chunks flowing into either path land in both, and the slot survives
+  // when currentStep gets reassigned by the next role.
+  const surveyorStep: StepState = {
+    role: 'surveyor',
+    attempt: 1,
+    status: 'running',
+    startedAt: Date.now(),
+    transcript: [],
+  }
+  snapshot.surveyorStep = surveyorStep
+  snapshot.currentStep = {
+    role: 'surveyor',
+    blockIndex: -1,
+    attempt: 1,
+    startedAt: surveyorStep.startedAt!,
+    transcript: surveyorStep.transcript,
+  }
+  await persistProgress(runId, snapshot)
+  console.log(`[wf-runner] run=${runId.slice(0, 8)} ▶ surveyor`)
+
+  const surveyorResult = await runSurveyorStep({
+    userMessage: input.userMessage,
+    chatContextXml,
+    repoSnapshot,
+    projectPath: input.projectPath,
+    runId,
+    onChunk: makeOnChunk(runId, snapshot, {
+      ...chunkCtx,
+      target: () => (snapshot.currentStep ? (snapshot.currentStep as unknown as StepState) : undefined),
+      roleLabel: 'surveyor',
+      blockIndex: -1,
+      attempt: 1,
+    }),
+  })
+
+  surveyorStep.finishedAt = Date.now()
+  surveyorStep.durationMs = surveyorStep.finishedAt - surveyorStep.startedAt!
+  if (surveyorResult.rawResult.error || !surveyorResult.rawResult.output) {
+    surveyorStep.status = 'failed'
+    surveyorStep.errorReason = surveyorResult.rawResult.error ?? 'no output'
+    snapshot.currentStep = null
+    await persistProgress(runId, snapshot)
+    await prisma.workflowRun.updateMany({
+      where: { id: runId, status: { not: 'cancelled' } },
+      data: {
+        status: 'failed',
+        errorReason: `Surveyor failed: ${surveyorResult.rawResult.error ?? 'no output'}`,
+        completedAt: new Date(),
+      },
+    })
+    evictRunFromCache(input.sessionId, runId)
+    return
+  }
+  surveyorStep.status = 'completed'
+  surveyorStep.output = surveyorResult.rawResult.output
+  if (surveyorResult.outputPath) surveyorStep.outputPath = surveyorResult.outputPath
+
+  snapshot.surveyorReport = surveyorResult.rawResult.output
+  console.log(`[wf-runner] run=${runId.slice(0, 8)} ✓ surveyor done reportBytes=${snapshot.surveyorReport.length}`)
+  snapshot.currentStep = null
+  await persistProgress(runId, snapshot)
+  evictRoleFromCache(input.sessionId, runId, 'surveyor')
+
+  // ── Phase 0c: Planner (tool-less; reasons on Surveyor's report) ──
+
+  if (await isCancelled(runId)) {
     console.log(`[wf-runner] run=${runId.slice(0, 8)} cancelled before planner`)
     evictRunFromCache(input.sessionId, runId)
     return
   }
 
+  snapshot.phase = 'planner'
+  const plannerStep: StepState = {
+    role: 'planner',
+    attempt: 1,
+    status: 'running',
+    startedAt: Date.now(),
+    transcript: [],
+  }
+  snapshot.plannerStep = plannerStep
+  snapshot.currentStep = {
+    role: 'planner',
+    blockIndex: -1,
+    attempt: 1,
+    startedAt: plannerStep.startedAt!,
+    transcript: plannerStep.transcript,
+  }
+  await persistProgress(runId, snapshot)
+
   const plannerResult = await runDebugPlannerStep({
     userMessage: input.userMessage,
     chatContextXml,
-    repoSnapshot,
+    surveyorReport: snapshot.surveyorReport,
     mode: input.mode,
     projectPath: input.projectPath,
     runId,
@@ -291,7 +376,11 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
     }),
   })
 
+  plannerStep.finishedAt = Date.now()
+  plannerStep.durationMs = plannerStep.finishedAt - plannerStep.startedAt!
   if (!plannerResult.plan) {
+    plannerStep.status = 'failed'
+    plannerStep.errorReason = plannerResult.parseError ?? plannerResult.rawResult.error ?? 'unknown'
     snapshot.currentStep = null
     await persistProgress(runId, snapshot)
     await prisma.workflowRun.updateMany({
@@ -305,6 +394,8 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
     evictRunFromCache(input.sessionId, runId)
     return
   }
+  plannerStep.status = 'completed'
+  plannerStep.output = plannerResult.rawResult.output
 
   snapshot.plan = plannerResult.plan
   const detectiveBlocks: DetectiveBlock[] = plannerResult.plan.blocks
@@ -402,14 +493,17 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
     attempt: 1,
     status: 'running',
     startedAt: Date.now(),
+    transcript: [],
   }
+  snapshot.consolidatorStep = consolidatorStep
   // Surface the consolidator as the live tip — UI flips back to single-step.
+  // Share transcript ref so chunks land in both the named slot and currentStep.
   snapshot.currentStep = {
     role: 'consolidator',
     blockIndex: -1,
     attempt: 1,
     startedAt: consolidatorStep.startedAt!,
-    transcript: [],
+    transcript: consolidatorStep.transcript,
   }
   await persistProgress(runId, snapshot)
 
@@ -434,7 +528,12 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
     }),
   })
 
+  consolidatorStep.finishedAt = Date.now()
+  consolidatorStep.durationMs = consolidatorStep.finishedAt - consolidatorStep.startedAt!
   if (consolidatorResult.rawResult.error || !consolidatorResult.outputPath) {
+    consolidatorStep.status = 'failed'
+    consolidatorStep.errorReason = consolidatorResult.rawResult.error ?? 'no output'
+    await persistProgress(runId, snapshot)
     await prisma.workflowRun.updateMany({
       where: { id: runId, status: { not: 'cancelled' } },
       data: {
@@ -446,6 +545,9 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
     evictRunFromCache(input.sessionId, runId)
     return
   }
+  consolidatorStep.status = 'completed'
+  consolidatorStep.output = consolidatorResult.rawResult.output
+  if (consolidatorResult.outputPath) consolidatorStep.outputPath = consolidatorResult.outputPath
 
   snapshot.consolidatedFindings = consolidatorResult.rawResult.output
   console.log(`[wf-runner] run=${runId.slice(0, 8)} ✓ consolidator done bytes=${consolidatorResult.rawResult.output.length}`)
@@ -486,6 +588,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
       attempt,
       status: 'running',
       startedAt: Date.now(),
+      transcript: [],
     }
     snapshot.fixAttempts.push(archStep)
     snapshot.currentStep = {
@@ -493,7 +596,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
       blockIndex: 0,
       attempt,
       startedAt: archStep.startedAt!,
-      transcript: [],
+      transcript: archStep.transcript,
     }
     await persistProgress(runId, snapshot)
     console.log(`[wf-runner] run=${runId.slice(0, 8)} ▶ architect attempt=${attempt}${attempt > 1 ? ' (retry)' : ''}`)
@@ -545,6 +648,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
       attempt,
       status: 'running',
       startedAt: Date.now(),
+      transcript: [],
     }
     snapshot.fixAttempts.push(buildStep)
     snapshot.currentStep = {
@@ -552,7 +656,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
       blockIndex: 0,
       attempt,
       startedAt: buildStep.startedAt!,
-      transcript: [],
+      transcript: buildStep.transcript,
     }
     await persistProgress(runId, snapshot)
     console.log(`[wf-runner] run=${runId.slice(0, 8)} ▶ builder attempt=${attempt}`)
@@ -604,6 +708,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
       attempt,
       status: 'running',
       startedAt: Date.now(),
+      transcript: [],
     }
     snapshot.fixAttempts.push(revStep)
     snapshot.currentStep = {
@@ -611,7 +716,7 @@ async function executeDebugRun(runId: string, input: StartDebugWorkflowInput): P
       blockIndex: 0,
       attempt,
       startedAt: revStep.startedAt!,
-      transcript: [],
+      transcript: revStep.transcript,
     }
     await persistProgress(runId, snapshot)
     console.log(`[wf-runner] run=${runId.slice(0, 8)} ▶ reviewer attempt=${attempt}`)

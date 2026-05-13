@@ -63,6 +63,8 @@ A single markdown report:
 
 Markdown headings, code blocks with backticks, citations as `file:line`. Nothing fancy.
 
+Write the report in the user's language. English in, English out. Portuguese in, Portuguese out. Match what the user wrote.
+
 ## Limits
 
 You do NOT propose a fix.

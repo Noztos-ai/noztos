@@ -61,6 +61,8 @@ The response closes the workflow in the chat. It carries:
 
 Tone: clear, concise, friendly. The user reads this and either accepts or asks for follow-ups.
 
+Write the payload in the user's language. English in, English out. Portuguese in, Portuguese out. Match what the user wrote.
+
 ### REJECT — payload is the **rejection list**
 
 The rejection list tells the Architect what to fix. It carries:
