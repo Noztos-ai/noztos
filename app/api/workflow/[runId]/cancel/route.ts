@@ -43,7 +43,10 @@ export async function POST(
     data: { status: 'cancelled', completedAt: new Date() },
   })
   const killed = killRun(runId)
-  console.log(`[api/workflow/cancel] run=${runId.slice(0, 8)} session=${run.sessionId.slice(0, 8)} updated=${updated.count} killed_child=${killed}`)
+  // sessionId is nullable now (task-driven workflows leave it null and
+  // store iterationId instead). Log whichever parent fired this run.
+  const parent = run.sessionId ? `session=${run.sessionId.slice(0, 8)}` : 'task-driven'
+  console.log(`[api/workflow/cancel] run=${runId.slice(0, 8)} ${parent} updated=${updated.count} killed_child=${killed}`)
 
   return NextResponse.json({ ok: true, status: 'cancelled', killed })
 }

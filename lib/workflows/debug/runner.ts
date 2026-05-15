@@ -89,14 +89,18 @@ export async function startDebugWorkflow(input: StartDebugWorkflowInput): Promis
     currentStep: null,
   }
 
+  // Parent ownership — sessionId XOR iterationId. See builder/runner.ts
+  // for the same comment; we keep the two runners in sync.
+  const isTaskDriven = !!input.taskContext
   const run = await prisma.workflowRun.create({
     data: {
-      sessionId: input.sessionId,
+      sessionId: isTaskDriven ? null : input.sessionId,
+      iterationId: input.taskContext?.iterationId ?? null,
       projectId: input.projectId,
       userId: input.userId,
       workflowType: input.workflowType,
       userMessage: input.userMessage,
-      triggerMessageId: input.userMsgId ?? null,
+      triggerMessageId: isTaskDriven ? null : (input.userMsgId ?? null),
       status: 'pending',
       progress: initialSnapshot as unknown as object,
     },

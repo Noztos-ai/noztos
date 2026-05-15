@@ -40,7 +40,7 @@ export function startTaskScheduler(): void {
 async function tick(): Promise<void> {
   const now = new Date()
   const due = await prisma.task.findMany({
-    where: { status: 'scheduled', scheduledAt: { lte: now } },
+    where: { status: 'scheduled', scheduledAt: { lte: now }, deletedAt: null },
     select: {
       id: true,
       userId: true,

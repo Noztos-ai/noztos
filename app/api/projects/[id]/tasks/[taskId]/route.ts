@@ -28,7 +28,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   }
 
   const task = await prisma.task.findFirst({
-    where: { id: taskId, projectId: id },
+    where: { id: taskId, projectId: id, deletedAt: null },
     include: {
       worktree: { select: { branchName: true } },
       iterations: {
@@ -88,7 +88,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const existing = await prisma.task.findFirst({
-    where: { id: taskId, projectId: id },
+    where: { id: taskId, projectId: id, deletedAt: null },
     select: { id: true, status: true },
   })
   if (!existing) {
@@ -190,7 +190,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   }
 
   const existing = await prisma.task.findFirst({
-    where: { id: taskId, projectId: id },
+    where: { id: taskId, projectId: id, deletedAt: null },
     select: { id: true, status: true },
   })
   if (!existing) {
@@ -204,6 +204,13 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Cancel the running task before deleting.' }, { status: 409 })
   }
 
-  await prisma.task.delete({ where: { id: taskId } })
+  // Soft delete — never drop the row. The audit trail (iterations,
+  // outputs, files touched) stays in the DB for training / compliance.
+  // List/get APIs filter by `deletedAt: null` so the user stops seeing
+  // it immediately. Hard delete only happens via admin retention.
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { deletedAt: new Date() },
+  })
   return new NextResponse(null, { status: 204 })
 }

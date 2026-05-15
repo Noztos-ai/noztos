@@ -2107,6 +2107,7 @@ export const TaskScalarFieldEnum = {
   scheduledAt: 'scheduledAt',
   reviewedAt: 'reviewedAt',
   sourceTaskId: 'sourceTaskId',
+  deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -2130,6 +2131,7 @@ export const TaskIterationScalarFieldEnum = {
   filesTouched: 'filesTouched',
   errorReason: 'errorReason',
   workflowRunId: 'workflowRunId',
+  deletedAt: 'deletedAt',
   createdAt: 'createdAt'
 } as const
 
@@ -2193,6 +2195,7 @@ export type BuildSessionScalarFieldEnum = (typeof BuildSessionScalarFieldEnum)[k
 export const WorkflowRunScalarFieldEnum = {
   id: 'id',
   sessionId: 'sessionId',
+  iterationId: 'iterationId',
   projectId: 'projectId',
   userId: 'userId',
   workflowType: 'workflowType',

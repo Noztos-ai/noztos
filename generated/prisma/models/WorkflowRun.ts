@@ -27,6 +27,7 @@ export type AggregateWorkflowRun = {
 export type WorkflowRunMinAggregateOutputType = {
   id: string | null
   sessionId: string | null
+  iterationId: string | null
   projectId: string | null
   userId: string | null
   workflowType: string | null
@@ -42,6 +43,7 @@ export type WorkflowRunMinAggregateOutputType = {
 export type WorkflowRunMaxAggregateOutputType = {
   id: string | null
   sessionId: string | null
+  iterationId: string | null
   projectId: string | null
   userId: string | null
   workflowType: string | null
@@ -57,6 +59,7 @@ export type WorkflowRunMaxAggregateOutputType = {
 export type WorkflowRunCountAggregateOutputType = {
   id: number
   sessionId: number
+  iterationId: number
   projectId: number
   userId: number
   workflowType: number
@@ -76,6 +79,7 @@ export type WorkflowRunCountAggregateOutputType = {
 export type WorkflowRunMinAggregateInputType = {
   id?: true
   sessionId?: true
+  iterationId?: true
   projectId?: true
   userId?: true
   workflowType?: true
@@ -91,6 +95,7 @@ export type WorkflowRunMinAggregateInputType = {
 export type WorkflowRunMaxAggregateInputType = {
   id?: true
   sessionId?: true
+  iterationId?: true
   projectId?: true
   userId?: true
   workflowType?: true
@@ -106,6 +111,7 @@ export type WorkflowRunMaxAggregateInputType = {
 export type WorkflowRunCountAggregateInputType = {
   id?: true
   sessionId?: true
+  iterationId?: true
   projectId?: true
   userId?: true
   workflowType?: true
@@ -195,7 +201,8 @@ export type WorkflowRunGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inte
 
 export type WorkflowRunGroupByOutputType = {
   id: string
-  sessionId: string
+  sessionId: string | null
+  iterationId: string | null
   projectId: string
   userId: string
   workflowType: string
@@ -233,7 +240,8 @@ export type WorkflowRunWhereInput = {
   OR?: Prisma.WorkflowRunWhereInput[]
   NOT?: Prisma.WorkflowRunWhereInput | Prisma.WorkflowRunWhereInput[]
   id?: Prisma.StringFilter<"WorkflowRun"> | string
-  sessionId?: Prisma.StringFilter<"WorkflowRun"> | string
+  sessionId?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  iterationId?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   projectId?: Prisma.StringFilter<"WorkflowRun"> | string
   userId?: Prisma.StringFilter<"WorkflowRun"> | string
   workflowType?: Prisma.StringFilter<"WorkflowRun"> | string
@@ -246,13 +254,15 @@ export type WorkflowRunWhereInput = {
   errorReason?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
   completedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
-  session?: Prisma.XOR<Prisma.ChatSessionScalarRelationFilter, Prisma.ChatSessionWhereInput>
+  session?: Prisma.XOR<Prisma.ChatSessionNullableScalarRelationFilter, Prisma.ChatSessionWhereInput> | null
+  iteration?: Prisma.XOR<Prisma.TaskIterationNullableScalarRelationFilter, Prisma.TaskIterationWhereInput> | null
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
 }
 
 export type WorkflowRunOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  sessionId?: Prisma.SortOrder
+  sessionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  iterationId?: Prisma.SortOrderInput | Prisma.SortOrder
   projectId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   workflowType?: Prisma.SortOrder
@@ -266,6 +276,7 @@ export type WorkflowRunOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   session?: Prisma.ChatSessionOrderByWithRelationInput
+  iteration?: Prisma.TaskIterationOrderByWithRelationInput
   project?: Prisma.ProjectOrderByWithRelationInput
 }
 
@@ -274,7 +285,8 @@ export type WorkflowRunWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.WorkflowRunWhereInput | Prisma.WorkflowRunWhereInput[]
   OR?: Prisma.WorkflowRunWhereInput[]
   NOT?: Prisma.WorkflowRunWhereInput | Prisma.WorkflowRunWhereInput[]
-  sessionId?: Prisma.StringFilter<"WorkflowRun"> | string
+  sessionId?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  iterationId?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   projectId?: Prisma.StringFilter<"WorkflowRun"> | string
   userId?: Prisma.StringFilter<"WorkflowRun"> | string
   workflowType?: Prisma.StringFilter<"WorkflowRun"> | string
@@ -287,13 +299,15 @@ export type WorkflowRunWhereUniqueInput = Prisma.AtLeast<{
   errorReason?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   createdAt?: Prisma.DateTimeFilter<"WorkflowRun"> | Date | string
   completedAt?: Prisma.DateTimeNullableFilter<"WorkflowRun"> | Date | string | null
-  session?: Prisma.XOR<Prisma.ChatSessionScalarRelationFilter, Prisma.ChatSessionWhereInput>
+  session?: Prisma.XOR<Prisma.ChatSessionNullableScalarRelationFilter, Prisma.ChatSessionWhereInput> | null
+  iteration?: Prisma.XOR<Prisma.TaskIterationNullableScalarRelationFilter, Prisma.TaskIterationWhereInput> | null
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
 }, "id">
 
 export type WorkflowRunOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  sessionId?: Prisma.SortOrder
+  sessionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  iterationId?: Prisma.SortOrderInput | Prisma.SortOrder
   projectId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   workflowType?: Prisma.SortOrder
@@ -316,7 +330,8 @@ export type WorkflowRunScalarWhereWithAggregatesInput = {
   OR?: Prisma.WorkflowRunScalarWhereWithAggregatesInput[]
   NOT?: Prisma.WorkflowRunScalarWhereWithAggregatesInput | Prisma.WorkflowRunScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"WorkflowRun"> | string
-  sessionId?: Prisma.StringWithAggregatesFilter<"WorkflowRun"> | string
+  sessionId?: Prisma.StringNullableWithAggregatesFilter<"WorkflowRun"> | string | null
+  iterationId?: Prisma.StringNullableWithAggregatesFilter<"WorkflowRun"> | string | null
   projectId?: Prisma.StringWithAggregatesFilter<"WorkflowRun"> | string
   userId?: Prisma.StringWithAggregatesFilter<"WorkflowRun"> | string
   workflowType?: Prisma.StringWithAggregatesFilter<"WorkflowRun"> | string
@@ -344,13 +359,15 @@ export type WorkflowRunCreateInput = {
   errorReason?: string | null
   createdAt?: Date | string
   completedAt?: Date | string | null
-  session: Prisma.ChatSessionCreateNestedOneWithoutWorkflowRunsInput
+  session?: Prisma.ChatSessionCreateNestedOneWithoutWorkflowRunsInput
+  iteration?: Prisma.TaskIterationCreateNestedOneWithoutWorkflowRunsInput
   project: Prisma.ProjectCreateNestedOneWithoutWorkflowRunsInput
 }
 
 export type WorkflowRunUncheckedCreateInput = {
   id?: string
-  sessionId: string
+  sessionId?: string | null
+  iterationId?: string | null
   projectId: string
   userId: string
   workflowType: string
@@ -378,13 +395,15 @@ export type WorkflowRunUpdateInput = {
   errorReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  session?: Prisma.ChatSessionUpdateOneRequiredWithoutWorkflowRunsNestedInput
+  session?: Prisma.ChatSessionUpdateOneWithoutWorkflowRunsNestedInput
+  iteration?: Prisma.TaskIterationUpdateOneWithoutWorkflowRunsNestedInput
   project?: Prisma.ProjectUpdateOneRequiredWithoutWorkflowRunsNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iterationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   workflowType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -401,7 +420,8 @@ export type WorkflowRunUncheckedUpdateInput = {
 
 export type WorkflowRunCreateManyInput = {
   id?: string
-  sessionId: string
+  sessionId?: string | null
+  iterationId?: string | null
   projectId: string
   userId: string
   workflowType: string
@@ -433,7 +453,8 @@ export type WorkflowRunUpdateManyMutationInput = {
 
 export type WorkflowRunUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iterationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   workflowType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -461,6 +482,7 @@ export type WorkflowRunOrderByRelationAggregateInput = {
 export type WorkflowRunCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  iterationId?: Prisma.SortOrder
   projectId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   workflowType?: Prisma.SortOrder
@@ -478,6 +500,7 @@ export type WorkflowRunCountOrderByAggregateInput = {
 export type WorkflowRunMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  iterationId?: Prisma.SortOrder
   projectId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   workflowType?: Prisma.SortOrder
@@ -493,6 +516,7 @@ export type WorkflowRunMaxOrderByAggregateInput = {
 export type WorkflowRunMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
+  iterationId?: Prisma.SortOrder
   projectId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   workflowType?: Prisma.SortOrder
@@ -589,6 +613,48 @@ export type WorkflowRunUncheckedUpdateManyWithoutSessionNestedInput = {
   deleteMany?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
 }
 
+export type WorkflowRunCreateNestedManyWithoutIterationInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutIterationInput, Prisma.WorkflowRunUncheckedCreateWithoutIterationInput> | Prisma.WorkflowRunCreateWithoutIterationInput[] | Prisma.WorkflowRunUncheckedCreateWithoutIterationInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutIterationInput | Prisma.WorkflowRunCreateOrConnectWithoutIterationInput[]
+  createMany?: Prisma.WorkflowRunCreateManyIterationInputEnvelope
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+}
+
+export type WorkflowRunUncheckedCreateNestedManyWithoutIterationInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutIterationInput, Prisma.WorkflowRunUncheckedCreateWithoutIterationInput> | Prisma.WorkflowRunCreateWithoutIterationInput[] | Prisma.WorkflowRunUncheckedCreateWithoutIterationInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutIterationInput | Prisma.WorkflowRunCreateOrConnectWithoutIterationInput[]
+  createMany?: Prisma.WorkflowRunCreateManyIterationInputEnvelope
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+}
+
+export type WorkflowRunUpdateManyWithoutIterationNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutIterationInput, Prisma.WorkflowRunUncheckedCreateWithoutIterationInput> | Prisma.WorkflowRunCreateWithoutIterationInput[] | Prisma.WorkflowRunUncheckedCreateWithoutIterationInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutIterationInput | Prisma.WorkflowRunCreateOrConnectWithoutIterationInput[]
+  upsert?: Prisma.WorkflowRunUpsertWithWhereUniqueWithoutIterationInput | Prisma.WorkflowRunUpsertWithWhereUniqueWithoutIterationInput[]
+  createMany?: Prisma.WorkflowRunCreateManyIterationInputEnvelope
+  set?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  disconnect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  delete?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  update?: Prisma.WorkflowRunUpdateWithWhereUniqueWithoutIterationInput | Prisma.WorkflowRunUpdateWithWhereUniqueWithoutIterationInput[]
+  updateMany?: Prisma.WorkflowRunUpdateManyWithWhereWithoutIterationInput | Prisma.WorkflowRunUpdateManyWithWhereWithoutIterationInput[]
+  deleteMany?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
+}
+
+export type WorkflowRunUncheckedUpdateManyWithoutIterationNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkflowRunCreateWithoutIterationInput, Prisma.WorkflowRunUncheckedCreateWithoutIterationInput> | Prisma.WorkflowRunCreateWithoutIterationInput[] | Prisma.WorkflowRunUncheckedCreateWithoutIterationInput[]
+  connectOrCreate?: Prisma.WorkflowRunCreateOrConnectWithoutIterationInput | Prisma.WorkflowRunCreateOrConnectWithoutIterationInput[]
+  upsert?: Prisma.WorkflowRunUpsertWithWhereUniqueWithoutIterationInput | Prisma.WorkflowRunUpsertWithWhereUniqueWithoutIterationInput[]
+  createMany?: Prisma.WorkflowRunCreateManyIterationInputEnvelope
+  set?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  disconnect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  delete?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  connect?: Prisma.WorkflowRunWhereUniqueInput | Prisma.WorkflowRunWhereUniqueInput[]
+  update?: Prisma.WorkflowRunUpdateWithWhereUniqueWithoutIterationInput | Prisma.WorkflowRunUpdateWithWhereUniqueWithoutIterationInput[]
+  updateMany?: Prisma.WorkflowRunUpdateManyWithWhereWithoutIterationInput | Prisma.WorkflowRunUpdateManyWithWhereWithoutIterationInput[]
+  deleteMany?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
+}
+
 export type WorkflowRunCreateWithoutProjectInput = {
   id?: string
   userId: string
@@ -602,12 +668,14 @@ export type WorkflowRunCreateWithoutProjectInput = {
   errorReason?: string | null
   createdAt?: Date | string
   completedAt?: Date | string | null
-  session: Prisma.ChatSessionCreateNestedOneWithoutWorkflowRunsInput
+  session?: Prisma.ChatSessionCreateNestedOneWithoutWorkflowRunsInput
+  iteration?: Prisma.TaskIterationCreateNestedOneWithoutWorkflowRunsInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutProjectInput = {
   id?: string
-  sessionId: string
+  sessionId?: string | null
+  iterationId?: string | null
   userId: string
   workflowType: string
   userMessage: string
@@ -652,7 +720,8 @@ export type WorkflowRunScalarWhereInput = {
   OR?: Prisma.WorkflowRunScalarWhereInput[]
   NOT?: Prisma.WorkflowRunScalarWhereInput | Prisma.WorkflowRunScalarWhereInput[]
   id?: Prisma.StringFilter<"WorkflowRun"> | string
-  sessionId?: Prisma.StringFilter<"WorkflowRun"> | string
+  sessionId?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
+  iterationId?: Prisma.StringNullableFilter<"WorkflowRun"> | string | null
   projectId?: Prisma.StringFilter<"WorkflowRun"> | string
   userId?: Prisma.StringFilter<"WorkflowRun"> | string
   workflowType?: Prisma.StringFilter<"WorkflowRun"> | string
@@ -680,11 +749,13 @@ export type WorkflowRunCreateWithoutSessionInput = {
   errorReason?: string | null
   createdAt?: Date | string
   completedAt?: Date | string | null
+  iteration?: Prisma.TaskIterationCreateNestedOneWithoutWorkflowRunsInput
   project: Prisma.ProjectCreateNestedOneWithoutWorkflowRunsInput
 }
 
 export type WorkflowRunUncheckedCreateWithoutSessionInput = {
   id?: string
+  iterationId?: string | null
   projectId: string
   userId: string
   workflowType: string
@@ -725,9 +796,70 @@ export type WorkflowRunUpdateManyWithWhereWithoutSessionInput = {
   data: Prisma.XOR<Prisma.WorkflowRunUpdateManyMutationInput, Prisma.WorkflowRunUncheckedUpdateManyWithoutSessionInput>
 }
 
+export type WorkflowRunCreateWithoutIterationInput = {
+  id?: string
+  userId: string
+  workflowType: string
+  userMessage: string
+  triggerMessageId?: string | null
+  status?: string
+  plan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  progress?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  finalResponse?: string | null
+  errorReason?: string | null
+  createdAt?: Date | string
+  completedAt?: Date | string | null
+  session?: Prisma.ChatSessionCreateNestedOneWithoutWorkflowRunsInput
+  project: Prisma.ProjectCreateNestedOneWithoutWorkflowRunsInput
+}
+
+export type WorkflowRunUncheckedCreateWithoutIterationInput = {
+  id?: string
+  sessionId?: string | null
+  projectId: string
+  userId: string
+  workflowType: string
+  userMessage: string
+  triggerMessageId?: string | null
+  status?: string
+  plan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  progress?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  finalResponse?: string | null
+  errorReason?: string | null
+  createdAt?: Date | string
+  completedAt?: Date | string | null
+}
+
+export type WorkflowRunCreateOrConnectWithoutIterationInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutIterationInput, Prisma.WorkflowRunUncheckedCreateWithoutIterationInput>
+}
+
+export type WorkflowRunCreateManyIterationInputEnvelope = {
+  data: Prisma.WorkflowRunCreateManyIterationInput | Prisma.WorkflowRunCreateManyIterationInput[]
+  skipDuplicates?: boolean
+}
+
+export type WorkflowRunUpsertWithWhereUniqueWithoutIterationInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  update: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutIterationInput, Prisma.WorkflowRunUncheckedUpdateWithoutIterationInput>
+  create: Prisma.XOR<Prisma.WorkflowRunCreateWithoutIterationInput, Prisma.WorkflowRunUncheckedCreateWithoutIterationInput>
+}
+
+export type WorkflowRunUpdateWithWhereUniqueWithoutIterationInput = {
+  where: Prisma.WorkflowRunWhereUniqueInput
+  data: Prisma.XOR<Prisma.WorkflowRunUpdateWithoutIterationInput, Prisma.WorkflowRunUncheckedUpdateWithoutIterationInput>
+}
+
+export type WorkflowRunUpdateManyWithWhereWithoutIterationInput = {
+  where: Prisma.WorkflowRunScalarWhereInput
+  data: Prisma.XOR<Prisma.WorkflowRunUpdateManyMutationInput, Prisma.WorkflowRunUncheckedUpdateManyWithoutIterationInput>
+}
+
 export type WorkflowRunCreateManyProjectInput = {
   id?: string
-  sessionId: string
+  sessionId?: string | null
+  iterationId?: string | null
   userId: string
   workflowType: string
   userMessage: string
@@ -754,12 +886,14 @@ export type WorkflowRunUpdateWithoutProjectInput = {
   errorReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  session?: Prisma.ChatSessionUpdateOneRequiredWithoutWorkflowRunsNestedInput
+  session?: Prisma.ChatSessionUpdateOneWithoutWorkflowRunsNestedInput
+  iteration?: Prisma.TaskIterationUpdateOneWithoutWorkflowRunsNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iterationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   workflowType?: Prisma.StringFieldUpdateOperationsInput | string
   userMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -775,7 +909,8 @@ export type WorkflowRunUncheckedUpdateWithoutProjectInput = {
 
 export type WorkflowRunUncheckedUpdateManyWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  iterationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   workflowType?: Prisma.StringFieldUpdateOperationsInput | string
   userMessage?: Prisma.StringFieldUpdateOperationsInput | string
@@ -791,6 +926,7 @@ export type WorkflowRunUncheckedUpdateManyWithoutProjectInput = {
 
 export type WorkflowRunCreateManySessionInput = {
   id?: string
+  iterationId?: string | null
   projectId: string
   userId: string
   workflowType: string
@@ -818,11 +954,13 @@ export type WorkflowRunUpdateWithoutSessionInput = {
   errorReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  iteration?: Prisma.TaskIterationUpdateOneWithoutWorkflowRunsNestedInput
   project?: Prisma.ProjectUpdateOneRequiredWithoutWorkflowRunsNestedInput
 }
 
 export type WorkflowRunUncheckedUpdateWithoutSessionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  iterationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   workflowType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -839,6 +977,75 @@ export type WorkflowRunUncheckedUpdateWithoutSessionInput = {
 
 export type WorkflowRunUncheckedUpdateManyWithoutSessionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  iterationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  projectId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  workflowType?: Prisma.StringFieldUpdateOperationsInput | string
+  userMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  triggerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  plan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  progress?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  finalResponse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type WorkflowRunCreateManyIterationInput = {
+  id?: string
+  sessionId?: string | null
+  projectId: string
+  userId: string
+  workflowType: string
+  userMessage: string
+  triggerMessageId?: string | null
+  status?: string
+  plan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  progress?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  finalResponse?: string | null
+  errorReason?: string | null
+  createdAt?: Date | string
+  completedAt?: Date | string | null
+}
+
+export type WorkflowRunUpdateWithoutIterationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  workflowType?: Prisma.StringFieldUpdateOperationsInput | string
+  userMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  triggerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  plan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  progress?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  finalResponse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  session?: Prisma.ChatSessionUpdateOneWithoutWorkflowRunsNestedInput
+  project?: Prisma.ProjectUpdateOneRequiredWithoutWorkflowRunsNestedInput
+}
+
+export type WorkflowRunUncheckedUpdateWithoutIterationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  projectId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  workflowType?: Prisma.StringFieldUpdateOperationsInput | string
+  userMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  triggerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  plan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  progress?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  finalResponse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type WorkflowRunUncheckedUpdateManyWithoutIterationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   projectId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   workflowType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -858,6 +1065,7 @@ export type WorkflowRunUncheckedUpdateManyWithoutSessionInput = {
 export type WorkflowRunSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionId?: boolean
+  iterationId?: boolean
   projectId?: boolean
   userId?: boolean
   workflowType?: boolean
@@ -870,13 +1078,15 @@ export type WorkflowRunSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   errorReason?: boolean
   createdAt?: boolean
   completedAt?: boolean
-  session?: boolean | Prisma.ChatSessionDefaultArgs<ExtArgs>
+  session?: boolean | Prisma.WorkflowRun$sessionArgs<ExtArgs>
+  iteration?: boolean | Prisma.WorkflowRun$iterationArgs<ExtArgs>
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["workflowRun"]>
 
 export type WorkflowRunSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionId?: boolean
+  iterationId?: boolean
   projectId?: boolean
   userId?: boolean
   workflowType?: boolean
@@ -889,13 +1099,15 @@ export type WorkflowRunSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   errorReason?: boolean
   createdAt?: boolean
   completedAt?: boolean
-  session?: boolean | Prisma.ChatSessionDefaultArgs<ExtArgs>
+  session?: boolean | Prisma.WorkflowRun$sessionArgs<ExtArgs>
+  iteration?: boolean | Prisma.WorkflowRun$iterationArgs<ExtArgs>
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["workflowRun"]>
 
 export type WorkflowRunSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionId?: boolean
+  iterationId?: boolean
   projectId?: boolean
   userId?: boolean
   workflowType?: boolean
@@ -908,13 +1120,15 @@ export type WorkflowRunSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   errorReason?: boolean
   createdAt?: boolean
   completedAt?: boolean
-  session?: boolean | Prisma.ChatSessionDefaultArgs<ExtArgs>
+  session?: boolean | Prisma.WorkflowRun$sessionArgs<ExtArgs>
+  iteration?: boolean | Prisma.WorkflowRun$iterationArgs<ExtArgs>
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["workflowRun"]>
 
 export type WorkflowRunSelectScalar = {
   id?: boolean
   sessionId?: boolean
+  iterationId?: boolean
   projectId?: boolean
   userId?: boolean
   workflowType?: boolean
@@ -929,29 +1143,34 @@ export type WorkflowRunSelectScalar = {
   completedAt?: boolean
 }
 
-export type WorkflowRunOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "projectId" | "userId" | "workflowType" | "userMessage" | "triggerMessageId" | "status" | "plan" | "progress" | "finalResponse" | "errorReason" | "createdAt" | "completedAt", ExtArgs["result"]["workflowRun"]>
+export type WorkflowRunOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "iterationId" | "projectId" | "userId" | "workflowType" | "userMessage" | "triggerMessageId" | "status" | "plan" | "progress" | "finalResponse" | "errorReason" | "createdAt" | "completedAt", ExtArgs["result"]["workflowRun"]>
 export type WorkflowRunInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  session?: boolean | Prisma.ChatSessionDefaultArgs<ExtArgs>
+  session?: boolean | Prisma.WorkflowRun$sessionArgs<ExtArgs>
+  iteration?: boolean | Prisma.WorkflowRun$iterationArgs<ExtArgs>
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }
 export type WorkflowRunIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  session?: boolean | Prisma.ChatSessionDefaultArgs<ExtArgs>
+  session?: boolean | Prisma.WorkflowRun$sessionArgs<ExtArgs>
+  iteration?: boolean | Prisma.WorkflowRun$iterationArgs<ExtArgs>
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }
 export type WorkflowRunIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  session?: boolean | Prisma.ChatSessionDefaultArgs<ExtArgs>
+  session?: boolean | Prisma.WorkflowRun$sessionArgs<ExtArgs>
+  iteration?: boolean | Prisma.WorkflowRun$iterationArgs<ExtArgs>
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }
 
 export type $WorkflowRunPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "WorkflowRun"
   objects: {
-    session: Prisma.$ChatSessionPayload<ExtArgs>
+    session: Prisma.$ChatSessionPayload<ExtArgs> | null
+    iteration: Prisma.$TaskIterationPayload<ExtArgs> | null
     project: Prisma.$ProjectPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    sessionId: string
+    sessionId: string | null
+    iterationId: string | null
     projectId: string
     userId: string
     workflowType: string
@@ -1358,7 +1577,8 @@ readonly fields: WorkflowRunFieldRefs;
  */
 export interface Prisma__WorkflowRunClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  session<T extends Prisma.ChatSessionDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ChatSessionDefaultArgs<ExtArgs>>): Prisma.Prisma__ChatSessionClient<runtime.Types.Result.GetResult<Prisma.$ChatSessionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  session<T extends Prisma.WorkflowRun$sessionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$sessionArgs<ExtArgs>>): Prisma.Prisma__ChatSessionClient<runtime.Types.Result.GetResult<Prisma.$ChatSessionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  iteration<T extends Prisma.WorkflowRun$iterationArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.WorkflowRun$iterationArgs<ExtArgs>>): Prisma.Prisma__TaskIterationClient<runtime.Types.Result.GetResult<Prisma.$TaskIterationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   project<T extends Prisma.ProjectDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProjectDefaultArgs<ExtArgs>>): Prisma.Prisma__ProjectClient<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1391,6 +1611,7 @@ export interface Prisma__WorkflowRunClient<T, Null = never, ExtArgs extends runt
 export interface WorkflowRunFieldRefs {
   readonly id: Prisma.FieldRef<"WorkflowRun", 'String'>
   readonly sessionId: Prisma.FieldRef<"WorkflowRun", 'String'>
+  readonly iterationId: Prisma.FieldRef<"WorkflowRun", 'String'>
   readonly projectId: Prisma.FieldRef<"WorkflowRun", 'String'>
   readonly userId: Prisma.FieldRef<"WorkflowRun", 'String'>
   readonly workflowType: Prisma.FieldRef<"WorkflowRun", 'String'>
@@ -1801,6 +2022,44 @@ export type WorkflowRunDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Limit how many WorkflowRuns to delete.
    */
   limit?: number
+}
+
+/**
+ * WorkflowRun.session
+ */
+export type WorkflowRun$sessionArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ChatSession
+   */
+  select?: Prisma.ChatSessionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ChatSession
+   */
+  omit?: Prisma.ChatSessionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ChatSessionInclude<ExtArgs> | null
+  where?: Prisma.ChatSessionWhereInput
+}
+
+/**
+ * WorkflowRun.iteration
+ */
+export type WorkflowRun$iterationArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TaskIteration
+   */
+  select?: Prisma.TaskIterationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TaskIteration
+   */
+  omit?: Prisma.TaskIterationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TaskIterationInclude<ExtArgs> | null
+  where?: Prisma.TaskIterationWhereInput
 }
 
 /**

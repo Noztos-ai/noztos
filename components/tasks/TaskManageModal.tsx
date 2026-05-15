@@ -49,9 +49,19 @@ export function TaskManageModal({ projectId, open, task, onClose, onChanged, onO
   const [showSchedule, setShowSchedule] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Confirmation modal for delete — replaces the browser confirm()
+  // so the visual stays consistent with the rest of the app and the
+  // user can't accidentally dismiss with a stray Enter press.
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Sync local state when the task prop changes (different task opened)
-  // or when the modal flips from closed to open.
+  // or when the modal flips from closed to open. Schedule defaults to
+  // the task's saved value when present, or "now + 15 min" in the
+  // user's local timezone — so the datetime input always opens with a
+  // sane near-future timestamp instead of asking the user to type it
+  // from scratch. `datetime-local` interprets YYYY-MM-DDTHH:mm as the
+  // user's local TZ (no UTC surprises), and `new Date(value).toISOString()`
+  // on submit converts back to UTC for storage.
   useEffect(() => {
     if (!task) return
     setName(task.name)
@@ -59,8 +69,9 @@ export function TaskManageModal({ projectId, open, task, onClose, onChanged, onO
     setExecutorKind((task.executorKind as ExecutorKind) ?? '')
     setExecutorId(task.executorId ?? '')
     setChatMode((task.chatMode as ChatMode) ?? '')
-    setScheduleAt(task.scheduledAt ? toLocalDatetime(task.scheduledAt) : '')
+    setScheduleAt(task.scheduledAt ? toLocalDatetime(task.scheduledAt) : defaultScheduleAt())
     setShowSchedule(false)
+    setShowDeleteConfirm(false)
     setError(null)
   }, [task])
 
@@ -105,17 +116,6 @@ export function TaskManageModal({ projectId, open, task, onClose, onChanged, onO
       return null
     }
     return res.json()
-  }
-
-  async function handleSave() {
-    setBusy('save')
-    setError(null)
-    const ok = await patchConfig()
-    setBusy(null)
-    if (ok) {
-      onChanged?.()
-      onClose()
-    }
   }
 
   async function handleRunNow() {
@@ -217,11 +217,20 @@ export function TaskManageModal({ projectId, open, task, onClose, onChanged, onO
     }
   }
 
-  async function handleDelete() {
-    if (!confirm(`Delete task "${currentTask.name}"? This can't be undone.`)) return
+  // Two-step delete: button opens the confirm modal; confirm modal
+  // calls confirmDelete which actually hits the API. Replaces the
+  // native browser confirm() so the visual is consistent and an
+  // accidental Enter press can't fire the destructive action.
+  function handleDelete() {
+    setError(null)
+    setShowDeleteConfirm(true)
+  }
+
+  async function confirmDelete() {
     setBusy('delete')
     const res = await fetch(`/api/projects/${projectId}/tasks/${currentTask.id}`, { method: 'DELETE' })
     setBusy(null)
+    setShowDeleteConfirm(false)
     if (!res.ok) {
       const j = await res.json().catch(() => null)
       setError(j?.error ?? `Delete failed (${res.status})`)
@@ -371,12 +380,7 @@ export function TaskManageModal({ projectId, open, task, onClose, onChanged, onO
 
               {showSchedule && (
                 <Field label="Run at">
-                  <input
-                    type="datetime-local"
-                    value={scheduleAt}
-                    onChange={(e) => setScheduleAt(e.target.value)}
-                    className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-violet-500/40"
-                  />
+                  <SchedulePicker value={scheduleAt} onChange={setScheduleAt} />
                 </Field>
               )}
             </>
@@ -415,12 +419,23 @@ export function TaskManageModal({ projectId, open, task, onClose, onChanged, onO
               )}
 
               {!showSchedule && (
-                <ActionButton variant="secondary" onClick={() => setShowSchedule(true)} disabled={!configComplete}>
+                // Entry button is always clickable when not running —
+                // opens the date picker so the user can choose a time
+                // in any order, even before filling instruction /
+                // executor / chat mode. The actual "Save schedule"
+                // action below still requires configComplete so an
+                // incomplete task can never be persisted in the
+                // scheduled column.
+                <ActionButton variant="secondary" onClick={() => setShowSchedule(true)}>
                   {isScheduled ? 'Reschedule' : 'Schedule'}
                 </ActionButton>
               )}
               {showSchedule && (
-                <ActionButton variant="secondary" onClick={handleSchedule} busy={busy === 'schedule'} disabled={!configComplete || !scheduleAt}>
+                // Always clickable when not running. handleSchedule
+                // shows a clear inline error if config is incomplete
+                // or the datetime is empty — better than a silently
+                // greyed button the user has to guess at.
+                <ActionButton variant="secondary" onClick={handleSchedule} busy={busy === 'schedule'}>
                   Save schedule
                 </ActionButton>
               )}
@@ -428,12 +443,38 @@ export function TaskManageModal({ projectId, open, task, onClose, onChanged, onO
               <ActionButton variant="primary" onClick={handleRunNow} busy={busy === 'run'} disabled={!configComplete}>
                 Run now
               </ActionButton>
-
-              <ActionButton variant="ghost" onClick={handleSave} busy={busy === 'save'}>Save</ActionButton>
             </>
           )}
         </div>
       </div>
+
+      {/* Delete confirmation overlay — rendered as a sibling of the
+          main modal so its z-index sits above and clicks on its
+          backdrop don't propagate to the parent (which would close
+          both). Stays mounted only while showDeleteConfirm is true. */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4"
+          onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false) }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl"
+            style={{ backgroundColor: '#1F1F1F' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-white/10 px-5 py-3">
+              <p className="text-base font-medium text-zinc-100">Delete this task?</p>
+              <p className="mt-1 text-xs text-zinc-400">
+                &quot;{currentTask.name}&quot; will be permanently removed along with all its iterations. This can&apos;t be undone.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3">
+              <ActionButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</ActionButton>
+              <ActionButton variant="danger" onClick={confirmDelete} busy={busy === 'delete'}>Delete task</ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -586,6 +627,163 @@ function ConfigItem({ label, value }: { label: string; value: string }) {
 function toLocalDatetime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
+  return toLocalInputValue(d)
+}
+
+// Default schedule timestamp = now + 1 hour in the user's local TZ.
+// Pre-fills the datetime-local input on first open so the picker
+// always shows a near-future moment instead of an empty field.
+function defaultScheduleAt(): string {
+  return toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000))
+}
+
+// Format a Date as YYYY-MM-DDTHH:mm in local time — the shape
+// `datetime-local` inputs accept (no TZ suffix, no seconds). Used as
+// both the input value and the `min` attribute so the browser blocks
+// past dates natively.
+function toLocalInputValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Round a Date down to the nearest 5-minute mark — keeps preset
+// timestamps "clean" (e.g. 9:00 instead of 9:03) and aligns with the
+// input's step=300 granularity.
+function floorTo5Min(d: Date): Date {
+  const copy = new Date(d)
+  copy.setSeconds(0, 0)
+  copy.setMinutes(Math.floor(copy.getMinutes() / 5) * 5)
+  return copy
+}
+
+// Compute each quick-preset's resulting Date. Centralized so the chip
+// labels and onClick handlers stay in sync.
+//
+//   • In N hours — `now + N * 1h`, floored to 5 min
+//   • Tonight 9pm — today 21:00 if still future, else tomorrow 21:00
+//   • Tomorrow 9am — tomorrow at 09:00
+//   • Next Monday 9am — the next Monday after today at 09:00 (skips
+//     today if today is Monday — "next" meaning a fresh week)
+function schedulePresets(): Array<{ id: string; label: string; at: Date }> {
+  const now = new Date()
+  const today9pm = new Date(now)
+  today9pm.setHours(21, 0, 0, 0)
+  const targetTonight = today9pm.getTime() > now.getTime() + 5 * 60 * 1000
+    ? today9pm
+    : new Date(today9pm.getTime() + 24 * 60 * 60 * 1000)
+  const tomorrow9am = new Date(now)
+  tomorrow9am.setDate(tomorrow9am.getDate() + 1)
+  tomorrow9am.setHours(9, 0, 0, 0)
+  const nextMonday9am = new Date(now)
+  // 1 = Monday in Date.getDay(). Compute days-until-next-Monday;
+  // when today is Monday, jump to the following Monday (7 days).
+  const daysUntilMonday = ((1 - now.getDay() + 7) % 7) || 7
+  nextMonday9am.setDate(nextMonday9am.getDate() + daysUntilMonday)
+  nextMonday9am.setHours(9, 0, 0, 0)
+  return [
+    { id: '30m',     label: 'In 30 min',     at: floorTo5Min(new Date(now.getTime() + 30 * 60 * 1000)) },
+    { id: '1h',      label: 'In 1 hour',     at: floorTo5Min(new Date(now.getTime() + 60 * 60 * 1000)) },
+    { id: '3h',      label: 'In 3 hours',    at: floorTo5Min(new Date(now.getTime() + 3 * 60 * 60 * 1000)) },
+    { id: 'tonight', label: 'Tonight 9pm',   at: targetTonight },
+    { id: 'tom9',    label: 'Tomorrow 9am',  at: tomorrow9am },
+    { id: 'mon9',    label: 'Next Mon 9am',  at: nextMonday9am },
+  ]
+}
+
+// Pretty preview of a chosen schedule moment: "Friday, May 15 at 09:00
+// — in 12 hours". Locale en-US to match the rest of the task UI
+// (formatRelative in TaskCard etc). Timezone name pulled from
+// Intl.DateTimeFormat so the user always knows which clock the time
+// is in — critical when scheduling from a laptop while traveling.
+function previewSchedule(localValue: string): { pretty: string; relative: string; tz: string; invalid: boolean; isPast: boolean } {
+  const d = new Date(localValue)
+  if (!localValue || Number.isNaN(d.getTime())) {
+    return { pretty: '', relative: '', tz: '', invalid: true, isPast: false }
+  }
+  const isPast = d.getTime() < Date.now() - 60 * 1000
+  const pretty = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d)
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const diffMs = d.getTime() - Date.now()
+  const relative = relativeFromMs(diffMs)
+  return { pretty, relative, tz, invalid: false, isPast }
+}
+
+function relativeFromMs(ms: number): string {
+  const abs = Math.abs(ms)
+  const minutes = Math.round(abs / 60_000)
+  const hours = Math.round(abs / 3_600_000)
+  const days = Math.round(abs / 86_400_000)
+  const sign = ms < 0 ? 'ago' : 'from now'
+  if (minutes < 60) return `${minutes} min ${sign}`
+  if (hours < 24)   return `${hours} hour${hours === 1 ? '' : 's'} ${sign}`
+  return `${days} day${days === 1 ? '' : 's'} ${sign}`
+}
+
+// Composite schedule input — quick presets + native datetime input +
+// live preview with local-tz label. Same lifted-state pattern as the
+// rest of the form (parent owns scheduleAt). Replaces the bare
+// datetime-local that was easy to fill wrong (past time, no feedback
+// on which timezone the user just picked).
+function SchedulePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const presets = schedulePresets()
+  const minValue = toLocalInputValue(new Date(Date.now() + 60 * 1000)) // 1 min in future
+  const preview = previewSchedule(value)
+  return (
+    <div className="space-y-2.5">
+      {/* Quick presets — most schedules fall into one of these patterns
+          so a single click sets a sensible moment instead of forcing
+          the user to spin a date picker for an absolute time. */}
+      <div className="flex flex-wrap gap-1.5">
+        {presets.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onChange(toLocalInputValue(p.at))}
+            className="rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Native datetime-local with min/step guards. `min` blocks past
+          dates at the browser level (no need to error after submit);
+          `step=300` snaps to 5-minute increments, matching the
+          presets and the scheduler's 60s tick granularity. */}
+      <input
+        type="datetime-local"
+        value={value}
+        min={minValue}
+        step={300}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-violet-500/40"
+      />
+
+      {/* Live preview — explicit timezone, friendly day/time, and a
+          relative offset. The TZ label is essential when scheduling
+          from a laptop that may roam (the daemon fires on UTC; what
+          the user types is their local time, and they should see
+          which local). */}
+      {!preview.invalid && (
+        <div className={`flex items-center justify-between gap-2 text-[11px] ${preview.isPast ? 'text-rose-300' : 'text-zinc-400'}`}>
+          <span>
+            {preview.pretty} <span className="text-zinc-500">· {preview.relative}</span>
+          </span>
+          <span className="text-zinc-500">{preview.tz}</span>
+        </div>
+      )}
+      {preview.isPast && (
+        <p className="text-[11px] text-rose-300">
+          That moment has already passed. Pick a future time or use one of the presets above.
+        </p>
+      )}
+    </div>
+  )
 }

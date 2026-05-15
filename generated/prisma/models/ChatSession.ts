@@ -813,10 +813,12 @@ export type ChatSessionCreateNestedOneWithoutWorkflowRunsInput = {
   connect?: Prisma.ChatSessionWhereUniqueInput
 }
 
-export type ChatSessionUpdateOneRequiredWithoutWorkflowRunsNestedInput = {
+export type ChatSessionUpdateOneWithoutWorkflowRunsNestedInput = {
   create?: Prisma.XOR<Prisma.ChatSessionCreateWithoutWorkflowRunsInput, Prisma.ChatSessionUncheckedCreateWithoutWorkflowRunsInput>
   connectOrCreate?: Prisma.ChatSessionCreateOrConnectWithoutWorkflowRunsInput
   upsert?: Prisma.ChatSessionUpsertWithoutWorkflowRunsInput
+  disconnect?: Prisma.ChatSessionWhereInput | boolean
+  delete?: Prisma.ChatSessionWhereInput | boolean
   connect?: Prisma.ChatSessionWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.ChatSessionUpdateToOneWithWhereWithoutWorkflowRunsInput, Prisma.ChatSessionUpdateWithoutWorkflowRunsInput>, Prisma.ChatSessionUncheckedUpdateWithoutWorkflowRunsInput>
 }

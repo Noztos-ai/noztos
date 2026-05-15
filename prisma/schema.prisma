@@ -467,6 +467,12 @@ model Task {
   // points to the source. Lets the chained-context builder traverse
   // back across the chain without re-querying.
   sourceTaskId    String?
+  // Soft delete — DELETE requests + worktree-trash cascade flip this
+  // instead of dropping the row. User stops seeing the task; the audit
+  // trail (iterations, outputs, files touched) stays in the DB for
+  // training / compliance / retro. Hard delete only happens via admin
+  // retention tooling.
+  deletedAt       DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   iterations      TaskIteration[]
@@ -503,8 +509,13 @@ model TaskIteration {
   filesTouched    Json      @default("[]")
   errorReason     String?
   workflowRunId   String? // when executorKind='workflow', links to WorkflowRun for the full audit trail
+  deletedAt       DateTime? // soft delete (cascades from Task soft-delete)
   createdAt       DateTime  @default(now())
   task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // Reverse: workflow runs spawned by this iteration. When the
+  // iteration is hard-deleted, the runs cascade away too; soft-delete
+  // hides them via the parent filter in app code.
+  workflowRuns    WorkflowRun[]
 
   @@unique([taskId, iterationNumber])
   @@index([taskId, createdAt])
@@ -585,7 +596,12 @@ model BuildSession {
 // limpa ou mantida pra audit.
 model WorkflowRun {
   id            String      @id @default(cuid())
-  sessionId     String
+  // Parent — exactly ONE of these is set per row:
+  //   sessionId   → chat-driven workflow (cascade-deletes with the chat)
+  //   iterationId → task-driven workflow (cascade-deletes with the iteration)
+  // App layer enforces "exactly one"; both null or both set is a bug.
+  sessionId     String?
+  iterationId   String?
   projectId     String
   userId        String
   // Identifica qual workflow fixo: 'builder', 'review', 'test', etc.
@@ -611,10 +627,16 @@ model WorkflowRun {
   errorReason   String?
   createdAt     DateTime    @default(now())
   completedAt   DateTime?
-  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // Ownership relations — only one fires per row (sessionId XOR iterationId).
+  // Both with cascade so hard-deleting the parent (admin / retention)
+  // takes the run with it. Soft-delete is app-level: app code filters
+  // workflow runs whose parent has deletedAt set.
+  session       ChatSession?   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  iteration     TaskIteration? @relation(fields: [iterationId], references: [id], onDelete: Cascade)
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, status])
+  @@index([iterationId])
   @@index([projectId, createdAt])
   @@index([userId])
   @@map("workflow_runs")

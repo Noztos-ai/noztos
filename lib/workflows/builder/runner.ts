@@ -75,9 +75,18 @@ export async function startBuilderWorkflow(input: StartWorkflowInput): Promise<S
     currentStep: null,
   }
 
+  // Parent ownership — exactly one of sessionId / iterationId fires:
+  //   - chat-driven workflow (user typed /build in chat) → sessionId
+  //     points to the chat session, no iterationId
+  //   - task-driven workflow (task runner spawned this) → iterationId
+  //     points to the task iteration, no sessionId (the input
+  //     sessionId field is repurposed for frame-routing only and
+  //     carries the task id, which would violate the FK if persisted)
+  const isTaskDriven = !!input.taskContext
   const run = await prisma.workflowRun.create({
     data: {
-      sessionId: input.sessionId,
+      sessionId: isTaskDriven ? null : input.sessionId,
+      iterationId: input.taskContext?.iterationId ?? null,
       projectId: input.projectId,
       userId: input.userId,
       workflowType: input.workflowType,
@@ -86,8 +95,9 @@ export async function startBuilderWorkflow(input: StartWorkflowInput): Promise<S
       // that triggered this run. The runner persists the same id on
       // the user chat_message row (see persistUserMessage), so the
       // browser can render this card right after that message in the
-      // chat timeline instead of pinning it to the bottom.
-      triggerMessageId: input.userMsgId ?? null,
+      // chat timeline instead of pinning it to the bottom. Task-driven
+      // runs leave this null — the card lives inside the task UI.
+      triggerMessageId: isTaskDriven ? null : (input.userMsgId ?? null),
       status: 'pending',
       progress: initialSnapshot as unknown as object,
     },

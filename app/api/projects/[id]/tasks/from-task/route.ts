@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const source = await prisma.task.findFirst({
-    where: { id: body.sourceTaskId, projectId: id },
+    where: { id: body.sourceTaskId, projectId: id, deletedAt: null },
     select: {
       id: true,
       name: true,

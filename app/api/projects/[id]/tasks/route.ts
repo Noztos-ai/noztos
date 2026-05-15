@@ -32,7 +32,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const limitParam = request.nextUrl.searchParams.get('limit')
   const take = limitParam ? Math.max(1, Math.min(200, parseInt(limitParam, 10) || 0)) : undefined
 
-  const where: { projectId: string; status?: TaskStatus; worktreeId?: string } = { projectId: id }
+  // Filter out soft-deleted tasks — `deletedAt` is the user-facing
+  // delete marker; we keep the row for audit but never list it.
+  const where: { projectId: string; status?: TaskStatus; worktreeId?: string; deletedAt: null } = {
+    projectId: id,
+    deletedAt: null,
+  }
   if (statusParam && VALID_STATUSES.has(statusParam as TaskStatus)) {
     where.status = statusParam as TaskStatus
   }
