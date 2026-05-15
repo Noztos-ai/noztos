@@ -101,24 +101,29 @@ export function MarkdownRenderer({ content }: { content: string }) {
                 </span>
                 <CopyButton text={codeString} />
               </div>
-              {/* Code */}
-              <SyntaxHighlighter
-                style={vscDarkPlus}
-                language={lang || 'text'}
-                PreTag="div"
-                customStyle={{
-                  margin: 0,
-                  padding: '12px 16px',
-                  background: 'transparent',
-                  fontSize: '13px',
-                  lineHeight: '1.5',
-                }}
-                codeTagProps={{
-                  style: { fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace' },
-                }}
-              >
-                {codeString}
-              </SyntaxHighlighter>
+              {/* Code — wrapped in an overflow-x-auto container with the
+                  themed scrollbar so a long line never pushes the chat
+                  out horizontally. The wrapper bounds the highlighter's
+                  natural display:block width to the parent. */}
+              <div className="chat-scroll overflow-x-auto">
+                <SyntaxHighlighter
+                  style={vscDarkPlus}
+                  language={lang || 'text'}
+                  PreTag="div"
+                  customStyle={{
+                    margin: 0,
+                    padding: '12px 16px',
+                    background: 'transparent',
+                    fontSize: '13px',
+                    lineHeight: '1.5',
+                  }}
+                  codeTagProps={{
+                    style: { fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace' },
+                  }}
+                >
+                  {codeString}
+                </SyntaxHighlighter>
+              </div>
             </div>
           )
         },

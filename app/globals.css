@@ -37,6 +37,28 @@
   background: transparent;
 }
 
+/* Fluid container for chat-area content. Apply this class to message
+   wrappers / tool cards / workflow cards / etc and any expansive
+   element inside (code, tables, images, long strings) will collapse
+   into the parent width instead of pushing the layout horizontally.
+   Used as a defensive layer so an unexpected wide piece of content
+   (a path with no spaces, a long URL, a deep stack trace, a syntax-
+   highlighted block) never breaks the chat. */
+.chat-fluid {
+  min-width: 0;
+}
+.chat-fluid :where(pre, code, table) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.chat-fluid :where(img, svg, video) {
+  max-width: 100%;
+  height: auto;
+}
+.chat-fluid :where(p, span, div, li) {
+  overflow-wrap: anywhere;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

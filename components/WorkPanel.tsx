@@ -2659,8 +2659,12 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
                 if (!wt) return null
                 return (
                   <>
-                    {/* Top bar — worktree name + branch + target selector + actions */}
-                    <div className="flex shrink-0 items-center gap-2 border-b border-[#2B2B2B] px-4 py-2" style={{ backgroundColor: '#1F1F1F' }}>
+                    {/* Top bar — worktree name + branch + target selector + actions.
+                        flex-wrap lets the row break onto a second line when the
+                        chat area gets narrowed (multi-monitor / many sidebars
+                        open) instead of clipping the right-side icons off the
+                        edge. Wide layouts unaffected — it stays 1 line. */}
+                    <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-[#2B2B2B] px-4 py-2" style={{ backgroundColor: '#1F1F1F' }}>
                       {/* Branch icon */}
                       <svg
                         className="h-3.5 w-3.5 shrink-0 text-zinc-500"
@@ -7443,7 +7447,7 @@ function ChatPanel({
                     </div>
                   )}
                   {inlineWorkflowRuns.map((wr) => (
-                    <div key={wr.id} className="w-full max-w-2xl min-w-0 overflow-hidden break-words">
+                    <div key={wr.id} className="chat-fluid w-full max-w-2xl overflow-hidden break-words">
                       <WorkflowRunCard sessionId={sessionId} runId={wr.id} />
                     </div>
                   ))}
@@ -7477,7 +7481,7 @@ function ChatPanel({
                     the right edge. The MarkdownRenderer itself stays
                     width-agnostic so other consumers (admin panels,
                     docs viewers) keep their own layouts. */}
-                <div className="w-full max-w-2xl min-w-0 overflow-hidden break-words">
+                <div className="chat-fluid w-full max-w-2xl overflow-hidden break-words">
                   <MarkdownRenderer content={msg.content} />
                   {isLastAssistant && !isRunning && (
                     <TakeContextToTaskButton
@@ -7501,7 +7505,7 @@ function ChatPanel({
             completed yet. Once the list catches up, the inline render
             takes over and this block goes silent. */}
         {workflowRunId && !workflowRunsList.some((r) => r.id === workflowRunId && r.triggerMessageId) && (
-          <div className="w-full max-w-2xl min-w-0 overflow-hidden break-words">
+          <div className="chat-fluid w-full max-w-2xl overflow-hidden break-words">
             <WorkflowRunCard sessionId={sessionId} runId={workflowRunId} />
           </div>
         )}
