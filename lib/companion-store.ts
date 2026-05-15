@@ -116,6 +116,24 @@ export interface WorkflowRunListItem {
   completedAt: string | null
 }
 
+// Shape of a single streamed transcript chunk for a skill-kind task
+// iteration. Matches what the task runner pushes via
+// `channel.pushEvent({ type: 'task_iteration_chunk', payload: { chunk } })`
+// — the same TranscriptChunk that the workflow pipeline uses. We
+// duplicate the shape locally rather than import from
+// lib/workflows/shared so the browser bundle doesn't pull workflow
+// internals it never executes.
+export interface TaskTranscriptChunk {
+  ts: number
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking'
+  text?: string
+  toolName?: string
+  toolInput?: Record<string, unknown>
+  toolUseId?: string
+  toolResult?: string
+  toolError?: boolean
+}
+
 function emptySlice(): ChatSlice {
   return {
     messages: new Map(),
@@ -225,6 +243,14 @@ class CompanionStore {
   // status changes.
   private workflowRunsLists: Map<string, WorkflowRunListItem[]> = new Map()
   private workflowRunsListeners: Map<string, Set<Listener>> = new Map()
+
+  // Per-iteration live transcript for skill-kind tasks. Workflow tasks
+  // ride the workflowSnapshots cache above (TaskRunningCard reuses
+  // WorkflowRunCard for them). Skill tasks emit `task_iteration_chunk`
+  // SSE frames which the CompanionProvider appends here. The running
+  // card subscribes by iterationId and renders the streaming text.
+  private taskIterationTranscripts: Map<string, TaskTranscriptChunk[]> = new Map()
+  private taskIterationListeners: Map<string, Set<Listener>> = new Map()
 
   // ── Snapshot helpers (referentially stable between notifies) ──
 
@@ -805,6 +831,38 @@ class CompanionStore {
 
   private notifyWorkflowRunsList(sessionId: string): void {
     const set = this.workflowRunsListeners.get(sessionId)
+    if (set) for (const l of set) l()
+  }
+
+  // ── Task iteration transcript (live, per-iteration, skill tasks) ──
+
+  private static EMPTY_TRANSCRIPT: TaskTranscriptChunk[] = []
+
+  getTaskIterationTranscript(iterationId: string): TaskTranscriptChunk[] {
+    return this.taskIterationTranscripts.get(iterationId) ?? CompanionStore.EMPTY_TRANSCRIPT
+  }
+
+  appendTaskIterationChunk(iterationId: string, chunk: TaskTranscriptChunk): void {
+    const existing = this.taskIterationTranscripts.get(iterationId) ?? []
+    // Reassign with a new array so useSyncExternalStore picks up the
+    // change — same pattern as the workflow snapshot updates.
+    this.taskIterationTranscripts.set(iterationId, [...existing, chunk])
+    this.notifyTaskIteration(iterationId)
+  }
+
+  subscribeTaskIterationTranscript(iterationId: string, cb: Listener): () => void {
+    let set = this.taskIterationListeners.get(iterationId)
+    if (!set) { set = new Set(); this.taskIterationListeners.set(iterationId, set) }
+    set.add(cb)
+    return () => {
+      const s = this.taskIterationListeners.get(iterationId)
+      s?.delete(cb)
+      if (s && s.size === 0) this.taskIterationListeners.delete(iterationId)
+    }
+  }
+
+  private notifyTaskIteration(iterationId: string): void {
+    const set = this.taskIterationListeners.get(iterationId)
     if (set) for (const l of set) l()
   }
 

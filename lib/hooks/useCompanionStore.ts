@@ -90,6 +90,23 @@ export function useWorkflowRunsList(sessionId: string | null | undefined): impor
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
+// Live transcript for a skill-kind task iteration. SSE
+// `task_iteration_chunk` frames flow into the store via
+// CompanionProvider; this hook gives the running card a stable
+// reference and re-renders on each new chunk. Returns an empty array
+// when no iterationId is given (collapsed state of the running card).
+export function useTaskIterationTranscript(iterationId: string | null | undefined): import('@/lib/companion-store').TaskTranscriptChunk[] {
+  const subscribe = useCallback(
+    (cb: () => void) => iterationId ? companionStore.subscribeTaskIterationTranscript(iterationId, cb) : () => {},
+    [iterationId],
+  )
+  const getSnapshot = useCallback(
+    () => iterationId ? companionStore.getTaskIterationTranscript(iterationId) : [],
+    [iterationId],
+  )
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
 export function useUnreadSessions(): Set<string> {
   return useSyncExternalStore(
     (cb) => companionStore.subscribeUnread(cb),

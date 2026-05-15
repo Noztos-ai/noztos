@@ -62,14 +62,32 @@ export async function GET(request: NextRequest, context: RouteContext) {
       updatedAt: true,
       contextSource: true,
       worktree: { select: { branchName: true } },
+      // The currently-running iteration, if any. Lets the side-area
+      // running card pick up the workflowRunId (workflow tasks) or the
+      // iterationId (skill tasks) to subscribe for live transcript
+      // without a separate per-row /tasks/[id] fetch.
+      iterations: {
+        where: { status: 'running' },
+        orderBy: { iterationNumber: 'desc' },
+        take: 1,
+        select: { id: true, executorKind: true, workflowRunId: true },
+      },
     },
     orderBy: { createdAt: 'desc' },
   })
 
-  // Flatten the worktree join so the client sees branchName as a flat field.
-  const tasks = rows.map(({ worktree, ...task }) => ({
+  // Flatten the worktree + currentIteration so the client sees them as
+  // flat fields. currentIteration is null when the task isn't running.
+  const tasks = rows.map(({ worktree, iterations, ...task }) => ({
     ...task,
     branchName: worktree?.branchName ?? null,
+    currentIteration: iterations[0]
+      ? {
+          id: iterations[0].id,
+          executorKind: iterations[0].executorKind,
+          workflowRunId: iterations[0].workflowRunId,
+        }
+      : null,
   }))
 
   return NextResponse.json({ tasks })

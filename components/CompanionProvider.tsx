@@ -173,6 +173,30 @@ export function CompanionProvider({ children }: { children: React.ReactNode }) {
                 }
                 continue
               }
+              // task_iteration_chunk: live delta from a running skill
+              // task (single-agent execution outside the workflow
+              // pipeline). Same shape as workflow_progress conceptually:
+              // bypass the chat-message path, land on a per-iteration
+              // transcript in the store. TaskRunningCard subscribes by
+              // iterationId. Workflow tasks don't go through here —
+              // they ride the workflow_progress channel above and the
+              // running card reuses WorkflowRunCard for rendering.
+              if (rawType === 'task_iteration_chunk') {
+                const payload = event.payload as unknown as {
+                  taskId?: string
+                  iterationId?: string
+                  chunk?: unknown
+                } | undefined
+                if (payload?.iterationId && payload.chunk) {
+                  companionStore.appendTaskIterationChunk(
+                    payload.iterationId,
+                    payload.chunk as Parameters<typeof companionStore.appendTaskIterationChunk>[1],
+                  )
+                } else {
+                  console.warn('[task-cache] sse malformed task_iteration_chunk payload', payload)
+                }
+                continue
+              }
               // Unread tagging: a claude_event for a chat that isn't
               // the one on screen marks that chat as unread. The
               // active chat clears its own unread via the mark-read

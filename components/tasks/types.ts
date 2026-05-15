@@ -27,6 +27,15 @@ export interface TaskListItem {
     cutoffAt?: string | null
     rowCount?: number
   } | null
+  // Populated only while status='running' — lets the running card
+  // subscribe to the right live data: workflowRunId for workflow tasks
+  // (reuses the existing WorkflowRunCard pipeline), iterationId for
+  // skill tasks (drives the task_iteration_chunk transcript handler).
+  currentIteration: {
+    id: string
+    executorKind: string
+    workflowRunId: string | null
+  } | null
 }
 
 export interface TaskIterationItem {
