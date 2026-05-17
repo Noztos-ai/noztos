@@ -69,7 +69,13 @@ export const ModelName = {
   ResourceUsage: 'ResourceUsage',
   TeamRun: 'TeamRun',
   BuildSession: 'BuildSession',
-  WorkflowRun: 'WorkflowRun'
+  WorkflowRun: 'WorkflowRun',
+  UserEncryptionKey: 'UserEncryptionKey',
+  GitObject: 'GitObject',
+  WorktreeMirror: 'WorktreeMirror',
+  WorktreeFileEntry: 'WorktreeFileEntry',
+  SandboxSession: 'SandboxSession',
+  UnpushedCommit: 'UnpushedCommit'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -101,7 +107,8 @@ export const UserScalarFieldEnum = {
   emailVerified: 'emailVerified',
   createdAt: 'createdAt',
   lastActive: 'lastActive',
-  githubToken: 'githubToken'
+  githubToken: 'githubToken',
+  cloudEnabled: 'cloudEnabled'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -233,7 +240,8 @@ export const WorktreeScalarFieldEnum = {
   deletedAt: 'deletedAt',
   taskTouchedPaths: 'taskTouchedPaths',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  activeContext: 'activeContext'
 } as const
 
 export type WorktreeScalarFieldEnum = (typeof WorktreeScalarFieldEnum)[keyof typeof WorktreeScalarFieldEnum]
@@ -432,6 +440,89 @@ export const WorkflowRunScalarFieldEnum = {
 } as const
 
 export type WorkflowRunScalarFieldEnum = (typeof WorkflowRunScalarFieldEnum)[keyof typeof WorkflowRunScalarFieldEnum]
+
+
+export const UserEncryptionKeyScalarFieldEnum = {
+  userId: 'userId',
+  wrappedKey: 'wrappedKey',
+  kmsKeyId: 'kmsKeyId',
+  createdAt: 'createdAt',
+  revokedAt: 'revokedAt'
+} as const
+
+export type UserEncryptionKeyScalarFieldEnum = (typeof UserEncryptionKeyScalarFieldEnum)[keyof typeof UserEncryptionKeyScalarFieldEnum]
+
+
+export const GitObjectScalarFieldEnum = {
+  hash: 'hash',
+  userId: 'userId',
+  content: 'content',
+  sizeBytes: 'sizeBytes',
+  refCount: 'refCount',
+  createdAt: 'createdAt'
+} as const
+
+export type GitObjectScalarFieldEnum = (typeof GitObjectScalarFieldEnum)[keyof typeof GitObjectScalarFieldEnum]
+
+
+export const WorktreeMirrorScalarFieldEnum = {
+  worktreeId: 'worktreeId',
+  currentBranch: 'currentBranch',
+  currentCommitSha: 'currentCommitSha',
+  treeRootHash: 'treeRootHash',
+  lastSyncAt: 'lastSyncAt',
+  totalSizeBytes: 'totalSizeBytes',
+  fileCount: 'fileCount',
+  status: 'status'
+} as const
+
+export type WorktreeMirrorScalarFieldEnum = (typeof WorktreeMirrorScalarFieldEnum)[keyof typeof WorktreeMirrorScalarFieldEnum]
+
+
+export const WorktreeFileEntryScalarFieldEnum = {
+  id: 'id',
+  worktreeId: 'worktreeId',
+  path: 'path',
+  hash: 'hash',
+  mode: 'mode',
+  status: 'status',
+  syncedAt: 'syncedAt'
+} as const
+
+export type WorktreeFileEntryScalarFieldEnum = (typeof WorktreeFileEntryScalarFieldEnum)[keyof typeof WorktreeFileEntryScalarFieldEnum]
+
+
+export const SandboxSessionScalarFieldEnum = {
+  id: 'id',
+  worktreeId: 'worktreeId',
+  userId: 'userId',
+  e2bSandboxId: 'e2bSandboxId',
+  token: 'token',
+  status: 'status',
+  createdAt: 'createdAt',
+  lastActiveAt: 'lastActiveAt',
+  destroyedAt: 'destroyedAt',
+  errorReason: 'errorReason'
+} as const
+
+export type SandboxSessionScalarFieldEnum = (typeof SandboxSessionScalarFieldEnum)[keyof typeof SandboxSessionScalarFieldEnum]
+
+
+export const UnpushedCommitScalarFieldEnum = {
+  id: 'id',
+  worktreeId: 'worktreeId',
+  commitSha: 'commitSha',
+  parentSha: 'parentSha',
+  message: 'message',
+  authorName: 'authorName',
+  authorEmail: 'authorEmail',
+  authorDate: 'authorDate',
+  patchContent: 'patchContent',
+  orderIndex: 'orderIndex',
+  createdAt: 'createdAt'
+} as const
+
+export type UnpushedCommitScalarFieldEnum = (typeof UnpushedCommitScalarFieldEnum)[keyof typeof UnpushedCommitScalarFieldEnum]
 
 
 export const SortOrder = {

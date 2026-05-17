@@ -25,6 +25,16 @@ model User {
   projects        Project[]
   tasks           Task[]
   companionTokens CompanionToken[]
+  // Cloud Mirror back-references (see ARCHITECTURE.md "Cloud Mirror").
+  // These don't add columns to the users table — Prisma resolves them
+  // from the child models' FKs. Safe additive change.
+  encryptionKey   UserEncryptionKey?
+  gitObjects      GitObject[]
+  sandboxSessions SandboxSession[]
+  // MVP gate for cloud activation. Pre-billing, this boolean controls
+  // whether the "Continuar na nuvem" button is visible/active. Post-
+  // billing this becomes a credit/plan check.
+  cloudEnabled    Boolean          @default(false)
 
   @@map("users")
 }
@@ -223,6 +233,18 @@ model Worktree {
   todos        Todo[]
   tasks        Task[]
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // Cloud Mirror back-references (see ARCHITECTURE.md "Cloud Mirror").
+  // Inverse-only — no columns added to worktrees table.
+  mirror           WorktreeMirror?
+  fileEntries      WorktreeFileEntry[]
+  unpushedCommits  UnpushedCommit[]
+  sandboxSessions  SandboxSession[]
+  // Cloud Mirror — 'local' or 'cloud'. Persists across browser sessions
+  // so a user who switched a worktree to cloud and then closed the tab
+  // returns to find it still in cloud mode (re-provision sandbox if the
+  // E2B instance was GC'd in the meantime). UI badge reads this; routing
+  // logic in compute.ts reads this; bridge.mjs scopes itself by this.
+  activeContext    String   @default("local")
 
   @@index([projectId, status])
   @@index([deletedAt])
@@ -655,4 +677,157 @@ enum PermissionMode {
   edit
   auto
   agent
+}
+
+// =========================================================================
+// CLOUD MIRROR — shadow-git content-addressed mirror in Postgres.
+// See ARCHITECTURE.md "Cloud Mirror" for the full design.
+//
+// Goal: when local connection dies, user clicks "Continuar na nuvem" and
+// gets a bit-perfect reconstruction of the worktree (same branch, same
+// commit, uncommitted edits, untracked files, unpushed commits) inside an
+// isolated E2B sandbox per worktree. Independent of GitHub remote.
+//
+// Storage rationale: content-addressed (hash → blob) gives natural dedup
+// across branches. A 50 MB working tree shared between 3 branches stores
+// roughly 50 MB once, not 150 MB. Per user typical: ~12 MB after gzip +
+// encrypt.
+// =========================================================================
+
+// Per-user data encryption key, wrapped by the KMS master key.
+// `wrappedKey` is the user's DEK encrypted by the master; the master
+// never leaves KMS. Revoking (revokedAt != null) renders every blob
+// for this user permanently unreadable — that is our right-to-erasure
+// hook. Hard-delete of the actual GitObject / UnpushedCommit rows runs
+// as a separate background job after a grace period.
+model UserEncryptionKey {
+  userId      String    @id
+  wrappedKey  Bytes
+  kmsKeyId    String
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_encryption_keys")
+}
+
+// Content-addressed blob. (userId, hash) is the PK so the same hash can
+// coexist across users without cross-user dedup (privacy: cross-user
+// dedup would let us infer that user A and user B have an identical
+// file). `content` is gzipped, then encrypted with the user's DEK.
+// `refCount` is maintained in application code as WorktreeFileEntry
+// rows are created / deleted; GC sweeps rows where refCount = 0 after
+// a 24h cool-down (handles racey upload-then-delete).
+model GitObject {
+  hash        String
+  userId      String
+  content     Bytes
+  sizeBytes   Int
+  refCount    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, hash])
+  @@index([userId, refCount])
+  @@map("git_objects")
+}
+
+// One row per worktree. Pointer to the branch / commit the worktree
+// currently reflects. `treeRootHash` is nullable because we set it
+// only after the first successful sync completes — until then there
+// is no canonical tree state.
+model WorktreeMirror {
+  worktreeId        String   @id
+  currentBranch     String
+  currentCommitSha  String
+  treeRootHash      String?
+  lastSyncAt        DateTime @default(now())
+  totalSizeBytes    BigInt   @default(0)
+  fileCount         Int      @default(0)
+  // Tracks whether the daemon has finished the initial walk after
+  // worktree creation. Cloud activation refuses to proceed if not
+  // 'ready' — better a friendly "preparing mirror, please wait"
+  // than booting a sandbox with a half-populated tree.
+  status            String   @default("warming")
+
+  worktree          Worktree @relation(fields: [worktreeId], references: [id], onDelete: Cascade)
+
+  @@map("worktree_mirrors")
+}
+
+// Path → hash mapping inside a worktree. One row per file currently
+// present. Deleted files are removed from this table (not soft-deleted
+// here — the `WorktreeMirror.lastSyncAt` is the deletion checkpoint).
+// `hash` references GitObject(userId, hash) in app code, not via FK,
+// because we need to fetch userId from the worktree → project → user
+// chain (adding userId here would denormalize and require sync on
+// owner change).
+model WorktreeFileEntry {
+  id          String   @id @default(cuid())
+  worktreeId  String
+  path        String
+  hash        String
+  mode        Int
+  status      String   // 'tracked' | 'untracked' | 'modified'
+  syncedAt    DateTime @default(now())
+
+  worktree    Worktree @relation(fields: [worktreeId], references: [id], onDelete: Cascade)
+
+  @@unique([worktreeId, path])
+  @@index([worktreeId])
+  @@index([hash])
+  @@map("worktree_file_entries")
+}
+
+// One row per cloud sandbox spun up for a worktree. The lifecycle:
+//   provisioning → materializing → ready → destroyed (or failed)
+// The `token` is the bearer the sandbox uses when calling our APIs
+// (materialize, blob, claude event POSTs). It's distinct from the
+// CompanionToken so we can revoke/audit independently and so the auth
+// helper knows to flip routing into "cloud" mode for this worktree.
+model SandboxSession {
+  id            String   @id @default(cuid())
+  worktreeId    String
+  userId        String
+  e2bSandboxId  String?
+  token         String   @unique
+  status        String   // 'provisioning' | 'materializing' | 'ready' | 'destroyed' | 'failed'
+  createdAt     DateTime @default(now())
+  lastActiveAt  DateTime @default(now())
+  destroyedAt   DateTime?
+  errorReason   String?
+
+  worktree      Worktree @relation(fields: [worktreeId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([worktreeId, status])
+  @@index([userId])
+  @@map("sandbox_sessions")
+}
+
+// Local-only commits the user has made but not pushed to their remote.
+// Stored as `git format-patch` output so cloud reconstruction can
+// replay them with `git am`. `orderIndex` preserves chronological
+// order. When the user pushes, the daemon removes corresponding rows.
+model UnpushedCommit {
+  id            String   @id @default(cuid())
+  worktreeId    String
+  commitSha     String
+  parentSha     String
+  message       String
+  authorName    String
+  authorEmail   String
+  authorDate    DateTime
+  patchContent  Bytes
+  orderIndex    Int
+  createdAt     DateTime @default(now())
+
+  worktree      Worktree @relation(fields: [worktreeId], references: [id], onDelete: Cascade)
+
+  @@unique([worktreeId, commitSha])
+  @@index([worktreeId, orderIndex])
+  @@map("unpushed_commits")
 }

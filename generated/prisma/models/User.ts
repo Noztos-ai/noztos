@@ -38,6 +38,7 @@ export type UserMinAggregateOutputType = {
   createdAt: Date | null
   lastActive: Date | null
   githubToken: string | null
+  cloudEnabled: boolean | null
 }
 
 export type UserMaxAggregateOutputType = {
@@ -54,6 +55,7 @@ export type UserMaxAggregateOutputType = {
   createdAt: Date | null
   lastActive: Date | null
   githubToken: string | null
+  cloudEnabled: boolean | null
 }
 
 export type UserCountAggregateOutputType = {
@@ -70,6 +72,7 @@ export type UserCountAggregateOutputType = {
   createdAt: number
   lastActive: number
   githubToken: number
+  cloudEnabled: number
   _all: number
 }
 
@@ -88,6 +91,7 @@ export type UserMinAggregateInputType = {
   createdAt?: true
   lastActive?: true
   githubToken?: true
+  cloudEnabled?: true
 }
 
 export type UserMaxAggregateInputType = {
@@ -104,6 +108,7 @@ export type UserMaxAggregateInputType = {
   createdAt?: true
   lastActive?: true
   githubToken?: true
+  cloudEnabled?: true
 }
 
 export type UserCountAggregateInputType = {
@@ -120,6 +125,7 @@ export type UserCountAggregateInputType = {
   createdAt?: true
   lastActive?: true
   githubToken?: true
+  cloudEnabled?: true
   _all?: true
 }
 
@@ -209,6 +215,7 @@ export type UserGroupByOutputType = {
   createdAt: Date
   lastActive: Date
   githubToken: string | null
+  cloudEnabled: boolean
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
   _max: UserMaxAggregateOutputType | null
@@ -246,10 +253,14 @@ export type UserWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeFilter<"User"> | Date | string
   githubToken?: Prisma.StringNullableFilter<"User"> | string | null
+  cloudEnabled?: Prisma.BoolFilter<"User"> | boolean
   chatMessages?: Prisma.ChatMessageListRelationFilter
   projects?: Prisma.ProjectListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
   companionTokens?: Prisma.CompanionTokenListRelationFilter
+  encryptionKey?: Prisma.XOR<Prisma.UserEncryptionKeyNullableScalarRelationFilter, Prisma.UserEncryptionKeyWhereInput> | null
+  gitObjects?: Prisma.GitObjectListRelationFilter
+  sandboxSessions?: Prisma.SandboxSessionListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -266,10 +277,14 @@ export type UserOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
   githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  cloudEnabled?: Prisma.SortOrder
   chatMessages?: Prisma.ChatMessageOrderByRelationAggregateInput
   projects?: Prisma.ProjectOrderByRelationAggregateInput
   tasks?: Prisma.TaskOrderByRelationAggregateInput
   companionTokens?: Prisma.CompanionTokenOrderByRelationAggregateInput
+  encryptionKey?: Prisma.UserEncryptionKeyOrderByWithRelationInput
+  gitObjects?: Prisma.GitObjectOrderByRelationAggregateInput
+  sandboxSessions?: Prisma.SandboxSessionOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -289,10 +304,14 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeFilter<"User"> | Date | string
   githubToken?: Prisma.StringNullableFilter<"User"> | string | null
+  cloudEnabled?: Prisma.BoolFilter<"User"> | boolean
   chatMessages?: Prisma.ChatMessageListRelationFilter
   projects?: Prisma.ProjectListRelationFilter
   tasks?: Prisma.TaskListRelationFilter
   companionTokens?: Prisma.CompanionTokenListRelationFilter
+  encryptionKey?: Prisma.XOR<Prisma.UserEncryptionKeyNullableScalarRelationFilter, Prisma.UserEncryptionKeyWhereInput> | null
+  gitObjects?: Prisma.GitObjectListRelationFilter
+  sandboxSessions?: Prisma.SandboxSessionListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -309,6 +328,7 @@ export type UserOrderByWithAggregationInput = {
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
   githubToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  cloudEnabled?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
   _min?: Prisma.UserMinOrderByAggregateInput
@@ -331,6 +351,7 @@ export type UserScalarWhereWithAggregatesInput = {
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   lastActive?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   githubToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  cloudEnabled?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
 }
 
 export type UserCreateInput = {
@@ -347,10 +368,14 @@ export type UserCreateInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -367,10 +392,14 @@ export type UserUncheckedCreateInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -387,10 +416,14 @@ export type UserUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -407,10 +440,14 @@ export type UserUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -427,6 +464,7 @@ export type UserCreateManyInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
 }
 
 export type UserUpdateManyMutationInput = {
@@ -443,6 +481,7 @@ export type UserUpdateManyMutationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type UserUncheckedUpdateManyInput = {
@@ -459,6 +498,7 @@ export type UserUncheckedUpdateManyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type UserCountOrderByAggregateInput = {
@@ -475,6 +515,7 @@ export type UserCountOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
   githubToken?: Prisma.SortOrder
+  cloudEnabled?: Prisma.SortOrder
 }
 
 export type UserMaxOrderByAggregateInput = {
@@ -491,6 +532,7 @@ export type UserMaxOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
   githubToken?: Prisma.SortOrder
+  cloudEnabled?: Prisma.SortOrder
 }
 
 export type UserMinOrderByAggregateInput = {
@@ -507,6 +549,7 @@ export type UserMinOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   lastActive?: Prisma.SortOrder
   githubToken?: Prisma.SortOrder
+  cloudEnabled?: Prisma.SortOrder
 }
 
 export type UserScalarRelationFilter = {
@@ -586,6 +629,48 @@ export type UserUpdateOneRequiredWithoutTasksNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTasksInput, Prisma.UserUpdateWithoutTasksInput>, Prisma.UserUncheckedUpdateWithoutTasksInput>
 }
 
+export type UserCreateNestedOneWithoutEncryptionKeyInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutEncryptionKeyInput, Prisma.UserUncheckedCreateWithoutEncryptionKeyInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutEncryptionKeyInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutEncryptionKeyNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutEncryptionKeyInput, Prisma.UserUncheckedCreateWithoutEncryptionKeyInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutEncryptionKeyInput
+  upsert?: Prisma.UserUpsertWithoutEncryptionKeyInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutEncryptionKeyInput, Prisma.UserUpdateWithoutEncryptionKeyInput>, Prisma.UserUncheckedUpdateWithoutEncryptionKeyInput>
+}
+
+export type UserCreateNestedOneWithoutGitObjectsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutGitObjectsInput, Prisma.UserUncheckedCreateWithoutGitObjectsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutGitObjectsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutGitObjectsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutGitObjectsInput, Prisma.UserUncheckedCreateWithoutGitObjectsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutGitObjectsInput
+  upsert?: Prisma.UserUpsertWithoutGitObjectsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutGitObjectsInput, Prisma.UserUpdateWithoutGitObjectsInput>, Prisma.UserUncheckedUpdateWithoutGitObjectsInput>
+}
+
+export type UserCreateNestedOneWithoutSandboxSessionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSandboxSessionsInput, Prisma.UserUncheckedCreateWithoutSandboxSessionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSandboxSessionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutSandboxSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSandboxSessionsInput, Prisma.UserUncheckedCreateWithoutSandboxSessionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSandboxSessionsInput
+  upsert?: Prisma.UserUpsertWithoutSandboxSessionsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSandboxSessionsInput, Prisma.UserUpdateWithoutSandboxSessionsInput>, Prisma.UserUncheckedUpdateWithoutSandboxSessionsInput>
+}
+
 export type UserCreateWithoutCompanionTokensInput = {
   id?: string
   email: string
@@ -600,9 +685,13 @@ export type UserCreateWithoutCompanionTokensInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCompanionTokensInput = {
@@ -619,9 +708,13 @@ export type UserUncheckedCreateWithoutCompanionTokensInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCompanionTokensInput = {
@@ -654,9 +747,13 @@ export type UserUpdateWithoutCompanionTokensInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCompanionTokensInput = {
@@ -673,9 +770,13 @@ export type UserUncheckedUpdateWithoutCompanionTokensInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutProjectsInput = {
@@ -692,9 +793,13 @@ export type UserCreateWithoutProjectsInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutProjectsInput = {
@@ -711,9 +816,13 @@ export type UserUncheckedCreateWithoutProjectsInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutProjectsInput = {
@@ -746,9 +855,13 @@ export type UserUpdateWithoutProjectsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutProjectsInput = {
@@ -765,9 +878,13 @@ export type UserUncheckedUpdateWithoutProjectsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutChatMessagesInput = {
@@ -784,9 +901,13 @@ export type UserCreateWithoutChatMessagesInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutChatMessagesInput = {
@@ -803,9 +924,13 @@ export type UserUncheckedCreateWithoutChatMessagesInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutChatMessagesInput = {
@@ -838,9 +963,13 @@ export type UserUpdateWithoutChatMessagesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutChatMessagesInput = {
@@ -857,9 +986,13 @@ export type UserUncheckedUpdateWithoutChatMessagesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutTasksInput = {
@@ -876,9 +1009,13 @@ export type UserCreateWithoutTasksInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
   projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutTasksInput = {
@@ -895,9 +1032,13 @@ export type UserUncheckedCreateWithoutTasksInput = {
   createdAt?: Date | string
   lastActive?: Date | string
   githubToken?: string | null
+  cloudEnabled?: boolean
   chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
   projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
   companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutTasksInput = {
@@ -930,9 +1071,13 @@ export type UserUpdateWithoutTasksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
   projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTasksInput = {
@@ -949,9 +1094,337 @@ export type UserUncheckedUpdateWithoutTasksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutEncryptionKeyInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutEncryptionKeyInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutEncryptionKeyInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutEncryptionKeyInput, Prisma.UserUncheckedCreateWithoutEncryptionKeyInput>
+}
+
+export type UserUpsertWithoutEncryptionKeyInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutEncryptionKeyInput, Prisma.UserUncheckedUpdateWithoutEncryptionKeyInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutEncryptionKeyInput, Prisma.UserUncheckedCreateWithoutEncryptionKeyInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutEncryptionKeyInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutEncryptionKeyInput, Prisma.UserUncheckedUpdateWithoutEncryptionKeyInput>
+}
+
+export type UserUpdateWithoutEncryptionKeyInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutEncryptionKeyInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutGitObjectsInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutGitObjectsInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutGitObjectsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutGitObjectsInput, Prisma.UserUncheckedCreateWithoutGitObjectsInput>
+}
+
+export type UserUpsertWithoutGitObjectsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutGitObjectsInput, Prisma.UserUncheckedUpdateWithoutGitObjectsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutGitObjectsInput, Prisma.UserUncheckedCreateWithoutGitObjectsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutGitObjectsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutGitObjectsInput, Prisma.UserUncheckedUpdateWithoutGitObjectsInput>
+}
+
+export type UserUpdateWithoutGitObjectsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutGitObjectsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutSandboxSessionsInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutSandboxSessionsInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutSandboxSessionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutSandboxSessionsInput, Prisma.UserUncheckedCreateWithoutSandboxSessionsInput>
+}
+
+export type UserUpsertWithoutSandboxSessionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutSandboxSessionsInput, Prisma.UserUncheckedUpdateWithoutSandboxSessionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutSandboxSessionsInput, Prisma.UserUncheckedCreateWithoutSandboxSessionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutSandboxSessionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutSandboxSessionsInput, Prisma.UserUncheckedUpdateWithoutSandboxSessionsInput>
+}
+
+export type UserUpdateWithoutSandboxSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutSandboxSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -964,6 +1437,8 @@ export type UserCountOutputType = {
   projects: number
   tasks: number
   companionTokens: number
+  gitObjects: number
+  sandboxSessions: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -971,6 +1446,8 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   projects?: boolean | UserCountOutputTypeCountProjectsArgs
   tasks?: boolean | UserCountOutputTypeCountTasksArgs
   companionTokens?: boolean | UserCountOutputTypeCountCompanionTokensArgs
+  gitObjects?: boolean | UserCountOutputTypeCountGitObjectsArgs
+  sandboxSessions?: boolean | UserCountOutputTypeCountSandboxSessionsArgs
 }
 
 /**
@@ -1011,6 +1488,20 @@ export type UserCountOutputTypeCountCompanionTokensArgs<ExtArgs extends runtime.
   where?: Prisma.CompanionTokenWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountGitObjectsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.GitObjectWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountSandboxSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.SandboxSessionWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1026,10 +1517,14 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   createdAt?: boolean
   lastActive?: boolean
   githubToken?: boolean
+  cloudEnabled?: boolean
   chatMessages?: boolean | Prisma.User$chatMessagesArgs<ExtArgs>
   projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   tasks?: boolean | Prisma.User$tasksArgs<ExtArgs>
   companionTokens?: boolean | Prisma.User$companionTokensArgs<ExtArgs>
+  encryptionKey?: boolean | Prisma.User$encryptionKeyArgs<ExtArgs>
+  gitObjects?: boolean | Prisma.User$gitObjectsArgs<ExtArgs>
+  sandboxSessions?: boolean | Prisma.User$sandboxSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1047,6 +1542,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   lastActive?: boolean
   githubToken?: boolean
+  cloudEnabled?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1063,6 +1559,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   lastActive?: boolean
   githubToken?: boolean
+  cloudEnabled?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectScalar = {
@@ -1079,14 +1576,18 @@ export type UserSelectScalar = {
   createdAt?: boolean
   lastActive?: boolean
   githubToken?: boolean
+  cloudEnabled?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "passwordHash" | "name" | "company" | "role" | "avatarUrl" | "anthropicToken" | "slackToken" | "emailVerified" | "createdAt" | "lastActive" | "githubToken", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "passwordHash" | "name" | "company" | "role" | "avatarUrl" | "anthropicToken" | "slackToken" | "emailVerified" | "createdAt" | "lastActive" | "githubToken" | "cloudEnabled", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   chatMessages?: boolean | Prisma.User$chatMessagesArgs<ExtArgs>
   projects?: boolean | Prisma.User$projectsArgs<ExtArgs>
   tasks?: boolean | Prisma.User$tasksArgs<ExtArgs>
   companionTokens?: boolean | Prisma.User$companionTokensArgs<ExtArgs>
+  encryptionKey?: boolean | Prisma.User$encryptionKeyArgs<ExtArgs>
+  gitObjects?: boolean | Prisma.User$gitObjectsArgs<ExtArgs>
+  sandboxSessions?: boolean | Prisma.User$sandboxSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1099,6 +1600,9 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     projects: Prisma.$ProjectPayload<ExtArgs>[]
     tasks: Prisma.$TaskPayload<ExtArgs>[]
     companionTokens: Prisma.$CompanionTokenPayload<ExtArgs>[]
+    encryptionKey: Prisma.$UserEncryptionKeyPayload<ExtArgs> | null
+    gitObjects: Prisma.$GitObjectPayload<ExtArgs>[]
+    sandboxSessions: Prisma.$SandboxSessionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1114,6 +1618,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     createdAt: Date
     lastActive: Date
     githubToken: string | null
+    cloudEnabled: boolean
   }, ExtArgs["result"]["user"]>
   composites: {}
 }
@@ -1512,6 +2017,9 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   projects<T extends Prisma.User$projectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$projectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tasks<T extends Prisma.User$tasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   companionTokens<T extends Prisma.User$companionTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$companionTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CompanionTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  encryptionKey<T extends Prisma.User$encryptionKeyArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$encryptionKeyArgs<ExtArgs>>): Prisma.Prisma__UserEncryptionKeyClient<runtime.Types.Result.GetResult<Prisma.$UserEncryptionKeyPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  gitObjects<T extends Prisma.User$gitObjectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$gitObjectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GitObjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  sandboxSessions<T extends Prisma.User$sandboxSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sandboxSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SandboxSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1554,6 +2062,7 @@ export interface UserFieldRefs {
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly lastActive: Prisma.FieldRef<"User", 'DateTime'>
   readonly githubToken: Prisma.FieldRef<"User", 'String'>
+  readonly cloudEnabled: Prisma.FieldRef<"User", 'Boolean'>
 }
     
 
@@ -2040,6 +2549,73 @@ export type User$companionTokensArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.CompanionTokenScalarFieldEnum | Prisma.CompanionTokenScalarFieldEnum[]
+}
+
+/**
+ * User.encryptionKey
+ */
+export type User$encryptionKeyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the UserEncryptionKey
+   */
+  select?: Prisma.UserEncryptionKeySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the UserEncryptionKey
+   */
+  omit?: Prisma.UserEncryptionKeyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserEncryptionKeyInclude<ExtArgs> | null
+  where?: Prisma.UserEncryptionKeyWhereInput
+}
+
+/**
+ * User.gitObjects
+ */
+export type User$gitObjectsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the GitObject
+   */
+  select?: Prisma.GitObjectSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the GitObject
+   */
+  omit?: Prisma.GitObjectOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.GitObjectInclude<ExtArgs> | null
+  where?: Prisma.GitObjectWhereInput
+  orderBy?: Prisma.GitObjectOrderByWithRelationInput | Prisma.GitObjectOrderByWithRelationInput[]
+  cursor?: Prisma.GitObjectWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.GitObjectScalarFieldEnum | Prisma.GitObjectScalarFieldEnum[]
+}
+
+/**
+ * User.sandboxSessions
+ */
+export type User$sandboxSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SandboxSession
+   */
+  select?: Prisma.SandboxSessionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the SandboxSession
+   */
+  omit?: Prisma.SandboxSessionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SandboxSessionInclude<ExtArgs> | null
+  where?: Prisma.SandboxSessionWhereInput
+  orderBy?: Prisma.SandboxSessionOrderByWithRelationInput | Prisma.SandboxSessionOrderByWithRelationInput[]
+  cursor?: Prisma.SandboxSessionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.SandboxSessionScalarFieldEnum | Prisma.SandboxSessionScalarFieldEnum[]
 }
 
 /**

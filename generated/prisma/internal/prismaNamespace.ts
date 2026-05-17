@@ -402,7 +402,13 @@ export const ModelName = {
   ResourceUsage: 'ResourceUsage',
   TeamRun: 'TeamRun',
   BuildSession: 'BuildSession',
-  WorkflowRun: 'WorkflowRun'
+  WorkflowRun: 'WorkflowRun',
+  UserEncryptionKey: 'UserEncryptionKey',
+  GitObject: 'GitObject',
+  WorktreeMirror: 'WorktreeMirror',
+  WorktreeFileEntry: 'WorktreeFileEntry',
+  SandboxSession: 'SandboxSession',
+  UnpushedCommit: 'UnpushedCommit'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -418,7 +424,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "companionToken" | "companionConfig" | "project" | "repository" | "repoFile" | "collaborator" | "team" | "worktree" | "todo" | "chatSession" | "chatMessage" | "task" | "taskIteration" | "slackLog" | "resourceUsage" | "teamRun" | "buildSession" | "workflowRun"
+    modelProps: "user" | "companionToken" | "companionConfig" | "project" | "repository" | "repoFile" | "collaborator" | "team" | "worktree" | "todo" | "chatSession" | "chatMessage" | "task" | "taskIteration" | "slackLog" | "resourceUsage" | "teamRun" | "buildSession" | "workflowRun" | "userEncryptionKey" | "gitObject" | "worktreeMirror" | "worktreeFileEntry" | "sandboxSession" | "unpushedCommit"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1828,6 +1834,450 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    UserEncryptionKey: {
+      payload: Prisma.$UserEncryptionKeyPayload<ExtArgs>
+      fields: Prisma.UserEncryptionKeyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UserEncryptionKeyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UserEncryptionKeyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>
+        }
+        findFirst: {
+          args: Prisma.UserEncryptionKeyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UserEncryptionKeyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>
+        }
+        findMany: {
+          args: Prisma.UserEncryptionKeyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>[]
+        }
+        create: {
+          args: Prisma.UserEncryptionKeyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>
+        }
+        createMany: {
+          args: Prisma.UserEncryptionKeyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UserEncryptionKeyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>[]
+        }
+        delete: {
+          args: Prisma.UserEncryptionKeyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>
+        }
+        update: {
+          args: Prisma.UserEncryptionKeyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>
+        }
+        deleteMany: {
+          args: Prisma.UserEncryptionKeyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UserEncryptionKeyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UserEncryptionKeyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>[]
+        }
+        upsert: {
+          args: Prisma.UserEncryptionKeyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserEncryptionKeyPayload>
+        }
+        aggregate: {
+          args: Prisma.UserEncryptionKeyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserEncryptionKey>
+        }
+        groupBy: {
+          args: Prisma.UserEncryptionKeyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserEncryptionKeyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UserEncryptionKeyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserEncryptionKeyCountAggregateOutputType> | number
+        }
+      }
+    }
+    GitObject: {
+      payload: Prisma.$GitObjectPayload<ExtArgs>
+      fields: Prisma.GitObjectFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GitObjectFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GitObjectFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>
+        }
+        findFirst: {
+          args: Prisma.GitObjectFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GitObjectFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>
+        }
+        findMany: {
+          args: Prisma.GitObjectFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>[]
+        }
+        create: {
+          args: Prisma.GitObjectCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>
+        }
+        createMany: {
+          args: Prisma.GitObjectCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GitObjectCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>[]
+        }
+        delete: {
+          args: Prisma.GitObjectDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>
+        }
+        update: {
+          args: Prisma.GitObjectUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>
+        }
+        deleteMany: {
+          args: Prisma.GitObjectDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GitObjectUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GitObjectUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>[]
+        }
+        upsert: {
+          args: Prisma.GitObjectUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GitObjectPayload>
+        }
+        aggregate: {
+          args: Prisma.GitObjectAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGitObject>
+        }
+        groupBy: {
+          args: Prisma.GitObjectGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GitObjectGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GitObjectCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GitObjectCountAggregateOutputType> | number
+        }
+      }
+    }
+    WorktreeMirror: {
+      payload: Prisma.$WorktreeMirrorPayload<ExtArgs>
+      fields: Prisma.WorktreeMirrorFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WorktreeMirrorFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WorktreeMirrorFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>
+        }
+        findFirst: {
+          args: Prisma.WorktreeMirrorFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WorktreeMirrorFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>
+        }
+        findMany: {
+          args: Prisma.WorktreeMirrorFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>[]
+        }
+        create: {
+          args: Prisma.WorktreeMirrorCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>
+        }
+        createMany: {
+          args: Prisma.WorktreeMirrorCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WorktreeMirrorCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>[]
+        }
+        delete: {
+          args: Prisma.WorktreeMirrorDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>
+        }
+        update: {
+          args: Prisma.WorktreeMirrorUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>
+        }
+        deleteMany: {
+          args: Prisma.WorktreeMirrorDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WorktreeMirrorUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WorktreeMirrorUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>[]
+        }
+        upsert: {
+          args: Prisma.WorktreeMirrorUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeMirrorPayload>
+        }
+        aggregate: {
+          args: Prisma.WorktreeMirrorAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWorktreeMirror>
+        }
+        groupBy: {
+          args: Prisma.WorktreeMirrorGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorktreeMirrorGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WorktreeMirrorCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorktreeMirrorCountAggregateOutputType> | number
+        }
+      }
+    }
+    WorktreeFileEntry: {
+      payload: Prisma.$WorktreeFileEntryPayload<ExtArgs>
+      fields: Prisma.WorktreeFileEntryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WorktreeFileEntryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WorktreeFileEntryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>
+        }
+        findFirst: {
+          args: Prisma.WorktreeFileEntryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WorktreeFileEntryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>
+        }
+        findMany: {
+          args: Prisma.WorktreeFileEntryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>[]
+        }
+        create: {
+          args: Prisma.WorktreeFileEntryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>
+        }
+        createMany: {
+          args: Prisma.WorktreeFileEntryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WorktreeFileEntryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>[]
+        }
+        delete: {
+          args: Prisma.WorktreeFileEntryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>
+        }
+        update: {
+          args: Prisma.WorktreeFileEntryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>
+        }
+        deleteMany: {
+          args: Prisma.WorktreeFileEntryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WorktreeFileEntryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WorktreeFileEntryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>[]
+        }
+        upsert: {
+          args: Prisma.WorktreeFileEntryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorktreeFileEntryPayload>
+        }
+        aggregate: {
+          args: Prisma.WorktreeFileEntryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWorktreeFileEntry>
+        }
+        groupBy: {
+          args: Prisma.WorktreeFileEntryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorktreeFileEntryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WorktreeFileEntryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorktreeFileEntryCountAggregateOutputType> | number
+        }
+      }
+    }
+    SandboxSession: {
+      payload: Prisma.$SandboxSessionPayload<ExtArgs>
+      fields: Prisma.SandboxSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SandboxSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SandboxSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.SandboxSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SandboxSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>
+        }
+        findMany: {
+          args: Prisma.SandboxSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>[]
+        }
+        create: {
+          args: Prisma.SandboxSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>
+        }
+        createMany: {
+          args: Prisma.SandboxSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SandboxSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.SandboxSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>
+        }
+        update: {
+          args: Prisma.SandboxSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.SandboxSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SandboxSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SandboxSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.SandboxSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SandboxSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.SandboxSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSandboxSession>
+        }
+        groupBy: {
+          args: Prisma.SandboxSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SandboxSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SandboxSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SandboxSessionCountAggregateOutputType> | number
+        }
+      }
+    }
+    UnpushedCommit: {
+      payload: Prisma.$UnpushedCommitPayload<ExtArgs>
+      fields: Prisma.UnpushedCommitFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UnpushedCommitFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UnpushedCommitFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>
+        }
+        findFirst: {
+          args: Prisma.UnpushedCommitFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UnpushedCommitFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>
+        }
+        findMany: {
+          args: Prisma.UnpushedCommitFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>[]
+        }
+        create: {
+          args: Prisma.UnpushedCommitCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>
+        }
+        createMany: {
+          args: Prisma.UnpushedCommitCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UnpushedCommitCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>[]
+        }
+        delete: {
+          args: Prisma.UnpushedCommitDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>
+        }
+        update: {
+          args: Prisma.UnpushedCommitUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>
+        }
+        deleteMany: {
+          args: Prisma.UnpushedCommitDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UnpushedCommitUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UnpushedCommitUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>[]
+        }
+        upsert: {
+          args: Prisma.UnpushedCommitUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UnpushedCommitPayload>
+        }
+        aggregate: {
+          args: Prisma.UnpushedCommitAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUnpushedCommit>
+        }
+        groupBy: {
+          args: Prisma.UnpushedCommitGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UnpushedCommitGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UnpushedCommitCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UnpushedCommitCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1880,7 +2330,8 @@ export const UserScalarFieldEnum = {
   emailVerified: 'emailVerified',
   createdAt: 'createdAt',
   lastActive: 'lastActive',
-  githubToken: 'githubToken'
+  githubToken: 'githubToken',
+  cloudEnabled: 'cloudEnabled'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -2012,7 +2463,8 @@ export const WorktreeScalarFieldEnum = {
   deletedAt: 'deletedAt',
   taskTouchedPaths: 'taskTouchedPaths',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  activeContext: 'activeContext'
 } as const
 
 export type WorktreeScalarFieldEnum = (typeof WorktreeScalarFieldEnum)[keyof typeof WorktreeScalarFieldEnum]
@@ -2213,6 +2665,89 @@ export const WorkflowRunScalarFieldEnum = {
 export type WorkflowRunScalarFieldEnum = (typeof WorkflowRunScalarFieldEnum)[keyof typeof WorkflowRunScalarFieldEnum]
 
 
+export const UserEncryptionKeyScalarFieldEnum = {
+  userId: 'userId',
+  wrappedKey: 'wrappedKey',
+  kmsKeyId: 'kmsKeyId',
+  createdAt: 'createdAt',
+  revokedAt: 'revokedAt'
+} as const
+
+export type UserEncryptionKeyScalarFieldEnum = (typeof UserEncryptionKeyScalarFieldEnum)[keyof typeof UserEncryptionKeyScalarFieldEnum]
+
+
+export const GitObjectScalarFieldEnum = {
+  hash: 'hash',
+  userId: 'userId',
+  content: 'content',
+  sizeBytes: 'sizeBytes',
+  refCount: 'refCount',
+  createdAt: 'createdAt'
+} as const
+
+export type GitObjectScalarFieldEnum = (typeof GitObjectScalarFieldEnum)[keyof typeof GitObjectScalarFieldEnum]
+
+
+export const WorktreeMirrorScalarFieldEnum = {
+  worktreeId: 'worktreeId',
+  currentBranch: 'currentBranch',
+  currentCommitSha: 'currentCommitSha',
+  treeRootHash: 'treeRootHash',
+  lastSyncAt: 'lastSyncAt',
+  totalSizeBytes: 'totalSizeBytes',
+  fileCount: 'fileCount',
+  status: 'status'
+} as const
+
+export type WorktreeMirrorScalarFieldEnum = (typeof WorktreeMirrorScalarFieldEnum)[keyof typeof WorktreeMirrorScalarFieldEnum]
+
+
+export const WorktreeFileEntryScalarFieldEnum = {
+  id: 'id',
+  worktreeId: 'worktreeId',
+  path: 'path',
+  hash: 'hash',
+  mode: 'mode',
+  status: 'status',
+  syncedAt: 'syncedAt'
+} as const
+
+export type WorktreeFileEntryScalarFieldEnum = (typeof WorktreeFileEntryScalarFieldEnum)[keyof typeof WorktreeFileEntryScalarFieldEnum]
+
+
+export const SandboxSessionScalarFieldEnum = {
+  id: 'id',
+  worktreeId: 'worktreeId',
+  userId: 'userId',
+  e2bSandboxId: 'e2bSandboxId',
+  token: 'token',
+  status: 'status',
+  createdAt: 'createdAt',
+  lastActiveAt: 'lastActiveAt',
+  destroyedAt: 'destroyedAt',
+  errorReason: 'errorReason'
+} as const
+
+export type SandboxSessionScalarFieldEnum = (typeof SandboxSessionScalarFieldEnum)[keyof typeof SandboxSessionScalarFieldEnum]
+
+
+export const UnpushedCommitScalarFieldEnum = {
+  id: 'id',
+  worktreeId: 'worktreeId',
+  commitSha: 'commitSha',
+  parentSha: 'parentSha',
+  message: 'message',
+  authorName: 'authorName',
+  authorEmail: 'authorEmail',
+  authorDate: 'authorDate',
+  patchContent: 'patchContent',
+  orderIndex: 'orderIndex',
+  createdAt: 'createdAt'
+} as const
+
+export type UnpushedCommitScalarFieldEnum = (typeof UnpushedCommitScalarFieldEnum)[keyof typeof UnpushedCommitScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -2371,6 +2906,34 @@ export type EnumTaskStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$Prism
 export type ListEnumTaskStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TaskStatus[]'>
     
 
+
+/**
+ * Reference to a field of type 'Bytes'
+ */
+export type BytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes'>
+    
+
+
+/**
+ * Reference to a field of type 'Bytes[]'
+ */
+export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes[]'>
+    
+
+
+/**
+ * Reference to a field of type 'BigInt'
+ */
+export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt'>
+    
+
+
+/**
+ * Reference to a field of type 'BigInt[]'
+ */
+export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
+    
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -2485,6 +3048,12 @@ export type GlobalOmitConfig = {
   teamRun?: Prisma.TeamRunOmit
   buildSession?: Prisma.BuildSessionOmit
   workflowRun?: Prisma.WorkflowRunOmit
+  userEncryptionKey?: Prisma.UserEncryptionKeyOmit
+  gitObject?: Prisma.GitObjectOmit
+  worktreeMirror?: Prisma.WorktreeMirrorOmit
+  worktreeFileEntry?: Prisma.WorktreeFileEntryOmit
+  sandboxSession?: Prisma.SandboxSessionOmit
+  unpushedCommit?: Prisma.UnpushedCommitOmit
 }
 
 /* Types for Logging */

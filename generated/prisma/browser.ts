@@ -112,3 +112,33 @@ export type BuildSession = Prisma.BuildSessionModel
  * 
  */
 export type WorkflowRun = Prisma.WorkflowRunModel
+/**
+ * Model UserEncryptionKey
+ * 
+ */
+export type UserEncryptionKey = Prisma.UserEncryptionKeyModel
+/**
+ * Model GitObject
+ * 
+ */
+export type GitObject = Prisma.GitObjectModel
+/**
+ * Model WorktreeMirror
+ * 
+ */
+export type WorktreeMirror = Prisma.WorktreeMirrorModel
+/**
+ * Model WorktreeFileEntry
+ * 
+ */
+export type WorktreeFileEntry = Prisma.WorktreeFileEntryModel
+/**
+ * Model SandboxSession
+ * 
+ */
+export type SandboxSession = Prisma.SandboxSessionModel
+/**
+ * Model UnpushedCommit
+ * 
+ */
+export type UnpushedCommit = Prisma.UnpushedCommitModel
