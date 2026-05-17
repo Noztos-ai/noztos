@@ -11,6 +11,7 @@ import { ClaudeBridge, getActiveConfig } from './claude-bridge.js'
 import { refreshPromptConfig, startPromptConfigPolling } from './prompt-config.js'
 import { refreshSkillConfig, startSkillConfigPolling } from './skill-config.js'
 import { ProjectWatcher, type FsChangeBatch } from './fs-watcher.js'
+import { MirrorSync } from './mirror-sync.js'
 import { SyncQueue, type QueuedEvent } from './sync-queue.js'
 import { SyncWorker } from './sync-worker.js'
 import { listProjects, relabelProjectId, unregisterProject, cleanupProjectWorktreesDir } from './project-manager.js'
@@ -68,6 +69,12 @@ export class Daemon extends EventEmitter {
   // One filesystem watcher per registered project — replaces the
   // Explorer / Changes / stats polling on the browser. Keyed by abs path.
   private watchers: Map<string, ProjectWatcher> = new Map()
+  // One Cloud Mirror sync instance per project (same key = project path).
+  // Subscribes to the same fs-watcher 'change' batches but listens only
+  // to source='worktrees' and uploads file content to the server in the
+  // background. Gated by BORNASTAR_MIRROR_ENABLED env var — when off,
+  // start() is a no-op and zero work happens here.
+  private mirrors: Map<string, MirrorSync> = new Map()
   // One persistent shell PTY per terminal context (worktreeId).
   // Lifecycle in pty-manager.ts: spawn on first attach, survive
   // browser disconnects within the activity TTL (1h) or post-detach
@@ -580,6 +587,32 @@ export class Daemon extends EventEmitter {
     return `evt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   }
 
+  // Cloud Mirror — given a claude stream event, return relative paths
+  // that were modified by Edit/Write/MultiEdit/NotebookEdit tool uses
+  // in this event. Filters absolute paths to only those under the
+  // current worktree (defensive against tools that might write
+  // elsewhere). Returns paths relative to worktreeRoot.
+  private peekEditWriteToolUses(
+    event: ClaudeStreamEvent,
+    worktreeRoot: string,
+  ): string[] {
+    const msg = (event as unknown as { message?: { content?: Array<unknown> } }).message
+    const content = msg?.content
+    if (!Array.isArray(content)) return []
+    const out: string[] = []
+    const writeTools = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
+    const rootWithSlash = worktreeRoot.endsWith('/') ? worktreeRoot : worktreeRoot + '/'
+    for (const block of content) {
+      const b = block as { type?: string; name?: string; input?: Record<string, unknown> }
+      if (b.type !== 'tool_use' || !b.name || !writeTools.has(b.name)) continue
+      const filePath = b.input?.file_path
+      if (typeof filePath !== 'string') continue
+      if (!filePath.startsWith(rootWithSlash)) continue
+      out.push(filePath.slice(rootWithSlash.length))
+    }
+    return out
+  }
+
   private enqueueRow(row: PersistRow, ctx: { sessionId: string; projectId: string }): void {
     this.syncQueue.enqueue({
       id: row.id,
@@ -832,6 +865,22 @@ export class Daemon extends EventEmitter {
     }
 
     bridge.on('event', (event: ClaudeStreamEvent) => {
+      // Cloud Mirror eager hook — peek for Edit/Write tool_use blocks
+      // and enqueue the file path immediately. The drain runs ~500ms
+      // later, by which time the file is definitely on disk. Cheaper
+      // and snappier than waiting for the chokidar event (which adds
+      // 50ms of debounce).
+      if (cmd.worktreePath) {
+        const mirror = this.mirrors.get(project.path)
+        if (mirror) {
+          const worktreeId = cmd.worktreePath.split('/').pop()
+          if (worktreeId) {
+            this.peekEditWriteToolUses(event, cmd.worktreePath).forEach((relPath) => {
+              mirror.enqueueClaudeEdit(worktreeId, relPath)
+            })
+          }
+        }
+      }
       // Build persistable rows once — same ids flow through the queue,
       // the relay (for server write-through) and the ring buffer.
       const rows = persistCtx ? this.buildPersistRows(event, persistCtx) : []
@@ -1005,9 +1054,29 @@ export class Daemon extends EventEmitter {
       const worktreesPath = join(homedir(), '.bornastar', 'worktrees', project.id)
       try { mkdirSync(worktreesPath, { recursive: true }) } catch {}
       const watcher = new ProjectWatcher(project.path, worktreesPath)
+      // Cloud Mirror — feature-flagged background sync. Subscribes to the
+      // SAME 'change' batches the SSE forwarder uses, but cares only
+      // about source='worktrees' (uncommitted edits inside isolated
+      // branches). Drops paths into MirrorSync's queue; the drain loop
+      // hashes + uploads + commits in the background. With the env flag
+      // off, .start() is a no-op and .enqueueFromWatcher() returns
+      // immediately — zero overhead until enabled.
+      const mirror = new MirrorSync(this.serverUrl, this.authToken, worktreesPath)
+      mirror.start()
+      this.mirrors.set(project.path, mirror)
+      // Initial reconcile — discover every existing worktree in
+      // worktreesPath, walk its files, post state. Fire-and-forget so
+      // the watcher loop isn't blocked. Subsequent watcher events
+      // handle incremental drift.
+      mirror.discoverAndSyncAll().catch((err) => {
+        console.warn(`[mirror] initial discover failed for ${project.path}:`, err)
+      })
       watcher.on('change', (batch: FsChangeBatch) => {
         console.log(`[isolation] fs_change project=${batch.projectPath} source=${batch.source} paths=${batch.paths.length}`)
         this.send({ type: 'fs_change', payload: batch }).catch(() => {})
+        if (batch.source === 'worktrees') {
+          for (const p of batch.paths) mirror.enqueueFromWatcher(p)
+        }
       })
       watcher.on('error', (err) => {
         console.warn(`[isolation] fs watcher error (${project.path}):`, err)
@@ -1022,6 +1091,11 @@ export class Daemon extends EventEmitter {
       if (!activePaths.has(path)) {
         watcher.stop()
         this.watchers.delete(path)
+        const mirror = this.mirrors.get(path)
+        if (mirror) {
+          mirror.stop()
+          this.mirrors.delete(path)
+        }
         console.log(`[isolation] watcher TEARDOWN project=${path}`)
       }
     }

@@ -59,17 +59,22 @@ export async function POST(request: NextRequest) {
   // Resolve worktreePath from the Bornastar chat session, when present. The
   // companion daemon only knows about projects (roots); we enrich the
   // command here so it can spawn Claude Code in the correct worktree dir.
+  // We also surface worktreeId so the events stream filter (Cloud Mirror)
+  // can route each command to either the local companion or the cloud
+  // sandbox based on the worktree's activeContext.
   let worktreePath: string | undefined
+  let worktreeId: string | undefined
   if (bornastarSessionId) {
     const session = await prisma.chatSession.findUnique({
       where: { id: bornastarSessionId },
       select: {
         userId: true,
-        worktree: { select: { worktreePath: true } },
+        worktree: { select: { id: true, worktreePath: true } },
       },
     })
-    if (session && session.userId === auth.userId && session.worktree?.worktreePath) {
+    if (session && session.userId === auth.userId && session.worktree) {
       worktreePath = session.worktree.worktreePath
+      worktreeId = session.worktree.id
     }
   }
 
@@ -92,6 +97,7 @@ export async function POST(request: NextRequest) {
     thinking,
     skillId: skillId ?? null,
     worktreePath,
+    worktreeId,
     bornastarSessionId,
     userMsgId,
     repoUrl,
