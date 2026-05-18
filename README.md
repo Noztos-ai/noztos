@@ -1,118 +1,92 @@
 # noztos
 
-A local-first, self-hosted IDE companion for [Claude Code](https://claude.ai/claude-code). Spin up isolated worktrees per task, chat with Claude inside each one, ship PRs from the browser.
+A local-first web IDE for [Claude Code](https://claude.ai/claude-code). Run multiple branches in parallel, ship PRs from your browser.
 
-Built around **two terminals**:
-
-1. **Next.js web UI** running on `localhost:3000` — chat, file explorer, terminal, tasks, worktree management.
-2. **Companion daemon** that bridges the web UI to the `claude` CLI running on your machine.
-
-Both run on the same Mac (or Linux / Windows). No cloud server in the middle, no data leaves your machine except calls to the Anthropic API made by your local `claude` install.
+> Your code never leaves your machine. The only network call goes from your local `claude` CLI to the Anthropic API — same as running it in a terminal.
 
 ---
 
-## Setup
+## What you can do
 
-### Prereqs
-- Node.js ≥ 18
-- [Claude Code](https://claude.ai/install) installed and authenticated
-- Postgres database (free [Supabase](https://supabase.com) project works fine)
+- Run multiple Claude Code sessions in isolated git worktrees, side by side
+- Use built-in workflows (`/build`, `/debug`, `/ship`) for multi-step refactors
+- See files, terminal, and chat in one window
+- Create GitHub PRs from the UI without leaving
 
-### 1. Clone + install
+## Install
+
 ```bash
-git clone https://github.com/<your-fork>/noztos.git
+git clone https://github.com/noztos/noztos.git
 cd noztos
-npm install
-```
-
-### 2. Configure environment
-```bash
 cp .env.example .env
-# edit .env — at minimum set DATABASE_URL, DIRECT_URL, NODE_SECRET
 ```
 
-For OAuth (GitHub login + repo access), create an [OAuth app](https://github.com/settings/developers) with callback `http://localhost:3000/api/auth/github/callback` and fill in `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET`.
+Edit `.env` and set at minimum:
 
-### 3. Initialize the database
-```bash
-npx prisma migrate deploy
-npx prisma generate
-```
+- `DATABASE_URL` + `DIRECT_URL` — any Postgres works (free [Supabase](https://supabase.com) project is easiest)
+- `NODE_SECRET` — run `openssl rand -hex 32`
 
-### 4. Install the companion daemon (global CLI)
+Then:
+
 ```bash
-cd companion
 npm install
-npm run build
-npm install -g .
-cd ..
+npx prisma migrate deploy
+cd companion && npm install && npm run build && sudo npm install -g . && cd ..
 ```
 
-### 5. Run
+## Run
 
-**Terminal 1** — web UI:
+Two terminals, one time:
+
 ```bash
+# Terminal 1 — web UI
 npm run dev
 ```
 
-**Terminal 2** — companion daemon:
+Open [http://localhost:3000](http://localhost:3000), sign up, copy the auth token from the setup card.
+
 ```bash
-noztos login <token>     # generate a token at localhost:3000 once signed up
+# Terminal 2 — daemon
+noztos server http://localhost:3000
+noztos login <token>
 ```
 
-That's it. `noztos login` also installs a launchd agent on macOS so the daemon auto-starts on every login — no need to keep a terminal open after the first setup.
+`noztos login` installs an auto-start agent (macOS launchd) — after the first run the daemon comes back automatically on every login. You can close the terminal.
 
-Open `http://localhost:3000`, sign up locally, and connect.
+## Requirements
 
----
+- Node ≥ 18
+- [Claude Code](https://claude.ai/install) installed and signed in (`claude` in your PATH)
+- Postgres database
 
-## Features
+## Mobile
 
-- **Worktrees** — every task runs in an isolated `git worktree` branch. Switch between them in the sidebar.
-- **Workflows** — slash commands like `/build`, `/debug`, `/ship` that orchestrate multi-step Claude runs (CEO → architect → builder → reviewer).
-- **Tasks** — Linear-style task forking inside a worktree. Cancel mid-run, see live transcripts.
-- **Mini terminal** — interactive PTY per worktree.
-- **File explorer** — read/write files inside the worktree from the browser.
-- **GitHub PRs** — create PRs without leaving the app.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│  Browser (localhost:3000)                           │
-│  React + Next.js                                    │
-└───────────┬─────────────────────────────────────────┘
-            │ HTTP + SSE
-┌───────────▼─────────────────────────────────────────┐
-│  Next.js server (this repo, port 3000)              │
-│  - API routes, Prisma, auth                         │
-│  - Spawns child_process for git / file ops          │
-└───────────┬───────────────────┬─────────────────────┘
-            │ SSE relay         │ child_process
-┌───────────▼──────┐  ┌─────────▼──────────────────────┐
-│  Companion       │  │  Local filesystem              │
-│  daemon (CLI)    │  │  (your projects)               │
-│  - Spawns claude │  │                                │
-│  - Watches files │  │                                │
-└──────────────────┘  └────────────────────────────────┘
-```
-
-Everything is **local**. The Next.js server and companion daemon both run on your machine.
-
-## Mobile access
-
-If you want to use the web UI from your phone, expose `localhost:3000` via a tunnel:
+Want to use it from your phone? Expose `localhost:3000` via a tunnel:
 
 ```bash
 cloudflared tunnel --url localhost:3000
 ```
 
-Or use [Tailscale](https://tailscale.com/) for a private VPN between your Mac and phone.
+Or set up [Tailscale](https://tailscale.com) for a private VPN between your Mac and phone.
+
+## Architecture
+
+```
+Browser  ↔  Next.js (localhost:3000)  ↔  Companion daemon  ↔  claude CLI
+                       ↓
+                  Your projects on disk
+```
+
+Two processes, both on your machine. No cloud server. No multi-tenant. Single user, single DB.
+
+## Contributing
+
+PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Open an issue before starting anything bigger than a bug fix so we agree on direction first.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE).
 
-## Credits
+---
 
-Built on top of [Claude Code](https://claude.ai/claude-code). Inspired by [emdash](https://github.com/generalaction/emdash), [Conductor](https://conductor.build), and the broader local-first agent community.
+Built on top of [Claude Code](https://claude.ai/claude-code). Inspired by [emdash](https://github.com/generalaction/emdash) and [Conductor](https://conductor.build).
