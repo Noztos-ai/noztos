@@ -32,15 +32,9 @@ async function loadMetrics() {
     activeUsers7d,
     totalProjects,
     sessions24h,
-    sandboxes24h,
-    sandboxesActive,
-    sandboxesAllTime,
     messages24h,
     tokenSums24h,
     tokenSums7d,
-    mirrorBlobs24h,
-    mirrorBlobsTotal,
-    mirrorEntriesTotal,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { createdAt: { gte: start24h } } }),
@@ -48,9 +42,6 @@ async function loadMetrics() {
     prisma.user.count({ where: { lastActive: { gte: start7d } } }),
     prisma.project.count({ where: { deletedAt: null } }),
     prisma.chatSession.count({ where: { createdAt: { gte: start24h }, deletedAt: null } }),
-    prisma.sandboxSession.count({ where: { createdAt: { gte: start24h } } }),
-    prisma.sandboxSession.count({ where: { status: 'ready', destroyedAt: null } }),
-    prisma.sandboxSession.count(),
     prisma.chatMessage.count({ where: { createdAt: { gte: start24h } } }),
     prisma.chatMessage.aggregate({
       where: { createdAt: { gte: start24h } },
@@ -60,35 +51,26 @@ async function loadMetrics() {
       where: { createdAt: { gte: start7d } },
       _sum: { inputTokens: true, outputTokens: true, costUsd: true },
     }),
-    prisma.gitObject.count({ where: { createdAt: { gte: start24h } } }),
-    prisma.gitObject.count(),
-    prisma.worktreeFileEntry.count(),
   ])
 
   return {
     now, start24h, start7d, start30d,
     totalUsers, signups24h, signups7d, activeUsers7d,
     totalProjects, sessions24h,
-    sandboxes24h, sandboxesActive, sandboxesAllTime,
     messages24h, tokenSums24h, tokenSums7d,
-    mirrorBlobs24h, mirrorBlobsTotal, mirrorEntriesTotal,
   }
 }
 
 interface ActivityEvent {
   ts: Date
-  kind: 'signup' | 'project' | 'session' | 'sandbox' | 'password_reset'
+  kind: 'signup' | 'project' | 'session' | 'password_reset'
   who: string
   detail: string
 }
 
 async function loadActivity(): Promise<ActivityEvent[]> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  // Fetch each event source then do a single User lookup to attach
-  // emails. Not all event tables have a `user` relation declared in
-  // the Prisma schema, so doing it manually avoids chasing those
-  // declarations across the codebase.
-  const [users, projects, sessions, sandboxes, resets] = await Promise.all([
+  const [users, projects, sessions, resets] = await Promise.all([
     prisma.user.findMany({
       where: { createdAt: { gte: since } },
       orderBy: { createdAt: 'desc' },
@@ -107,12 +89,6 @@ async function loadActivity(): Promise<ActivityEvent[]> {
       take: 25,
       select: { name: true, createdAt: true, userId: true },
     }),
-    prisma.sandboxSession.findMany({
-      where: { createdAt: { gte: since } },
-      orderBy: { createdAt: 'desc' },
-      take: 25,
-      select: { status: true, createdAt: true, e2bSandboxId: true, userId: true },
-    }),
     prisma.passwordResetToken.findMany({
       where: { createdAt: { gte: since } },
       orderBy: { createdAt: 'desc' },
@@ -122,7 +98,7 @@ async function loadActivity(): Promise<ActivityEvent[]> {
   ])
 
   const userIds = new Set<string>()
-  for (const r of [...projects, ...sessions, ...sandboxes, ...resets]) userIds.add(r.userId)
+  for (const r of [...projects, ...sessions, ...resets]) userIds.add(r.userId)
   for (const u of users) userIds.add(u.id)
   const userMap = new Map(
     (await prisma.user.findMany({
@@ -136,7 +112,6 @@ async function loadActivity(): Promise<ActivityEvent[]> {
     ...users.map((u) => ({ ts: u.createdAt, kind: 'signup' as const, who: u.email, detail: u.name })),
     ...projects.map((p) => ({ ts: p.createdAt, kind: 'project' as const, who: email(p.userId), detail: p.name })),
     ...sessions.map((s) => ({ ts: s.createdAt, kind: 'session' as const, who: email(s.userId), detail: s.name })),
-    ...sandboxes.map((s) => ({ ts: s.createdAt, kind: 'sandbox' as const, who: email(s.userId), detail: `${s.status} ${s.e2bSandboxId ? '· ' + s.e2bSandboxId.slice(0, 12) : ''}` })),
     ...resets.map((r) => ({ ts: r.createdAt, kind: 'password_reset' as const, who: email(r.userId), detail: 'reset link sent' })),
   ]
   events.sort((a, b) => b.ts.getTime() - a.ts.getTime())
@@ -244,7 +219,6 @@ export default async function AdminDashboard() {
           <Card label="Active users · 7d" value={metrics.activeUsers7d} sub={`of ${metrics.totalUsers} total`} />
           <Card label="Open projects" value={metrics.totalProjects} />
           <Card label="New chats · 24h" value={metrics.sessions24h} />
-          <Card label="Sandboxes · 24h" value={metrics.sandboxes24h} sub={`${metrics.sandboxesActive} active now`} />
           <Card label="Messages · 24h" value={metrics.messages24h} />
           <Card
             label="Tokens · 24h"
@@ -256,9 +230,6 @@ export default async function AdminDashboard() {
             value={fmtInt((metrics.tokenSums7d._sum.inputTokens ?? 0) + (metrics.tokenSums7d._sum.outputTokens ?? 0))}
             sub={metrics.tokenSums7d._sum.costUsd ? `≈ $${(metrics.tokenSums7d._sum.costUsd).toFixed(2)}` : '$0.00'}
           />
-          <Card label="Mirror blobs · 24h" value={metrics.mirrorBlobs24h} sub={`${fmtInt(metrics.mirrorBlobsTotal)} total`} />
-          <Card label="Mirror file entries" value={fmtInt(metrics.mirrorEntriesTotal)} />
-          <Card label="Sandboxes · all time" value={metrics.sandboxesAllTime} />
         </div>
 
         <div className="activity">

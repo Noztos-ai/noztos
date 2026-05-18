@@ -4,7 +4,6 @@ import { verifyProjectAccess } from '@/lib/auth'
 import { invalidateWorktreeCache } from '@/lib/tools'
 import { cleanupWorktreeOnDisk } from '@/lib/worktree'
 import { killRun } from '@/lib/workflows/shared/process-registry'
-import { cleanupMirrorForWorktree } from '@/lib/mirror/cleanup'
 
 interface RouteContext {
   params: Promise<{ id: string; worktreeId: string }>
@@ -97,19 +96,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   // investigator can find the orphan, but we don't surface an error.
   await cleanupWorktreeOnDisk(id, wt.worktreePath, wt.branchName, 'delete-forever')
 
-  // Cloud Mirror cleanup — drops file entries, unpushed commits, the
-  // mirror pointer, and any live E2B sandbox. Chats + tasks survive
-  // (handled above) because those are the user's "knowledge"; mirror
-  // rows are infrastructure that should disappear with the worktree.
-  // Wrapped in try so a mirror-side failure (e.g. E2B unreachable)
-  // doesn't block the worktree removal the user already confirmed.
-  let mirrorRes: Awaited<ReturnType<typeof cleanupMirrorForWorktree>> | null = null
-  try {
-    mirrorRes = await cleanupMirrorForWorktree(worktreeId)
-  } catch (err) {
-    console.warn(`[wt-delete-forever] mirror cleanup failed worktreeId=${worktreeId.slice(0, 8)}:`, err)
-  }
-  console.log(`[wt-delete-forever] worktreeId=${worktreeId.slice(0, 8)} branch=${wt.branchName} sessions=${sessionIds.length} messages=${msgsRes.count} mirror=${mirrorRes ? `entries=${mirrorRes.fileEntriesDeleted} blobs_released=${mirrorRes.blobsReleased} sandboxes_killed=${mirrorRes.sandboxesKilled}` : 'skipped'} ms=${Date.now() - tStart}`)
+  console.log(`[wt-delete-forever] worktreeId=${worktreeId.slice(0, 8)} branch=${wt.branchName} sessions=${sessionIds.length} messages=${msgsRes.count} ms=${Date.now() - tStart}`)
 
   return NextResponse.json({ success: true })
 }

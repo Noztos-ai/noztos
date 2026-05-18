@@ -158,24 +158,6 @@ export async function verifyAuth(request?: NextRequest): Promise<{ userId: strin
       })
       return { userId: record.userId, tokenId: record.id, tokenName: record.name }
     }
-    // Cloud Mirror — bearer token from a SandboxSession (no prefix,
-    // base64url 32 bytes). Lets the sandbox bridge hit the same chat
-    // endpoints (/events, /response) the local companion uses, so we
-    // don't fork the relay protocol per execution surface. tokenName
-    // is marked 'sandbox' so callers can detect cloud-side traffic
-    // (relay routing in particular needs to know).
-    if (bearerToken && !bearerToken.startsWith(TOKEN_PREFIX)) {
-      const session = await prisma.sandboxSession.findUnique({
-        where: { token: bearerToken },
-        select: { id: true, userId: true, status: true, destroyedAt: true },
-      })
-      if (session && !session.destroyedAt && session.status !== 'destroyed' && session.status !== 'failed') {
-        prisma.sandboxSession
-          .update({ where: { id: session.id }, data: { lastActiveAt: new Date() } })
-          .catch(() => {})
-        return { userId: session.userId, tokenId: session.id, tokenName: 'sandbox' }
-      }
-    }
   }
 
   // Method 2: Cookie-based session (browser)

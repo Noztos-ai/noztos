@@ -1,7 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { hostname, homedir } from 'node:os'
-import { spawn, exec as execCb } from 'node:child_process'
-import { promisify } from 'node:util'
+import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { promises as fsp } from 'node:fs'
 import { randomUUID } from 'node:crypto'
@@ -13,7 +12,6 @@ import { ClaudeBridge, getActiveConfig } from './claude-bridge.js'
 import { refreshPromptConfig, startPromptConfigPolling } from './prompt-config.js'
 import { refreshSkillConfig, startSkillConfigPolling } from './skill-config.js'
 import { ProjectWatcher, type FsChangeBatch } from './fs-watcher.js'
-import { MirrorSync } from './mirror-sync.js'
 import { SyncQueue, type QueuedEvent } from './sync-queue.js'
 import { SyncWorker } from './sync-worker.js'
 import { listProjects, relabelProjectId, unregisterProject, cleanupProjectWorktreesDir } from './project-manager.js'
@@ -76,7 +74,6 @@ export class Daemon extends EventEmitter {
   // to source='worktrees' and uploads file content to the server in the
   // background. Gated by BORNASTAR_MIRROR_ENABLED env var — when off,
   // start() is a no-op and zero work happens here.
-  private mirrors: Map<string, MirrorSync> = new Map()
   // One persistent shell PTY per terminal context (worktreeId).
   // Lifecycle in pty-manager.ts: spawn on first attach, survive
   // browser disconnects within the activity TTL (1h) or post-detach
@@ -374,62 +371,6 @@ export class Daemon extends EventEmitter {
         // when the new daemon comes back up.
         this.handleUpdateCompanion()
         break
-      case 'exec':
-        // Server-issued shell command. We run it locally via /bin/bash
-        // and POST the result back as an `exec_response` frame keyed
-        // on reqId. companion-exec.ts on the server side resolves its
-        // pending promise — that's how routes like worktree creation
-        // run `git worktree add` on the user's Mac from Railway.
-        this.handleExec(cmd)
-        break
-    }
-  }
-
-  // ── exec ──────────────────────────────────────────────────────────
-  // Request/response shell exec from the server. Mirrors the contract
-  // documented in lib/companion-exec.ts. Errors (non-zero exit, signal,
-  // timeout) are reported via stderr + exitCode rather than thrown —
-  // the server side decides whether to retry / surface the failure.
-  private async handleExec(cmd: CompanionCommand): Promise<void> {
-    const { reqId, cwd, command } = cmd
-    if (!reqId || !command) {
-      console.warn(`[exec] skip: missing reqId or command`)
-      return
-    }
-    const tStart = Date.now()
-    const execPromise = promisify(execCb)
-    let stdout = ''
-    let stderr = ''
-    let exitCode = 0
-    try {
-      const result = await execPromise(command, {
-        cwd: cwd || homedir(),
-        timeout: 55_000, // 5 s below the server's 60 s default so the
-                        // daemon always wins the race and the server
-                        // gets a proper response (vs. a timeout)
-        maxBuffer: 50 * 1024 * 1024,
-        shell: '/bin/bash',
-      })
-      stdout = result.stdout?.toString() ?? ''
-      stderr = result.stderr?.toString() ?? ''
-    } catch (err) {
-      const e = err as { stdout?: string | Buffer; stderr?: string | Buffer; code?: number; message?: string }
-      stdout = (e.stdout?.toString?.() ?? '')
-      stderr = (e.stderr?.toString?.() ?? e.message ?? 'exec failed')
-      exitCode = typeof e.code === 'number' ? e.code : 1
-    }
-    const elapsed = Date.now() - tStart
-    console.log(`[exec] reqId=${reqId.slice(0, 8)} exit=${exitCode} ms=${elapsed} cmd="${command.slice(0, 60)}"`)
-    try {
-      await this.post('/api/companion/response', {
-        type: 'exec_response',
-        reqId,
-        stdout,
-        stderr,
-        exitCode,
-      })
-    } catch (postErr) {
-      console.warn(`[exec] failed to POST response reqId=${reqId.slice(0, 8)}:`, (postErr as Error).message)
     }
   }
 
@@ -1000,22 +941,6 @@ export class Daemon extends EventEmitter {
     }
 
     bridge.on('event', (event: ClaudeStreamEvent) => {
-      // Cloud Mirror eager hook — peek for Edit/Write tool_use blocks
-      // and enqueue the file path immediately. The drain runs ~500ms
-      // later, by which time the file is definitely on disk. Cheaper
-      // and snappier than waiting for the chokidar event (which adds
-      // 50ms of debounce).
-      if (cmd.worktreePath) {
-        const mirror = this.mirrors.get(project.path)
-        if (mirror) {
-          const worktreeId = cmd.worktreePath.split('/').pop()
-          if (worktreeId) {
-            this.peekEditWriteToolUses(event, cmd.worktreePath).forEach((relPath) => {
-              mirror.enqueueClaudeEdit(worktreeId, relPath)
-            })
-          }
-        }
-      }
       // Build persistable rows once — same ids flow through the queue,
       // the relay (for server write-through) and the ring buffer.
       const rows = persistCtx ? this.buildPersistRows(event, persistCtx) : []
@@ -1189,29 +1114,9 @@ export class Daemon extends EventEmitter {
       const worktreesPath = join(homedir(), '.bornastar', 'worktrees', project.id)
       try { mkdirSync(worktreesPath, { recursive: true }) } catch {}
       const watcher = new ProjectWatcher(project.path, worktreesPath)
-      // Cloud Mirror — feature-flagged background sync. Subscribes to the
-      // SAME 'change' batches the SSE forwarder uses, but cares only
-      // about source='worktrees' (uncommitted edits inside isolated
-      // branches). Drops paths into MirrorSync's queue; the drain loop
-      // hashes + uploads + commits in the background. With the env flag
-      // off, .start() is a no-op and .enqueueFromWatcher() returns
-      // immediately — zero overhead until enabled.
-      const mirror = new MirrorSync(this.serverUrl, this.authToken, worktreesPath)
-      mirror.start()
-      this.mirrors.set(project.path, mirror)
-      // Initial reconcile — discover every existing worktree in
-      // worktreesPath, walk its files, post state. Fire-and-forget so
-      // the watcher loop isn't blocked. Subsequent watcher events
-      // handle incremental drift.
-      mirror.discoverAndSyncAll().catch((err) => {
-        console.warn(`[mirror] initial discover failed for ${project.path}:`, err)
-      })
       watcher.on('change', (batch: FsChangeBatch) => {
         console.log(`[isolation] fs_change project=${batch.projectPath} source=${batch.source} paths=${batch.paths.length}`)
         this.send({ type: 'fs_change', payload: batch }).catch(() => {})
-        if (batch.source === 'worktrees') {
-          for (const p of batch.paths) mirror.enqueueFromWatcher(p)
-        }
       })
       watcher.on('error', (err) => {
         console.warn(`[isolation] fs watcher error (${project.path}):`, err)
@@ -1226,11 +1131,6 @@ export class Daemon extends EventEmitter {
       if (!activePaths.has(path)) {
         watcher.stop()
         this.watchers.delete(path)
-        const mirror = this.mirrors.get(path)
-        if (mirror) {
-          mirror.stop()
-          this.mirrors.delete(path)
-        }
         console.log(`[isolation] watcher TEARDOWN project=${path}`)
       }
     }

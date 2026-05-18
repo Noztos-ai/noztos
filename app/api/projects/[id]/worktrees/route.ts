@@ -37,7 +37,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       updatedAt: true,
       // Cloud Mirror — surfaced so the sidebar can render the local/cloud
       // badge per worktree, and the chat top-bar toggle knows current state.
-      activeContext: true,
       sessions: {
         where: { status: 'open', deletedAt: null },
         select: { id: true, name: true, createdAt: true, updatedAt: true },
