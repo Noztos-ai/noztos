@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Bornastar',
-  description: 'AI-powered companies with teams of AI employees',
+  title: 'Noztos',
+  description: 'Cloud-failover dev environment for Claude Code',
 }
 
 export default async function RootLayout({
@@ -32,7 +32,6 @@ export default async function RootLayout({
   const sessionValue = cookieStore.get('session')?.value
   const userId = getSessionUserId(sessionValue)
 
-  let showAnthropicModal = false
   let userName = ''
   let userEmail = ''
   let githubConnected = false
@@ -40,9 +39,8 @@ export default async function RootLayout({
   if (userId) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, email: true, anthropicToken: true, githubToken: true },
+      select: { name: true, email: true, githubToken: true },
     })
-    showAnthropicModal = !user?.anthropicToken
     userName = user?.name ?? ''
     userEmail = user?.email ?? ''
     githubConnected = !!user?.githubToken
@@ -56,7 +54,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <SettingsModalProvider userName={userName} userEmail={userEmail}>
           <GitHubModalProvider isConnected={githubConnected}>
-            <AuthModalProvider initialOpen={showAnthropicModal}>
+            <AuthModalProvider initialOpen={false}>
               {children}
             </AuthModalProvider>
           </GitHubModalProvider>
