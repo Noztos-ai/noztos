@@ -1,0 +1,1458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>noztos — delegate, don't code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:        oklch(0.13 0.008 255);
+    --bg-2:      oklch(0.16 0.009 255);
+    --bg-3:      oklch(0.19 0.01  255);
+    --bg-4:      oklch(0.22 0.011 255);
+    --fg:        oklch(0.96 0.005 255);
+    --muted:     oklch(0.62 0.012 255);
+    --muted-2:   oklch(0.45 0.012 255);
+    --line:      oklch(0.26 0.012 255);
+    --line-2:    oklch(0.22 0.012 255);
+    --accent:    oklch(0.88 0.19  130);
+    --accent-2:  oklch(0.70 0.18  130);
+    --accent-dim:oklch(0.45 0.12  130);
+    --danger:    oklch(0.72 0.18  25);
+
+    --display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: var(--display);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  ::selection { background: var(--accent); color: #000; }
+
+  a, button { color: inherit; }
+  a { text-decoration: none; }
+  button { font: inherit; background: none; border: none; cursor: pointer; }
+
+  .mono { font-family: var(--mono); font-weight: 400; letter-spacing: 0.01em; }
+  .uc   { text-transform: uppercase; letter-spacing: 0.14em; }
+
+  /* ---------- ambient ---------- */
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, oklch(0.88 0.19 130 / 0.08), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, oklch(0.55 0.18 260 / 0.07), transparent 60%),
+      linear-gradient(var(--line-2) 1px, transparent 1px) 0 0 / 100% 64px,
+      linear-gradient(90deg, var(--line-2) 1px, transparent 1px) 0 0 / 64px 100%;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 80%);
+    opacity: 0.55;
+  }
+  .scanlines {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0 2px,
+      oklch(1 0 0 / 0.012) 2px 3px
+    );
+    mix-blend-mode: overlay;
+  }
+
+  /* ---------- status bar ---------- */
+  .statusbar {
+    position: relative; z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: oklch(0.13 0.008 255 / 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .statusbar .row {
+    max-width: 1280px; margin: 0 auto;
+    display: flex; align-items: center; gap: 24px;
+    padding: 7px 28px;
+  }
+  .statusbar .sep { color: var(--line); }
+  .statusbar .dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: blink 1.8s ease-in-out infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .statusbar .grow { flex: 1; }
+
+  /* ---------- nav ---------- */
+  nav.top {
+    position: relative; z-index: 10;
+    border-bottom: 1px solid var(--line);
+  }
+  nav.top .row {
+    max-width: 1280px; margin: 0 auto;
+    display: flex; align-items: center; gap: 32px;
+    padding: 14px 28px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .brand .mark {
+    width: 22px; height: 22px;
+    border: 1px solid var(--accent);
+    background: oklch(0.88 0.19 130 / 0.15);
+    position: relative;
+    transform: rotate(45deg);
+  }
+  .brand .mark::before {
+    content: ""; position: absolute; inset: 4px;
+    background: var(--accent);
+  }
+  nav.top ul {
+    display: flex; gap: 28px; margin: 0; padding: 0; list-style: none;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--muted);
+  }
+  nav.top ul a { transition: color .15s; }
+  nav.top ul a:hover { color: var(--fg); }
+  nav.top .cta {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 9px 14px 9px 16px;
+    border: 1px solid var(--accent);
+    background: oklch(0.88 0.19 130 / 0.1);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: background .15s, color .15s;
+  }
+  nav.top .cta:hover { background: var(--accent); color: #000; }
+
+  /* ---------- hero ---------- */
+  main { position: relative; z-index: 5; }
+  .hero {
+    max-width: 1280px; margin: 0 auto;
+    padding: 40px 28px 48px;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 64px;
+    align-items: center;
+    min-height: calc(100vh - 88px);
+  }
+  .hero .tag {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .hero .tag .pulse {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+  }
+  .hero h1 {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: clamp(40px, 5.4vw, 84px);
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+    margin: 0 0 22px;
+    text-wrap: balance;
+  }
+  .hero h1 .strike {
+    position: relative; display: inline-block;
+    color: var(--muted);
+  }
+  .hero h1 .strike::after {
+    content: ""; position: absolute; left: -2%; right: -2%; top: 52%;
+    height: 3px; background: var(--accent);
+    transform: rotate(-2deg);
+  }
+  .hero h1 .accent { color: var(--accent); font-style: italic; font-weight: 400; }
+
+  .hero p.lede {
+    font-size: 15px; line-height: 1.55;
+    color: var(--muted); max-width: 48ch;
+    margin: 0 0 14px;
+  }
+  .hero p.lede strong { color: var(--fg); font-weight: 500; }
+
+  .hero p.tagline {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin: 0 0 28px;
+    padding-left: 14px;
+    position: relative;
+  }
+  .hero p.tagline::before {
+    content: ""; position: absolute; left: 0; top: 50%;
+    width: 8px; height: 1px; background: var(--accent);
+  }
+
+  .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 11px 18px;
+    font-family: var(--mono);
+    font-size: 11.5px; letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid;
+    cursor: pointer;
+    transition: transform .15s, background .15s, color .15s, border-color .15s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+  .btn.primary:hover { background: oklch(0.94 0.19 130); }
+  .btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--fg); }
+
+  .hero .hint {
+    margin-top: 20px;
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--muted-2);
+    display: flex; gap: 12px; align-items: center;
+  }
+  .hero .hint kbd {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    border-radius: 3px;
+  }
+
+  /* ---------- chat panel ---------- */
+  .panel {
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--bg-2), var(--bg));
+    position: relative;
+  }
+  .panel::before, .panel::after {
+    content: ""; position: absolute; width: 8px; height: 8px;
+    border: 1px solid var(--accent);
+  }
+  .panel::before { top: -1px; left: -1px;  border-right: 0; border-bottom: 0; }
+  .panel::after  { top: -1px; right: -1px; border-left: 0;  border-bottom: 0; }
+
+  .panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .panel-head .lights { display: flex; gap: 6px; }
+  .panel-head .lights span {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--line);
+  }
+  .panel-head .lights span:nth-child(1) { background: var(--danger); opacity: 0.8; }
+  .panel-head .lights span:nth-child(2) { background: oklch(0.8 0.16 80); opacity: 0.8; }
+  .panel-head .lights span:nth-child(3) { background: var(--accent); opacity: 0.8; }
+  .panel-head .title { margin-left: 8px; color: var(--fg); }
+  .panel-head .grow { flex: 1; }
+  .panel-head .badge {
+    font-size: 10px; padding: 2px 7px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  /* chat messages */
+  .chat { padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 18px; }
+
+  .msg { display: flex; gap: 14px; }
+  .msg .avatar {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    border: 1px solid var(--line);
+    background: var(--bg-3);
+    font-family: var(--mono); font-size: 10px;
+    color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .msg.assistant .avatar {
+    border-color: var(--accent);
+    background: oklch(0.88 0.19 130 / 0.12);
+    color: var(--accent);
+  }
+  .msg .body { flex: 1; min-width: 0; }
+  .msg .who {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.12em;
+    margin-bottom: 6px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .msg .who .time { color: var(--muted-2); }
+
+  .msg.user .text {
+    font-family: var(--display); font-size: 13px;
+    line-height: 1.55; color: var(--fg);
+  }
+
+  .msg.assistant .text {
+    font-family: var(--display); font-size: 13px;
+    line-height: 1.6; color: var(--fg);
+  }
+  .msg.assistant .text p { margin: 0 0 12px; }
+  .msg.assistant .text p:last-child { margin-bottom: 0; }
+  .msg.assistant .text code.inline {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--bg-3); padding: 1px 6px;
+    border: 1px solid var(--line);
+    color: var(--accent);
+  }
+
+  .codeblock {
+    border: 1px solid var(--line);
+    background: var(--bg-3);
+    margin: 10px 0 12px;
+    font-family: var(--mono); font-size: 11px;
+    line-height: 1.6;
+  }
+  .codeblock .cb-head {
+    display: flex; align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--line);
+    font-size: 10.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .codeblock .cb-head .grow { flex: 1; }
+  .codeblock .cb-head .lang { color: var(--accent); }
+  .codeblock pre {
+    margin: 0; padding: 10px 12px;
+    overflow-x: auto;
+    color: var(--fg);
+  }
+  .tok-kw   { color: oklch(0.78 0.14 290); }
+  .tok-fn   { color: var(--accent); }
+  .tok-str  { color: oklch(0.82 0.12 80); }
+  .tok-com  { color: var(--muted-2); font-style: italic; }
+  .tok-num  { color: oklch(0.8 0.14 25); }
+  .tok-var  { color: oklch(0.85 0.05 200); }
+
+  /* action row under assistant message */
+  .actions {
+    margin-top: 10px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .action-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .action-btn:hover {
+    color: var(--fg);
+    border-color: var(--muted);
+    background: var(--bg-3);
+  }
+  .action-btn.primary-soft {
+    color: var(--accent);
+    border-color: oklch(0.88 0.19 130 / 0.4);
+    background: oklch(0.88 0.19 130 / 0.06);
+  }
+  .action-btn.primary-soft:hover {
+    border-color: var(--accent);
+    background: oklch(0.88 0.19 130 / 0.14);
+    color: var(--accent);
+  }
+  .action-btn .plus {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 12px; height: 12px;
+    border: 1px solid currentColor;
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  /* composer */
+  .composer {
+    border-top: 1px solid var(--line);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted);
+  }
+  .composer .input {
+    flex: 1;
+    color: var(--muted);
+  }
+  .composer .caret {
+    display: inline-block;
+    width: 7px; height: 13px;
+    background: var(--accent);
+    vertical-align: -2px;
+    animation: caret 1s steps(2, end) infinite;
+  }
+  @keyframes caret { 50% { opacity: 0; } }
+  .composer .send {
+    color: var(--muted);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .composer .send kbd {
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  /* ---------- modal ---------- */
+  .modal-root {
+    position: fixed; inset: 0; z-index: 100;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-root.open { display: flex; }
+  .modal-root .backdrop {
+    position: absolute; inset: 0;
+    background: oklch(0.08 0.008 255 / 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: fadein .2s ease-out;
+  }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slidein {
+    from { opacity: 0; transform: translateY(10px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .modal {
+    position: relative;
+    width: 100%; max-width: 580px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    animation: slidein .25s cubic-bezier(.2,.7,.2,1);
+  }
+  .modal::before, .modal::after,
+  .modal .corner-bl, .modal .corner-br {
+    content: ""; position: absolute; width: 8px; height: 8px;
+    border: 1px solid var(--accent);
+  }
+  .modal::before { top: -1px; left: -1px;  border-right: 0; border-bottom: 0; }
+  .modal::after  { top: -1px; right: -1px; border-left: 0;  border-bottom: 0; }
+  .modal .corner-bl { bottom: -1px; left: -1px;  border-right: 0; border-top: 0; }
+  .modal .corner-br { bottom: -1px; right: -1px; border-left: 0;  border-top: 0; }
+
+  .modal-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .modal-head .title { color: var(--fg); letter-spacing: 0.16em; }
+  .modal-head .pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+  }
+  .modal-head .grow { flex: 1; }
+  .modal-head .close {
+    color: var(--muted); padding: 4px 6px;
+    border: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px;
+  }
+  .modal-head .close:hover { color: var(--fg); border-color: var(--muted); }
+
+  .modal-body { padding: 22px 20px; display: flex; flex-direction: column; gap: 18px; }
+
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field .lbl {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.14em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .field .lbl .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 10px;
+  }
+  .field textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--fg);
+    font-family: var(--display);
+    font-size: 16px; line-height: 1.5;
+    padding: 14px 16px;
+    resize: vertical;
+    min-height: 88px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field textarea:focus { border-color: var(--accent); }
+  .field textarea::placeholder { color: var(--muted-2); }
+
+  /* context chips */
+  .context-chips {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-style: dashed;
+  }
+  .context-chips .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 9px;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-family: var(--mono); font-size: 11px;
+  }
+  .context-chips .chip .dot { width: 5px; height: 5px; background: var(--accent); }
+  .context-chips .hint {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--muted-2);
+    align-self: center;
+    margin-left: auto;
+  }
+
+  /* select grid */
+  .opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .opt {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    padding: 12px 14px;
+    cursor: pointer;
+    display: flex; flex-direction: column; gap: 4px;
+    transition: border-color .15s, background .15s;
+    text-align: left;
+  }
+  .opt:hover { border-color: var(--muted); }
+  .opt.selected {
+    border-color: var(--accent);
+    background: oklch(0.88 0.19 130 / 0.06);
+  }
+  .opt .top {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .opt .top .ico {
+    width: 14px; height: 14px;
+    border: 1px solid var(--muted);
+    position: relative;
+  }
+  .opt.selected .top .ico {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .opt.selected .top .ico::after {
+    content: ""; position: absolute; left: 3px; top: 0px;
+    width: 4px; height: 8px;
+    border: solid #000; border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+  }
+  .opt .name {
+    font-family: var(--display); font-size: 15px; color: var(--fg);
+    font-weight: 500;
+  }
+  .opt .desc {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--muted-2); line-height: 1.5;
+  }
+
+  /* dropdown select */
+  .select {
+    position: relative;
+  }
+  .select .trigger {
+    width: 100%;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--fg);
+    font-family: var(--display); font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color .15s;
+  }
+  .select .trigger:hover { border-color: var(--muted); }
+  .select .trigger.open { border-color: var(--accent); }
+  .select .trigger .name { flex: 1; }
+  .select .trigger .meta {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .select .trigger .chev {
+    color: var(--muted);
+    transition: transform .15s;
+  }
+  .select .trigger.open .chev { transform: rotate(180deg); }
+  .select .menu {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--bg-2);
+    border: 1px solid var(--accent);
+    display: none;
+    z-index: 5;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .select.open .menu { display: block; }
+  .select .menu .item {
+    padding: 11px 14px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--line-2);
+    cursor: pointer;
+    font-family: var(--display); font-size: 14px;
+    color: var(--fg);
+    transition: background .12s;
+  }
+  .select .menu .item:last-child { border-bottom: none; }
+  .select .menu .item:hover { background: oklch(0.88 0.19 130 / 0.08); }
+  .select .menu .item .meta {
+    margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .select .menu .item .ico {
+    width: 14px; height: 14px;
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  /* modal foot */
+  .modal-foot {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--line);
+    background: oklch(0.13 0.008 255 / 0.6);
+  }
+  .modal-foot .grow { flex: 1; }
+  .modal-foot .meta-line {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--muted-2);
+  }
+  .modal-foot .meta-line .kw { color: var(--accent); }
+
+  /* ---------- meta strip ---------- */
+  .meta {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-2);
+    position: relative; z-index: 5;
+  }
+  .meta .row {
+    max-width: 1280px; margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 0 28px;
+  }
+  .meta .cell {
+    padding: 18px 20px 18px 0;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .meta .cell:nth-child(n+2) { padding-left: 20px; }
+  .meta .cell:last-child { border-right: none; }
+  .meta .label {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .meta .label::before {
+    content: ""; width: 6px; height: 6px; background: var(--accent);
+  }
+  .meta .value {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+  .meta .value .unit { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-left: 4px; font-weight: 400; }
+
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: 1fr; gap: 48px; padding: 56px 20px 80px; min-height: auto; }
+    .meta .row { grid-template-columns: repeat(2, 1fr); }
+    .meta .cell { border-right: none; border-bottom: 1px solid var(--line); }
+    .meta .cell:nth-child(2) { border-right: 1px solid var(--line); padding-left: 24px; }
+    .meta .cell:nth-child(odd) { padding-left: 0; }
+    .statusbar .hide-mob { display: none; }
+    nav.top ul { display: none; }
+    .opt-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ============================================================
+     SECTION 02 — ORCHESTRATION (local ↔ cloud failover)
+     ============================================================ */
+  .s2 {
+    position: relative; z-index: 5;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .s2::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(800px 400px at 80% 20%, oklch(0.88 0.19 130 / 0.06), transparent 60%),
+      radial-gradient(700px 350px at 10% 100%, oklch(0.55 0.18 260 / 0.05), transparent 60%);
+    pointer-events: none;
+  }
+  .s2 .s2-row {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 110px 28px;
+    display: grid;
+    grid-template-columns: 1fr 1.05fr;
+    gap: 80px;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+  .s2 .s2-left { display: flex; justify-content: center; align-items: center; }
+  .s2 .s2-right { max-width: 560px; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label::before {
+    content: ""; width: 28px; height: 1px; background: var(--accent);
+  }
+  .section-label .num { color: var(--accent); }
+
+  .s2 h2 {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: clamp(36px, 4.6vw, 64px);
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+    margin: 0 0 20px;
+    color: var(--fg);
+    text-wrap: balance;
+  }
+  .s2 h2 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+  .s2 .s-lede {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 0 0 18px;
+    max-width: 50ch;
+  }
+  .s2 .s-lede strong { color: var(--fg); font-weight: 500; }
+  .s2 .s-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin: 0 0 32px;
+    padding-left: 14px;
+    position: relative;
+  }
+  .s2 .s-tag::before {
+    content: ""; position: absolute; left: 0; top: 50%;
+    width: 8px; height: 1px; background: var(--accent);
+  }
+  .s2 .features {
+    list-style: none; padding: 22px 0 0; margin: 0;
+    border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .s2 .features li {
+    display: flex; gap: 14px;
+    font-size: 14px; line-height: 1.5;
+    color: var(--muted);
+    align-items: flex-start;
+  }
+  .s2 .features li::before {
+    content: "+";
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+  .s2 .features li .b {
+    color: var(--fg);
+    font-weight: 500;
+  }
+
+  /* ---- phone ---- */
+  .phone-wrap { position: relative; }
+  .phone-wrap::before {
+    content: "MOBILE · iOS"; position: absolute;
+    top: 0; left: -50px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--muted-2); letter-spacing: 0.18em;
+    transform: rotate(-90deg); transform-origin: 0 0;
+    white-space: nowrap;
+  }
+  .phone {
+    position: relative;
+    width: 304px; height: 624px;
+    border: 1.5px solid var(--line);
+    border-radius: 44px;
+    background: oklch(0.10 0.008 255);
+    padding: 10px;
+    box-shadow:
+      0 40px 80px oklch(0 0 0 / 0.5),
+      inset 0 0 0 1px oklch(0 0 0 / 0.3);
+  }
+  .phone::after {
+    content: ""; position: absolute; inset: -4px;
+    border-radius: 48px;
+    border: 1px solid oklch(0.88 0.19 130 / 0.12);
+    pointer-events: none;
+  }
+  .phone-notch {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    width: 90px; height: 24px; background: oklch(0.08 0.008 255);
+    border-radius: 0 0 14px 14px;
+    z-index: 3;
+  }
+  .phone-screen {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    border-radius: 34px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    font-family: var(--display);
+    position: relative;
+  }
+  .m-status {
+    padding: 14px 22px 4px;
+    margin-top: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10.5px; color: var(--muted);
+  }
+  .m-status .m-icons { letter-spacing: 3px; color: var(--accent); font-size: 9px; }
+
+  .m-task {
+    padding: 14px 18px 16px;
+    border-bottom: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .m-task-meta {
+    font-family: var(--mono);
+    font-size: 9.5px; color: var(--muted-2);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .m-task-title {
+    font-family: var(--display);
+    font-size: 16px; color: var(--fg);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .m-task-status {
+    display: inline-flex; gap: 7px; align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    transition: color .3s;
+  }
+  .m-task-status .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: blink 1.8s ease-in-out infinite;
+    transition: background .3s, box-shadow .3s;
+  }
+  .m-task-status[data-st="paused"] {
+    color: var(--danger);
+  }
+  .m-task-status[data-st="paused"] .dot {
+    background: var(--danger);
+    box-shadow: 0 0 6px var(--danger);
+    animation: none;
+  }
+
+  .m-log {
+    flex: 1;
+    padding: 14px 18px;
+    display: flex; flex-direction: column; gap: 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    overflow: hidden;
+  }
+  .m-log .ln { white-space: nowrap; overflow: hidden; }
+  .m-log .ln .ok { color: var(--accent); }
+  .m-log .ln .warn { color: var(--danger); }
+  .m-log .progress { color: var(--accent); transition: color .3s; }
+  .m-log .progress.paused { color: var(--danger); }
+
+  .m-alert {
+    margin: 14px 14px 16px;
+    padding: 14px 14px 12px;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    display: flex; flex-direction: column; gap: 11px;
+    position: relative;
+    transition: border-color .3s, background .3s;
+  }
+  .m-alert::before, .m-alert::after {
+    content: ""; position: absolute; width: 6px; height: 6px;
+    border: 1px solid currentColor;
+    transition: opacity .3s;
+    opacity: 0.6;
+  }
+  .m-alert::before { top: -1px; left: -1px;  border-right: 0; border-bottom: 0; }
+  .m-alert::after  { top: -1px; right: -1px; border-left: 0;  border-bottom: 0; }
+  .m-alert[data-state="lost"]    { border-color: var(--danger); background: oklch(0.72 0.18 25 / 0.08); color: var(--danger); }
+  .m-alert[data-state="loading"] { border-color: var(--muted); background: var(--bg-3); color: var(--muted); }
+  .m-alert[data-state="cloud"]   { border-color: var(--accent); background: oklch(0.88 0.19 130 / 0.08); color: var(--accent); }
+
+  .m-alert-head {
+    display: flex; gap: 11px; align-items: flex-start;
+  }
+  .m-alert-icon {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid currentColor;
+    font-family: var(--mono);
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .m-alert[data-state="loading"] .m-alert-icon { animation: rotate 1.2s linear infinite; }
+  @keyframes rotate { to { transform: rotate(360deg); } }
+
+  .m-alert-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+  .m-alert-title {
+    font-family: var(--display);
+    font-size: 14px; font-weight: 500;
+    color: var(--fg);
+    line-height: 1.3;
+  }
+  .m-alert-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted-2);
+    letter-spacing: 0.06em;
+  }
+  .m-alert-cta {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .m-alert-cta:hover { background: currentColor; }
+  .m-alert-cta:hover .lbl { color: #000; }
+  .m-alert[data-state="loading"] .m-alert-cta { pointer-events: none; opacity: 0.7; }
+
+  @media (max-width: 980px) {
+    .s2 .s2-row { grid-template-columns: 1fr; gap: 56px; padding: 64px 20px; }
+    .phone-wrap::before { display: none; }
+    .phone { transform: scale(0.92); transform-origin: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="scanlines"></div>
+
+<!-- NAV -->
+<nav class="top">
+  <div class="row">
+    <div class="brand">noztos</div>
+    <a href="/docs" style="margin-left:auto;margin-right:20px;font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;transition:color .15s;" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Docs</a>
+    <a class="cta" href="/login">Start now →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<main>
+  <section class="hero">
+    <!-- LEFT -->
+    <div class="hero-left">
+      <h1>
+        Better than<br />
+        <span class="strike">coding</span><br />
+        is <span class="accent">delegating.</span>
+      </h1>
+      <p class="lede">
+        Write code when it matters. Delegate to autonomous workflows when it doesn't. From your laptop or your phone.
+      </p>
+      <p class="tagline">The IDE for engineers who direct.</p>
+      <div class="ctas">
+        <a class="btn primary" href="/login" style="display:inline-flex;align-items:center;text-decoration:none;">Start now →</a>
+      </div>
+      <div class="hint">
+        <span>Press</span>
+        <kbd>⌘</kbd><kbd>K</kbd>
+        <span>anywhere to dispatch a task</span>
+      </div>
+    </div>
+
+    <!-- RIGHT — CHAT PANEL -->
+    <div class="hero-right">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="lights"><span></span><span></span><span></span></div>
+          <span class="title">~/noztos/session.04a</span>
+          <span class="grow"></span>
+          <span class="badge">live</span>
+        </div>
+
+        <div class="chat">
+          <!-- user msg -->
+          <div class="msg user">
+            <div class="avatar">JD</div>
+            <div class="body">
+              <div class="who"><span>you</span><span class="time">· 09:42</span></div>
+              <div class="text">
+                How do I debounce a search input in React without firing a request on every keystroke?
+              </div>
+            </div>
+          </div>
+
+          <!-- assistant msg -->
+          <div class="msg assistant">
+            <div class="avatar">N</div>
+            <div class="body">
+              <div class="who"><span>noztos</span><span class="time">· 09:42</span><span style="color:var(--accent)">●</span></div>
+              <div class="text">
+                <p>Wrap the input value in a <code class="inline">useEffect</code> with a <code class="inline">setTimeout</code> cleanup. The cleanup cancels the previous timer every time the value changes, so the request only fires after the user pauses typing.</p>
+                <div class="codeblock">
+                  <div class="cb-head">
+                    <span class="lang">tsx</span>
+                    <span class="grow"></span>
+                    <span>use-debounced-search.tsx</span>
+                  </div>
+<pre><span class="tok-kw">const</span> [<span class="tok-var">query</span>, <span class="tok-fn">setQuery</span>] = <span class="tok-fn">useState</span>(<span class="tok-str">""</span>);
+<span class="tok-kw">const</span> [<span class="tok-var">debounced</span>, <span class="tok-fn">setDebounced</span>] = <span class="tok-fn">useState</span>(<span class="tok-str">""</span>);
+
+<span class="tok-fn">useEffect</span>(() <span class="tok-kw">=&gt;</span> {
+  <span class="tok-kw">const</span> <span class="tok-var">t</span> = <span class="tok-fn">setTimeout</span>(() <span class="tok-kw">=&gt;</span> {
+    <span class="tok-fn">setDebounced</span>(<span class="tok-var">query</span>);
+  }, <span class="tok-num">300</span>);
+  <span class="tok-kw">return</span> () <span class="tok-kw">=&gt;</span> <span class="tok-fn">clearTimeout</span>(<span class="tok-var">t</span>);
+}, [<span class="tok-var">query</span>]);
+
+<span class="tok-com">// then fetch on `debounced`, not `query`</span></pre>
+                </div>
+                <p>For production, swap the inline timeout for a small hook like <code class="inline">useDebouncedValue</code> so you can reuse it across the app.</p>
+              </div>
+
+              <!-- action row — the magic button -->
+              <div class="actions">
+                <button class="action-btn primary-soft" id="open-task">
+                  <span class="plus">+</span>
+                  Create task with context
+                </button>
+                <button class="action-btn">Copy</button>
+                <button class="action-btn">Pin</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <span style="color:var(--accent)">▸</span>
+          <span class="input">Ask anything, or describe a task<span class="caret"></span></span>
+          <span class="send"><kbd>↵</kbd> send</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============== SECTION 02 — ORCHESTRATION ============== -->
+<section class="s2">
+  <div class="s2-row">
+
+    <!-- LEFT — phone -->
+    <div class="s2-left">
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+
+            <div class="m-status">
+              <span>9:42</span>
+              <span class="m-icons">▲ ▲ ●</span>
+            </div>
+
+            <div class="m-task">
+              <div class="m-task-meta">TASK · 04A</div>
+              <div class="m-task-title">Refactor auth module</div>
+              <div class="m-task-status" id="m-task-status">
+                <span class="dot"></span>
+                <span id="m-task-status-label">RUNNING · LOCAL</span>
+              </div>
+            </div>
+
+            <div class="m-log" id="m-log">
+              <div class="ln">→ reading <span style="color:var(--fg)">src/auth/*</span></div>
+              <div class="ln">→ generating diff…</div>
+              <div class="ln">→ <span class="ok">3 files modified</span></div>
+              <div class="ln">→ running tests…</div>
+              <div class="ln progress" id="m-progress">→ ████░░░░░░ 41%</div>
+            </div>
+
+            <div class="m-alert" data-state="lost" id="m-alert">
+              <div class="m-alert-head">
+                <span class="m-alert-icon" id="m-alert-icon">!</span>
+                <div class="m-alert-body">
+                  <div class="m-alert-title" id="m-alert-title">Lost connection to local</div>
+                  <div class="m-alert-sub" id="m-alert-sub">192.168.1.42 · unreachable</div>
+                </div>
+              </div>
+              <button class="m-alert-cta" id="m-alert-cta">
+                <span class="lbl">Switch to cloud →</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT — copy -->
+    <div class="s2-right">
+      <div class="section-label"><span class="num">02</span> &nbsp;Orchestration</div>
+      <h2>Control from <em>anywhere.</em></h2>
+      <p class="s-lede">
+        Run your IDE on your <strong>laptop</strong>. Steer it from your <strong>phone</strong>. When local drops, cloud takes the keyboard — mid-task, mid-keystroke.
+      </p>
+      <p class="s-tag">Zero context. Zero downtime.</p>
+
+      <ul class="features">
+        <li><span><span class="b">Same session.</span> Pick up exactly where local left off — open files, terminal, branch state.</span></li>
+        <li><span><span class="b">Same agents.</span> Workflows resume on the cloud instance with full context.</span></li>
+        <li><span><span class="b">Same keyboard.</span> Tap a phone, ship a PR. Your laptop doesn't have to be open.</span></li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============== TASK MODAL ============== -->
+<div class="modal-root" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="backdrop" data-close></div>
+  <div class="modal">
+    <span class="corner-bl"></span><span class="corner-br"></span>
+
+    <div class="modal-head">
+      <span class="pulse"></span>
+      <span class="title" id="modal-title">New task · with context</span>
+      <span class="grow"></span>
+      <span>esc</span>
+      <button class="close" data-close>✕</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- prompt -->
+      <div class="field">
+        <div class="lbl"><span class="num">1</span>Describe what to build</div>
+        <textarea id="task-input" placeholder="Build this!" autocomplete="off"></textarea>
+
+        <div class="context-chips">
+          <span class="chip"><span class="dot"></span>react</span>
+          <span class="chip"><span class="dot"></span>typescript</span>
+          <span class="chip"><span class="dot"></span>useEffect</span>
+          <span class="chip"><span class="dot"></span>debounce</span>
+          <span class="hint">context auto-attached</span>
+        </div>
+      </div>
+
+      <!-- workflow -->
+      <div class="field">
+        <div class="lbl"><span class="num">2</span>Workflow</div>
+        <div class="select" id="select-workflow">
+          <button class="trigger" type="button">
+            <span class="name" data-label>Code → Review → Ship</span>
+            <span class="meta">3 steps</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="menu">
+            <div class="item" data-value="ship" data-meta="3 steps">
+              <span class="ico"></span>Code → Review → Ship
+              <span class="meta">3 steps</span>
+            </div>
+            <div class="item" data-value="research" data-meta="2 steps">
+              <span class="ico"></span>Research → Spec
+              <span class="meta">2 steps</span>
+            </div>
+            <div class="item" data-value="refactor" data-meta="4 steps">
+              <span class="ico"></span>Refactor → Test → PR
+              <span class="meta">4 steps</span>
+            </div>
+            <div class="item" data-value="prototype" data-meta="2 steps">
+              <span class="ico"></span>Prototype → Demo
+              <span class="meta">2 steps</span>
+            </div>
+            <div class="item" data-value="custom" data-meta="define">
+              <span class="ico"></span>Custom workflow…
+              <span class="meta">define</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- builder team -->
+      <div class="field">
+        <div class="lbl"><span class="num">3</span>Builder team</div>
+        <div class="opt-grid">
+          <button class="opt selected" data-team="frontend" type="button">
+            <span class="top"><span class="ico"></span>FRONTEND · 4 AGENTS</span>
+            <span class="name">UI Builders</span>
+            <span class="desc">react · typescript · tailwind · framer-motion</span>
+          </button>
+          <button class="opt" data-team="backend" type="button">
+            <span class="top"><span class="ico"></span>BACKEND · 3 AGENTS</span>
+            <span class="name">API Crew</span>
+            <span class="desc">node · postgres · trpc · zod</span>
+          </button>
+          <button class="opt" data-team="fullstack" type="button">
+            <span class="top"><span class="ico"></span>FULL-STACK · 5 AGENTS</span>
+            <span class="name">Strike Team</span>
+            <span class="desc">next.js · prisma · stripe · auth</span>
+          </button>
+          <button class="opt" data-team="research" type="button">
+            <span class="top"><span class="ico"></span>RESEARCH · 2 AGENTS</span>
+            <span class="name">Spec Writers</span>
+            <span class="desc">deep-research · synthesis · planning</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="modal-foot">
+      <span class="meta-line">
+        dispatch <span class="kw">→</span> <span id="foot-workflow">Code → Review → Ship</span> · <span id="foot-team">UI Builders</span>
+      </span>
+      <span class="grow"></span>
+      <button class="btn ghost" data-close style="padding:9px 14px; font-size:11px;">Cancel</button>
+      <button class="btn primary" id="dispatch" style="padding:9px 16px; font-size:11px;">
+        Dispatch task →
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // live clock
+  function tick() {
+    const d = new Date();
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    const s = String(d.getSeconds()).padStart(2, '0');
+    const el = document.getElementById('clock');
+    if (el) el.textContent = `${h}:${m}:${s}`;
+  }
+  tick(); setInterval(tick, 1000);
+
+  // modal open / close
+  const modal = document.getElementById('modal');
+  const taskInput = document.getElementById('task-input');
+
+  function openModal() {
+    modal.classList.add('open');
+    setTimeout(() => taskInput.focus(), 50);
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('open-task').addEventListener('click', openModal);
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeModal));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault(); openModal();
+    }
+  });
+
+  // builder team selection
+  document.querySelectorAll('.opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      const name = opt.querySelector('.name').textContent;
+      document.getElementById('foot-team').textContent = name;
+    });
+  });
+
+  // workflow dropdown
+  const sel = document.getElementById('select-workflow');
+  const trigger = sel.querySelector('.trigger');
+  const triggerLabel = trigger.querySelector('[data-label]');
+  const triggerMeta = trigger.querySelector('.meta');
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sel.classList.toggle('open');
+    trigger.classList.toggle('open');
+  });
+  sel.querySelectorAll('.item').forEach(item => {
+    item.addEventListener('click', () => {
+      const label = item.childNodes[1]?.textContent?.trim() || item.textContent.trim();
+      const text = item.textContent.replace(item.querySelector('.meta').textContent, '').trim();
+      triggerLabel.textContent = text;
+      triggerMeta.textContent = item.dataset.meta;
+      document.getElementById('foot-workflow').textContent = text;
+      sel.classList.remove('open');
+      trigger.classList.remove('open');
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!sel.contains(e.target)) {
+      sel.classList.remove('open');
+      trigger.classList.remove('open');
+    }
+  });
+
+  // dispatch (just animates the button + closes for now)
+  document.getElementById('dispatch').addEventListener('click', () => {
+    const btn = document.getElementById('dispatch');
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Dispatching…';
+    btn.style.opacity = '0.7';
+    setTimeout(() => {
+      btn.innerHTML = '✓ Dispatched';
+      setTimeout(() => {
+        closeModal();
+        btn.innerHTML = original;
+        btn.style.opacity = '';
+      }, 700);
+    }, 600);
+  });
+
+  // ============ SECTION 02 — alert state machine ============
+  const alertEl    = document.getElementById('m-alert');
+  const alertIcon  = document.getElementById('m-alert-icon');
+  const alertTitle = document.getElementById('m-alert-title');
+  const alertSub   = document.getElementById('m-alert-sub');
+  const alertCta   = document.getElementById('m-alert-cta');
+  const taskStatus = document.getElementById('m-task-status');
+  const taskLabel  = document.getElementById('m-task-status-label');
+  const progressEl = document.getElementById('m-progress');
+  const logEl      = document.getElementById('m-log');
+
+  const ALERT_STATES = {
+    lost: {
+      icon: '!',
+      title: 'Lost connection to local',
+      sub:   '192.168.1.42 · unreachable',
+      cta:   'Switch to cloud →',
+      taskLabel: 'PAUSED · LOCAL',
+      taskSt: 'paused',
+      progress: '→ ████░░░░░░ 41% (paused)',
+      progressPaused: true,
+    },
+    loading: {
+      icon: '↻',
+      title: 'Activating cloud…',
+      sub:   'warming us-east-1',
+      cta:   'Connecting…',
+      taskLabel: 'PAUSED · LOCAL',
+      taskSt: 'paused',
+      progress: '→ ████░░░░░░ 41% (paused)',
+      progressPaused: true,
+    },
+    cloud: {
+      icon: '✓',
+      title: 'Cloud activated',
+      sub:   'us-east-1 · session resumed',
+      cta:   "Let's continue →",
+      taskLabel: 'RUNNING · CLOUD',
+      taskSt: 'live',
+      progress: '→ ██████████ 100% ✓ shipped',
+      progressPaused: false,
+    },
+  };
+
+  let isAnimating = false;
+
+  function setAlert(state) {
+    const s = ALERT_STATES[state];
+    alertEl.dataset.state = state;
+    alertIcon.textContent  = s.icon;
+    alertTitle.textContent = s.title;
+    alertSub.textContent   = s.sub;
+    alertCta.querySelector('.lbl').textContent = s.cta;
+
+    taskLabel.textContent = s.taskLabel;
+    taskStatus.dataset.st = s.taskSt;
+
+    progressEl.textContent = s.progress;
+    progressEl.classList.toggle('paused', s.progressPaused);
+  }
+
+  alertCta.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isAnimating) return;
+    const cur = alertEl.dataset.state;
+    if (cur === 'lost') {
+      isAnimating = true;
+      setAlert('loading');
+      setTimeout(() => {
+        setAlert('cloud');
+        // simulate progress animation
+        const frames = [
+          '→ █████░░░░░ 52%',
+          '→ ███████░░░ 71%',
+          '→ █████████░ 92%',
+          '→ ██████████ 100% ✓ shipped',
+        ];
+        frames.forEach((f, i) => {
+          setTimeout(() => { progressEl.textContent = f; }, 200 + i * 220);
+        });
+        setTimeout(() => { isAnimating = false; }, 1100);
+      }, 1200);
+    } else if (cur === 'cloud') {
+      // reset for replay
+      setAlert('lost');
+    }
+  });
+</script>
+
+</body>
+</html>

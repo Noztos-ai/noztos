@@ -261,6 +261,7 @@ export type UserWhereInput = {
   encryptionKey?: Prisma.XOR<Prisma.UserEncryptionKeyNullableScalarRelationFilter, Prisma.UserEncryptionKeyWhereInput> | null
   gitObjects?: Prisma.GitObjectListRelationFilter
   sandboxSessions?: Prisma.SandboxSessionListRelationFilter
+  passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -285,6 +286,7 @@ export type UserOrderByWithRelationInput = {
   encryptionKey?: Prisma.UserEncryptionKeyOrderByWithRelationInput
   gitObjects?: Prisma.GitObjectOrderByRelationAggregateInput
   sandboxSessions?: Prisma.SandboxSessionOrderByRelationAggregateInput
+  passwordResetTokens?: Prisma.PasswordResetTokenOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -312,6 +314,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   encryptionKey?: Prisma.XOR<Prisma.UserEncryptionKeyNullableScalarRelationFilter, Prisma.UserEncryptionKeyWhereInput> | null
   gitObjects?: Prisma.GitObjectListRelationFilter
   sandboxSessions?: Prisma.SandboxSessionListRelationFilter
+  passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -376,6 +379,7 @@ export type UserCreateInput = {
   encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -400,6 +404,7 @@ export type UserUncheckedCreateInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -424,6 +429,7 @@ export type UserUpdateInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -448,6 +454,7 @@ export type UserUncheckedUpdateInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -629,6 +636,20 @@ export type UserUpdateOneRequiredWithoutTasksNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutTasksInput, Prisma.UserUpdateWithoutTasksInput>, Prisma.UserUncheckedUpdateWithoutTasksInput>
 }
 
+export type UserCreateNestedOneWithoutPasswordResetTokensInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetTokensInput, Prisma.UserUncheckedCreateWithoutPasswordResetTokensInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPasswordResetTokensInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutPasswordResetTokensNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetTokensInput, Prisma.UserUncheckedCreateWithoutPasswordResetTokensInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPasswordResetTokensInput
+  upsert?: Prisma.UserUpsertWithoutPasswordResetTokensInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPasswordResetTokensInput, Prisma.UserUpdateWithoutPasswordResetTokensInput>, Prisma.UserUncheckedUpdateWithoutPasswordResetTokensInput>
+}
+
 export type UserCreateNestedOneWithoutEncryptionKeyInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutEncryptionKeyInput, Prisma.UserUncheckedCreateWithoutEncryptionKeyInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutEncryptionKeyInput
@@ -692,6 +713,7 @@ export type UserCreateWithoutCompanionTokensInput = {
   encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCompanionTokensInput = {
@@ -715,6 +737,7 @@ export type UserUncheckedCreateWithoutCompanionTokensInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCompanionTokensInput = {
@@ -754,6 +777,7 @@ export type UserUpdateWithoutCompanionTokensInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCompanionTokensInput = {
@@ -777,6 +801,7 @@ export type UserUncheckedUpdateWithoutCompanionTokensInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutProjectsInput = {
@@ -800,6 +825,7 @@ export type UserCreateWithoutProjectsInput = {
   encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutProjectsInput = {
@@ -823,6 +849,7 @@ export type UserUncheckedCreateWithoutProjectsInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutProjectsInput = {
@@ -862,6 +889,7 @@ export type UserUpdateWithoutProjectsInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutProjectsInput = {
@@ -885,6 +913,7 @@ export type UserUncheckedUpdateWithoutProjectsInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutChatMessagesInput = {
@@ -908,6 +937,7 @@ export type UserCreateWithoutChatMessagesInput = {
   encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutChatMessagesInput = {
@@ -931,6 +961,7 @@ export type UserUncheckedCreateWithoutChatMessagesInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutChatMessagesInput = {
@@ -970,6 +1001,7 @@ export type UserUpdateWithoutChatMessagesInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutChatMessagesInput = {
@@ -993,6 +1025,7 @@ export type UserUncheckedUpdateWithoutChatMessagesInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutTasksInput = {
@@ -1016,6 +1049,7 @@ export type UserCreateWithoutTasksInput = {
   encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutTasksInput = {
@@ -1039,6 +1073,7 @@ export type UserUncheckedCreateWithoutTasksInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutTasksInput = {
@@ -1078,6 +1113,7 @@ export type UserUpdateWithoutTasksInput = {
   encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTasksInput = {
@@ -1097,6 +1133,119 @@ export type UserUncheckedUpdateWithoutTasksInput = {
   cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
   projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutPasswordResetTokensInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
+  id?: string
+  email: string
+  passwordHash: string
+  name: string
+  company?: string | null
+  role?: string | null
+  avatarUrl?: string | null
+  anthropicToken?: string | null
+  slackToken?: string | null
+  emailVerified?: boolean
+  createdAt?: Date | string
+  lastActive?: Date | string
+  githubToken?: string | null
+  cloudEnabled?: boolean
+  chatMessages?: Prisma.ChatMessageUncheckedCreateNestedManyWithoutUserInput
+  projects?: Prisma.ProjectUncheckedCreateNestedManyWithoutUserInput
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutUserInput
+  companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
+  encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
+  gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutPasswordResetTokensInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetTokensInput, Prisma.UserUncheckedCreateWithoutPasswordResetTokensInput>
+}
+
+export type UserUpsertWithoutPasswordResetTokensInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPasswordResetTokensInput, Prisma.UserUncheckedUpdateWithoutPasswordResetTokensInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetTokensInput, Prisma.UserUncheckedCreateWithoutPasswordResetTokensInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPasswordResetTokensInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPasswordResetTokensInput, Prisma.UserUncheckedUpdateWithoutPasswordResetTokensInput>
+}
+
+export type UserUpdateWithoutPasswordResetTokensInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutUserNestedInput
+  companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
+  encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
+  gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anthropicToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  slackToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastActive?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cloudEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  chatMessages?: Prisma.ChatMessageUncheckedUpdateManyWithoutUserNestedInput
+  projects?: Prisma.ProjectUncheckedUpdateManyWithoutUserNestedInput
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutUserNestedInput
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
@@ -1124,6 +1273,7 @@ export type UserCreateWithoutEncryptionKeyInput = {
   companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
   gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutEncryptionKeyInput = {
@@ -1147,6 +1297,7 @@ export type UserUncheckedCreateWithoutEncryptionKeyInput = {
   companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
   gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutEncryptionKeyInput = {
@@ -1186,6 +1337,7 @@ export type UserUpdateWithoutEncryptionKeyInput = {
   companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutEncryptionKeyInput = {
@@ -1209,6 +1361,7 @@ export type UserUncheckedUpdateWithoutEncryptionKeyInput = {
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutGitObjectsInput = {
@@ -1232,6 +1385,7 @@ export type UserCreateWithoutGitObjectsInput = {
   companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
   encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutGitObjectsInput = {
@@ -1255,6 +1409,7 @@ export type UserUncheckedCreateWithoutGitObjectsInput = {
   companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutGitObjectsInput = {
@@ -1294,6 +1449,7 @@ export type UserUpdateWithoutGitObjectsInput = {
   companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
   encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutGitObjectsInput = {
@@ -1317,6 +1473,7 @@ export type UserUncheckedUpdateWithoutGitObjectsInput = {
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
   sandboxSessions?: Prisma.SandboxSessionUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSandboxSessionsInput = {
@@ -1340,6 +1497,7 @@ export type UserCreateWithoutSandboxSessionsInput = {
   companionTokens?: Prisma.CompanionTokenCreateNestedManyWithoutUserInput
   encryptionKey?: Prisma.UserEncryptionKeyCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSandboxSessionsInput = {
@@ -1363,6 +1521,7 @@ export type UserUncheckedCreateWithoutSandboxSessionsInput = {
   companionTokens?: Prisma.CompanionTokenUncheckedCreateNestedManyWithoutUserInput
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedCreateNestedOneWithoutUserInput
   gitObjects?: Prisma.GitObjectUncheckedCreateNestedManyWithoutUserInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSandboxSessionsInput = {
@@ -1402,6 +1561,7 @@ export type UserUpdateWithoutSandboxSessionsInput = {
   companionTokens?: Prisma.CompanionTokenUpdateManyWithoutUserNestedInput
   encryptionKey?: Prisma.UserEncryptionKeyUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSandboxSessionsInput = {
@@ -1425,6 +1585,7 @@ export type UserUncheckedUpdateWithoutSandboxSessionsInput = {
   companionTokens?: Prisma.CompanionTokenUncheckedUpdateManyWithoutUserNestedInput
   encryptionKey?: Prisma.UserEncryptionKeyUncheckedUpdateOneWithoutUserNestedInput
   gitObjects?: Prisma.GitObjectUncheckedUpdateManyWithoutUserNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -1439,6 +1600,7 @@ export type UserCountOutputType = {
   companionTokens: number
   gitObjects: number
   sandboxSessions: number
+  passwordResetTokens: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1448,6 +1610,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   companionTokens?: boolean | UserCountOutputTypeCountCompanionTokensArgs
   gitObjects?: boolean | UserCountOutputTypeCountGitObjectsArgs
   sandboxSessions?: boolean | UserCountOutputTypeCountSandboxSessionsArgs
+  passwordResetTokens?: boolean | UserCountOutputTypeCountPasswordResetTokensArgs
 }
 
 /**
@@ -1502,6 +1665,13 @@ export type UserCountOutputTypeCountSandboxSessionsArgs<ExtArgs extends runtime.
   where?: Prisma.SandboxSessionWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPasswordResetTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PasswordResetTokenWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1525,6 +1695,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   encryptionKey?: boolean | Prisma.User$encryptionKeyArgs<ExtArgs>
   gitObjects?: boolean | Prisma.User$gitObjectsArgs<ExtArgs>
   sandboxSessions?: boolean | Prisma.User$sandboxSessionsArgs<ExtArgs>
+  passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1588,6 +1759,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   encryptionKey?: boolean | Prisma.User$encryptionKeyArgs<ExtArgs>
   gitObjects?: boolean | Prisma.User$gitObjectsArgs<ExtArgs>
   sandboxSessions?: boolean | Prisma.User$sandboxSessionsArgs<ExtArgs>
+  passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1603,6 +1775,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     encryptionKey: Prisma.$UserEncryptionKeyPayload<ExtArgs> | null
     gitObjects: Prisma.$GitObjectPayload<ExtArgs>[]
     sandboxSessions: Prisma.$SandboxSessionPayload<ExtArgs>[]
+    passwordResetTokens: Prisma.$PasswordResetTokenPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2020,6 +2193,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   encryptionKey<T extends Prisma.User$encryptionKeyArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$encryptionKeyArgs<ExtArgs>>): Prisma.Prisma__UserEncryptionKeyClient<runtime.Types.Result.GetResult<Prisma.$UserEncryptionKeyPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   gitObjects<T extends Prisma.User$gitObjectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$gitObjectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GitObjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   sandboxSessions<T extends Prisma.User$sandboxSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sandboxSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SandboxSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  passwordResetTokens<T extends Prisma.User$passwordResetTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2616,6 +2790,30 @@ export type User$sandboxSessionsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.SandboxSessionScalarFieldEnum | Prisma.SandboxSessionScalarFieldEnum[]
+}
+
+/**
+ * User.passwordResetTokens
+ */
+export type User$passwordResetTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PasswordResetToken
+   */
+  select?: Prisma.PasswordResetTokenSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PasswordResetToken
+   */
+  omit?: Prisma.PasswordResetTokenOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PasswordResetTokenInclude<ExtArgs> | null
+  where?: Prisma.PasswordResetTokenWhereInput
+  orderBy?: Prisma.PasswordResetTokenOrderByWithRelationInput | Prisma.PasswordResetTokenOrderByWithRelationInput[]
+  cursor?: Prisma.PasswordResetTokenWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PasswordResetTokenScalarFieldEnum | Prisma.PasswordResetTokenScalarFieldEnum[]
 }
 
 /**

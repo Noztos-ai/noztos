@@ -137,6 +137,11 @@ export type BuildSession = Prisma.BuildSessionModel
  */
 export type WorkflowRun = Prisma.WorkflowRunModel
 /**
+ * Model PasswordResetToken
+ * 
+ */
+export type PasswordResetToken = Prisma.PasswordResetTokenModel
+/**
  * Model UserEncryptionKey
  * 
  */

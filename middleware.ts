@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/register', '/api/auth/', '/api/companion/']
+const PUBLIC_PATHS = ['/login', '/register', '/docs', '/reset-password', '/api/auth/', '/api/companion/']
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p))
@@ -23,6 +23,14 @@ export function middleware(request: NextRequest) {
   // Full HMAC verification happens server-side in lib/session.ts.
   const sessionValue = request.cookies.get('session')?.value
   if (!sessionValue || !sessionValue.includes('|')) {
+    // Unauthenticated root visit → serve the marketing landing page
+    // (public/landing.html, a self-contained HTML/CSS/JS bundle from
+    // the cloud-design export). URL stays as `/` (rewrite, not redirect)
+    // so the canonical homepage matches the user's expectation.
+    // Any other authenticated path still redirects to /login.
+    if (pathname === '/') {
+      return NextResponse.rewrite(new URL('/landing.html', request.url))
+    }
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
   }

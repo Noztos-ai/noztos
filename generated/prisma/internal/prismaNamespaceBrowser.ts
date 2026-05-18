@@ -70,6 +70,7 @@ export const ModelName = {
   TeamRun: 'TeamRun',
   BuildSession: 'BuildSession',
   WorkflowRun: 'WorkflowRun',
+  PasswordResetToken: 'PasswordResetToken',
   UserEncryptionKey: 'UserEncryptionKey',
   GitObject: 'GitObject',
   WorktreeMirror: 'WorktreeMirror',
@@ -440,6 +441,19 @@ export const WorkflowRunScalarFieldEnum = {
 } as const
 
 export type WorkflowRunScalarFieldEnum = (typeof WorkflowRunScalarFieldEnum)[keyof typeof WorkflowRunScalarFieldEnum]
+
+
+export const PasswordResetTokenScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt',
+  ipAddress: 'ipAddress'
+} as const
+
+export type PasswordResetTokenScalarFieldEnum = (typeof PasswordResetTokenScalarFieldEnum)[keyof typeof PasswordResetTokenScalarFieldEnum]
 
 
 export const UserEncryptionKeyScalarFieldEnum = {

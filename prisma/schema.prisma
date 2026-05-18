@@ -31,6 +31,7 @@ model User {
   encryptionKey   UserEncryptionKey?
   gitObjects      GitObject[]
   sandboxSessions SandboxSession[]
+  passwordResetTokens PasswordResetToken[]
   // MVP gate for cloud activation. Pre-billing, this boolean controls
   // whether the "Continuar na nuvem" button is visible/active. Post-
   // billing this becomes a credit/plan check.
@@ -693,6 +694,27 @@ enum PermissionMode {
 // roughly 50 MB once, not 150 MB. Per user typical: ~12 MB after gzip +
 // encrypt.
 // =========================================================================
+
+// Password reset tokens. The actual token bytes leave the server once
+// (in the email link) — only the SHA-256 hash is stored, so a DB leak
+// can't be used to reset arbitrary user passwords. One-shot use: the
+// `usedAt` stamp blocks a second redeem even if the email link is
+// resent. Expiry default 1h.
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  ipAddress  String?  // best-effort, for abuse audit
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
 
 // Per-user data encryption key, wrapped by the KMS master key.
 // `wrappedKey` is the user's DEK encrypted by the master; the master
