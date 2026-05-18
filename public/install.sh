@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bornastar companion installer
+# Noztos companion installer
 # Usage: curl -fsSL https://noztos.com/install.sh | bash
 
 set -euo pipefail
@@ -12,7 +12,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo ""
-echo -e "${BOLD}  ⚡ Bornastar Companion Installer${NC}"
+echo -e "${BOLD}  ⚡ Noztos Companion Installer${NC}"
 echo ""
 
 # Check Node.js
@@ -48,16 +48,16 @@ npm install -g @noztos/companion@latest 2>/dev/null || {
 }
 
 echo ""
-echo -e "  ${GREEN}✓${NC} Bornastar companion installed!"
+echo -e "  ${GREEN}✓${NC} Noztos companion installed!"
 echo ""
 echo -e "  ${BOLD}Next steps:${NC}"
 echo ""
-echo -e "  1. Authenticate:  ${CYAN}bornastar login <token>${NC}"
+echo -e "  1. Authenticate:  ${CYAN}noztos login <token>${NC}"
 echo -e "     (Get your token from noztos.com/settings)"
 echo ""
-echo -e "  2. Register a project:  ${CYAN}cd ~/your-project && bornastar init${NC}"
+echo -e "  2. Register a project:  ${CYAN}cd ~/your-project && noztos init${NC}"
 echo ""
-echo -e "  3. Start the daemon:  ${CYAN}bornastar start${NC}"
+echo -e "  3. Start the daemon:  ${CYAN}noztos start${NC}"
 echo ""
 echo -e "  4. Open ${CYAN}noztos.com${NC} and start coding!"
 echo ""

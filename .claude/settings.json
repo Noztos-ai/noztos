@@ -41,7 +41,9 @@
       "Bash(kill %1)",
       "Bash(lsof -ti:3000)",
       "Bash(xargs kill:*)",
-      "Bash(node dist/bin/bornastar.js --help)"
+      "Bash(node dist/bin/bornastar.js --help)",
+      "Bash(tail -30 /tmp/bornastar-dev.log | grep -vE \"prisma:query\")",
+      "Read(//private/tmp/**)"
     ],
     "additionalDirectories": [
       "/Users/viniciosfernandes/Desktop/projects/bornastar/app/api/projects/[id]",

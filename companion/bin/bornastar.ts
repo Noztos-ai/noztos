@@ -10,15 +10,15 @@ import { Daemon } from '../src/daemon.js'
 const program = new Command()
 
 program
-  .name('bornastar')
-  .description('Bornastar companion — bridges your local Claude Code to the Bornastar web IDE')
+  .name("noztos")
+  .description('Noztos companion — bridges your local Claude Code to the Noztos web IDE')
   .version('0.1.0')
 
-// ── bornastar init ──────────────────────────────────────────────────
-// Registers the current directory as a Bornastar project
+// ── noztos init ──────────────────────────────────────────────────
+// Registers the current directory as a Noztos project
 program
   .command('init')
-  .description('Register the current directory as a Bornastar project')
+  .description('Register the current directory as a Noztos project')
   .argument('[path]', 'Project directory (defaults to cwd)', '.')
   .action((pathArg: string) => {
     try {
@@ -33,16 +33,16 @@ program
     }
   })
 
-// ── bornastar start ─────────────────────────────────────────────────
-// Starts the background daemon that connects to the Bornastar server
+// ── noztos start ─────────────────────────────────────────────────
+// Starts the background daemon that connects to the Noztos server
 program
   .command('start')
-  .description('Start the Bornastar daemon (connects to noztos.com)')
+  .description('Start the Noztos daemon (connects to noztos.com)')
   .option('--foreground', 'Run in foreground (don\'t daemonize)')
   .action(async (opts: { foreground?: boolean }) => {
     const config = loadConfig()
     if (!config.authToken) {
-      console.error('\n  ❌ Not authenticated. Run `bornastar login` first.\n')
+      console.error('\n  ❌ Not authenticated. Run `noztos login` first.\n')
       process.exit(1)
     }
 
@@ -59,7 +59,7 @@ program
       process.exit(1)
     }
 
-    console.log('\n  🚀 Bornastar companion starting...')
+    console.log('\n  🚀 Noztos companion starting...')
     console.log(`     Claude Code: ${claude.version ?? 'unknown'}`)
     console.log(`     Auth: ${claude.auth.email ?? 'authenticated'} (${claude.auth.plan ?? 'subscription'})`)
     console.log(`     Projects: ${config.projects.length} registered`)
@@ -69,7 +69,7 @@ program
     const daemon = new Daemon(config.serverUrl, config.authToken)
 
     daemon.on('connected', () => {
-      console.log('  ✅ Connected to Bornastar server')
+      console.log('  ✅ Connected to Noztos server')
       console.log('     Open noztos.com to start coding.\n')
       if (!opts.foreground) {
         console.log('  Tip: Press Ctrl+C to stop the daemon.\n')
@@ -106,11 +106,11 @@ program
     const config = loadConfig()
     const claude = getClaudeInfo()
 
-    console.log('\n  Bornastar Companion Status')
+    console.log('\n  Noztos Companion Status')
     console.log('  ─────────────────────────')
 
     // Auth
-    console.log(`\n  Bornastar: ${config.authToken ? '✅ Authenticated' : '❌ Not authenticated'}`)
+    console.log(`\n  Noztos:    ${config.authToken ? '✅ Authenticated' : '❌ Not authenticated'}`)
     console.log(`  Server:    ${config.serverUrl}`)
 
     // Claude
@@ -122,7 +122,7 @@ program
     // Projects
     console.log(`\n  Projects (${config.projects.length}):`)
     if (config.projects.length === 0) {
-      console.log('    None. Run `bornastar init` in a project directory.')
+      console.log('    None. Run `noztos init` in a project directory.')
     } else {
       for (const p of config.projects) {
         console.log(`    • ${p.name} — ${p.path}`)
@@ -131,14 +131,14 @@ program
     console.log()
   })
 
-// ── bornastar login ─────────────────────────────────────────────────
+// ── noztos login ─────────────────────────────────────────────────
 program
   .command('login')
-  .description('Authenticate with your Bornastar account')
+  .description('Authenticate with your Noztos account')
   .argument('<token>', 'Auth token from noztos.com/settings')
   .action((token: string) => {
     setAuthToken(token)
-    console.log('\n  ✅ Authenticated. Run `bornastar start` to connect.\n')
+    console.log('\n  ✅ Authenticated. Run `noztos start` to connect.\n')
   })
 
 // ── bornastar projects ──────────────────────────────────────────────
@@ -148,7 +148,7 @@ program
   .action(() => {
     const projects = listProjects()
     if (projects.length === 0) {
-      console.log('\n  No projects registered. Run `bornastar init` in a project directory.\n')
+      console.log('\n  No projects registered. Run `noztos init` in a project directory.\n')
       return
     }
     console.log(`\n  Registered projects (${projects.length}):\n`)
@@ -212,7 +212,7 @@ program
 // ── bornastar server ────────────────────────────────────────────────
 program
   .command('server')
-  .description('Set the Bornastar server URL (for self-hosted or dev)')
+  .description('Set the Noztos server URL (for self-hosted or dev)')
   .argument('<url>', 'Server URL (e.g. http://localhost:3000)')
   .action((url: string) => {
     setServerUrl(url)

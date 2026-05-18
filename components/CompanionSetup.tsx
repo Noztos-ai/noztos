@@ -58,7 +58,7 @@ export function CompanionSetup() {
       <div className="w-full max-w-md">
 
         <div className="mb-6 text-center">
-          <h1 className="text-[17px] font-semibold text-zinc-100">Get started with Bornastar</h1>
+          <h1 className="text-[17px] font-semibold text-zinc-100">Get started with Noztos</h1>
           <p className="mt-1 text-[12px] text-zinc-500">
             Install the CLI on your computer to start coding
           </p>
@@ -70,7 +70,7 @@ export function CompanionSetup() {
           <div className="rounded-lg border border-[#2B2B2B] px-4 py-3" style={{ backgroundColor: '#1F1F1F' }}>
             <div className="mb-2 flex items-center gap-2">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-[10px] font-bold text-emerald-400">1</span>
-              <span className="text-[12px] font-medium text-zinc-300">Install the Bornastar CLI</span>
+              <span className="text-[12px] font-medium text-zinc-300">Install the Noztos CLI</span>
             </div>
             <div className="group relative">
               <pre className="rounded-md border border-[#2B2B2B] px-3 py-2 font-mono text-[11px] text-emerald-300/80" style={{ backgroundColor: '#151515' }}>
@@ -103,10 +103,10 @@ export function CompanionSetup() {
               <div className="space-y-2">
                 <div className="group relative">
                   <pre className="rounded-md border border-[#2B2B2B] px-3 py-2 font-mono text-[11px] text-violet-300/80 break-all whitespace-pre-wrap" style={{ backgroundColor: '#151515' }}>
-                    bornastar login {token}
+                    noztos login {token}
                   </pre>
                   <button
-                    onClick={() => copyToClipboard(`bornastar login ${token}`, 'login')}
+                    onClick={() => copyToClipboard(`noztos login ${token}`, 'login')}
                     className="absolute right-1.5 top-1.5 rounded border border-[#3A3A3A] px-1.5 py-0.5 text-[9px] text-zinc-500 opacity-0 transition-opacity hover:bg-white/5 hover:text-zinc-300 group-hover:opacity-100"
                   >
                     {copied === 'login' ? '✓' : 'Copy'}
@@ -125,10 +125,10 @@ export function CompanionSetup() {
             </div>
             <div className="group relative">
               <pre className="rounded-md border border-[#2B2B2B] px-3 py-2 font-mono text-[11px] text-blue-300/80" style={{ backgroundColor: '#151515' }}>
-                bornastar start
+                noztos start
               </pre>
               <button
-                onClick={() => copyToClipboard('bornastar start', 'start')}
+                onClick={() => copyToClipboard('noztos start', 'start')}
                 className="absolute right-1.5 top-1.5 rounded border border-[#3A3A3A] px-1.5 py-0.5 text-[9px] text-zinc-500 opacity-0 transition-opacity hover:bg-white/5 hover:text-zinc-300 group-hover:opacity-100"
               >
                 {copied === 'start' ? '✓' : 'Copy'}

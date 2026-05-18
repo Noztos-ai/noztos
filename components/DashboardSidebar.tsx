@@ -376,10 +376,10 @@ export function DashboardSidebar() {
                 <div className="space-y-2">
                   <div className="group relative">
                     <pre className="whitespace-pre-wrap break-all rounded-md border border-[#2B2B2B] px-3 py-2 font-mono text-[11px] text-violet-300/80" style={{ backgroundColor: '#151515' }}>
-                      bornastar login {reconnectToken}
+                      noztos login {reconnectToken}
                     </pre>
                     <button
-                      onClick={() => copyToClipboard(`bornastar login ${reconnectToken}`, 'login')}
+                      onClick={() => copyToClipboard(`noztos login ${reconnectToken}`, 'login')}
                       className="absolute right-1.5 top-1.5 rounded border border-[#3A3A3A] px-1.5 py-0.5 text-[9px] text-zinc-500 opacity-0 transition-opacity hover:bg-white/5 hover:text-zinc-300 group-hover:opacity-100"
                     >
                       {copied === 'login' ? '✓' : 'Copy'}
@@ -399,10 +399,10 @@ export function DashboardSidebar() {
               </div>
               <div className="group relative">
                 <pre className="rounded-md border border-[#2B2B2B] px-3 py-2 font-mono text-[11px] text-emerald-300/80" style={{ backgroundColor: '#151515' }}>
-                  bornastar start
+                  noztos start
                 </pre>
                 <button
-                  onClick={() => copyToClipboard('bornastar start', 'start')}
+                  onClick={() => copyToClipboard('noztos start', 'start')}
                   className="absolute right-1.5 top-1.5 rounded border border-[#3A3A3A] px-1.5 py-0.5 text-[9px] text-zinc-500 opacity-0 transition-opacity hover:bg-white/5 hover:text-zinc-300 group-hover:opacity-100"
                 >
                   {copied === 'start' ? '✓' : 'Copy'}

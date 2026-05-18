@@ -1,9 +1,9 @@
 {
   "name": "@noztos/companion",
-  "version": "0.1.1",
-  "description": "Bornastar companion — bridges your local Claude Code to the Bornastar web IDE",
+  "version": "0.1.2",
+  "description": "Noztos companion — bridges your local Claude Code to the Noztos web IDE",
   "bin": {
-    "bornastar": "./dist/bin/bornastar.js"
+    "noztos": "./dist/bin/bornastar.js"
   },
   "scripts": {
     "build": "tsc",
