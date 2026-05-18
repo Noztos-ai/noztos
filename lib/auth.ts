@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import { getSessionUserId } from '@/lib/session'
 import { prisma } from '@/lib/db'
+import { isLocalDevSecret, resolveLocalDevUserId } from '@/lib/local-dev-secret'
 
 // ── Token prefix ────────────────────────────────────────────────────
 // All companion tokens start with `bst_` so they're easy to identify
@@ -123,6 +124,19 @@ export async function verifyAuth(request?: NextRequest): Promise<{ userId: strin
     const bearerToken = authHeader?.startsWith('Bearer ')
       ? authHeader.slice(7)
       : companionHeader
+
+    // Local-dev auto-token: when the daemon is co-running from the
+    // same repo as Next.js (npm run dev), it auths via the shared
+    // ./data/.companion-secret file instead of a CompanionToken row.
+    // Resolves to whatever single user is in the DB.
+    if (bearerToken && isLocalDevSecret(bearerToken)) {
+      const userId = await resolveLocalDevUserId()
+      if (userId) {
+        return { userId, tokenId: 'local-dev', tokenName: 'local-dev' }
+      }
+      // No user yet — daemon will retry until signup happens.
+      return null
+    }
 
     if (bearerToken?.startsWith(TOKEN_PREFIX)) {
       // Short-circuit via the in-memory cache — saves a cross-region

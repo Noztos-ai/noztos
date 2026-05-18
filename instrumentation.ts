@@ -29,4 +29,15 @@ export async function register() {
   } catch (err) {
     console.warn('[instrumentation] task scheduler start failed:', (err as Error).message)
   }
+
+  // Materialise the local-dev companion secret. The daemon reads
+  // ./data/.companion-secret on its own startup, so the file must
+  // exist before the daemon's first connection attempt. The cost is
+  // a single 32-byte randomBytes() + a write on first boot only.
+  try {
+    const { getLocalDevSecret } = await import('@/lib/local-dev-secret')
+    getLocalDevSecret()
+  } catch (err) {
+    console.warn('[instrumentation] companion secret init failed:', (err as Error).message)
+  }
 }

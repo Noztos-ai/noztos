@@ -5,9 +5,33 @@ import type { CompanionConfig, ProjectConfig } from './types.js'
 
 const CONFIG_DIR = join(homedir(), '.bornastar')
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
-const DEFAULT_SERVER = 'https://noztos.com'
+const DEFAULT_SERVER = 'http://localhost:3000'
+
+// Local-dev mode: when set (by the root `npm run dev` script), the
+// daemon ignores ~/.bornastar/config.json's serverUrl/authToken and
+// instead reads the shared secret from ./data/.companion-secret in
+// the repo root. See lib/local-dev-secret.ts on the server side.
+const LOCAL_DEV = process.env.NOZTOS_LOCAL_DEV === '1'
+const LOCAL_DEV_SERVER = 'http://localhost:3000'
+const LOCAL_DEV_SECRET_PATH = join(process.cwd(), 'data', '.companion-secret')
+
+function readLocalDevSecret(): string | null {
+  try {
+    return readFileSync(LOCAL_DEV_SECRET_PATH, 'utf-8').trim()
+  } catch {
+    return null
+  }
+}
 
 function defaults(): CompanionConfig {
+  if (LOCAL_DEV) {
+    return {
+      version: '0.1.0',
+      serverUrl: LOCAL_DEV_SERVER,
+      authToken: readLocalDevSecret(),
+      projects: [],
+    }
+  }
   return {
     version: '0.1.0',
     serverUrl: process.env.BORNASTAR_SERVER ?? DEFAULT_SERVER,
@@ -22,6 +46,21 @@ export function ensureConfigDir(): void {
 
 export function loadConfig(): CompanionConfig {
   ensureConfigDir()
+  // Local-dev mode forces serverUrl + authToken from the repo's
+  // ./data/.companion-secret regardless of what's in
+  // ~/.bornastar/config.json. Projects list is still merged from the
+  // persistent config so daemon state survives restarts.
+  if (LOCAL_DEV) {
+    const base = defaults()
+    if (!existsSync(CONFIG_FILE)) return base
+    try {
+      const raw = readFileSync(CONFIG_FILE, 'utf-8')
+      const persisted = JSON.parse(raw) as Partial<CompanionConfig>
+      return { ...base, projects: persisted.projects ?? [] }
+    } catch {
+      return base
+    }
+  }
   if (!existsSync(CONFIG_FILE)) return defaults()
   try {
     const raw = readFileSync(CONFIG_FILE, 'utf-8')

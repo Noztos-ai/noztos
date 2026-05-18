@@ -49,3 +49,6 @@ companion/dist/
 
 # Prisma generated client
 /generated
+
+# Local-dev runtime data (companion secret, etc)
+/data

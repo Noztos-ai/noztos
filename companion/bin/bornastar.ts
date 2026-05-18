@@ -41,7 +41,30 @@ program
   .description('Start the Noztos daemon (connects to noztos.com)')
   .option('--foreground', 'Run in foreground (don\'t daemonize)')
   .action(async (opts: { foreground?: boolean }) => {
-    const config = loadConfig()
+    let config = loadConfig()
+    const isLocalDev = process.env.NOZTOS_LOCAL_DEV === '1'
+
+    // Local-dev mode: both Next.js and this daemon are spawned by
+    // `npm run dev`. Next.js writes ./data/.companion-secret on first
+    // boot, but we might race ahead of that. Retry for up to 30 s
+    // before bailing — typical race is sub-second.
+    if (isLocalDev && !config.authToken) {
+      process.stdout.write('  ⏳ Waiting for Next.js to write ./data/.companion-secret')
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 1000))
+        process.stdout.write('.')
+        config = loadConfig()
+        if (config.authToken) {
+          process.stdout.write(' ✓\n')
+          break
+        }
+      }
+      if (!config.authToken) {
+        console.error('\n\n  ❌ Timed out after 30 s. Is Next.js running? Re-try `npm run dev`.\n')
+        process.exit(1)
+      }
+    }
+
     if (!config.authToken) {
       console.error('\n  ❌ Not authenticated. Run `noztos login` first.\n')
       process.exit(1)

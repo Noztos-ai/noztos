@@ -42,7 +42,11 @@ export default async function Home() {
 
     projects = user.projects
     userName = user.name ?? ''
-    hasCompanionToken = tokenCount > 0
+    // Local-dev mode (npm run dev co-spawns Next.js + the daemon, both
+    // share ./data/.companion-secret). No CompanionToken row exists in
+    // that flow — the daemon auto-auths via the shared secret. Treat
+    // local-dev as "always connected" so the setup card is skipped.
+    hasCompanionToken = tokenCount > 0 || process.env.NOZTOS_LOCAL_DEV === '1'
   }
 
   return (

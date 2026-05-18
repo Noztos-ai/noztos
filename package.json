@@ -2,8 +2,14 @@
   "name": "noztos",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "companion"
+  ],
   "scripts": {
-    "dev": "next dev",
+    "dev:web": "next dev",
+    "dev:daemon": "NOZTOS_LOCAL_DEV=1 node companion/dist/bin/bornastar.js start",
+    "dev": "npm run build:companion && concurrently -k -n web,daemon -c blue,green \"npm:dev:web\" \"npm:dev:daemon\"",
+    "build:companion": "npm run build --workspace=companion",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
@@ -62,6 +68,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
