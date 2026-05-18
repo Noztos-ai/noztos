@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/register', '/docs', '/reset-password', '/api/auth/', '/api/companion/']
+const PUBLIC_PATHS = ['/login', '/register', '/docs', '/reset-password', '/api/auth/', '/api/companion/', '/admin/login', '/api/admin/login']
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p))
@@ -27,6 +27,19 @@ export function middleware(request: NextRequest) {
     pathname.includes('.') ||
     isPublic(pathname)
   ) {
+    return NextResponse.next()
+  }
+
+  // /admin/* (other than /admin/login which is public above) requires
+  // the separate admin-session cookie. The regular user `session`
+  // cookie is NOT accepted here — operator access is a parallel auth
+  // system. Bounce missing/invalid admin cookies to /admin/login.
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    const adminCookie = request.cookies.get('admin-session')?.value
+    if (!adminCookie || !adminCookie.includes('|')) {
+      const loginUrl = new URL('/admin/login', request.url)
+      return NextResponse.redirect(loginUrl)
+    }
     return NextResponse.next()
   }
 

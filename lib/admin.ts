@@ -1,20 +1,15 @@
-// Admin auth gate. The current MVP grants admin privileges to a fixed
-// list of user IDs in the ADMIN_USER_IDS env var (comma-separated cuids).
-// Pre-billing this is plenty — once we have a "team management" surface
-// we promote a column on User (`role`) and read from there instead.
+// Admin gate. Reads the separate `admin-session` cookie (see
+// lib/admin-session.ts) — NOT the regular user `session` cookie. The
+// two systems are fully independent: a logged-in user is not an admin
+// just by virtue of being logged in, and an admin doesn't need a user
+// account at all.
 
 import { cookies } from 'next/headers'
-import { getSessionUserId } from '@/lib/session'
+import { getAdminUsername, ADMIN_COOKIE_NAME } from '@/lib/admin-session'
 
-function adminIds(): Set<string> {
-  const raw = process.env.ADMIN_USER_IDS ?? ''
-  return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))
-}
-
-export async function requireAdmin(): Promise<{ userId: string } | null> {
+export async function requireAdmin(): Promise<{ username: string } | null> {
   const cookieStore = await cookies()
-  const userId = getSessionUserId(cookieStore.get('session')?.value)
-  if (!userId) return null
-  if (!adminIds().has(userId)) return null
-  return { userId }
+  const username = getAdminUsername(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
+  if (!username) return null
+  return { username }
 }
