@@ -50,8 +50,8 @@ export function GitHubModalProvider({ isConnected, children }: GitHubModalProvid
     <GitHubModalContext.Provider value={{ openGitHub }}>
       {children}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl dark:bg-zinc-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
+          <div className="w-full max-w-xs sm:max-w-lg rounded-2xl bg-white shadow-xl dark:bg-zinc-900">
             {!isConnected ? (
               <ConnectView onClose={close} />
             ) : (

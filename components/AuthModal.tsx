@@ -127,8 +127,8 @@ export function AuthModalProvider({ initialOpen, initialStatus = 'no_key', child
     <AuthModalContext.Provider value={{ openModal }}>
       {children}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl dark:bg-zinc-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
+          <div className="w-full max-w-xs sm:max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
             <h2 className="mb-5 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
               Claude API Connection
             </h2>

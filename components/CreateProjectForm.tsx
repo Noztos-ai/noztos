@@ -316,8 +316,8 @@ function ProjectPickerModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
-      <div className="w-full max-w-md rounded-xl border border-[#2B2B2B] shadow-2xl" style={{ backgroundColor: '#1F1F1F' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+      <div className="w-full max-w-xs sm:max-w-md rounded-xl border border-[#2B2B2B] shadow-2xl" style={{ backgroundColor: '#1F1F1F' }}>
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#2B2B2B] px-5 py-4">

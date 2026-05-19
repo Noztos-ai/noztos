@@ -169,8 +169,8 @@ export function ProjectList({ projects }: ProjectListProps) {
 
       {/* Delete confirmation modal */}
       {deleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteModal(null)}>
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setDeleteModal(null)}>
+          <div className="w-full max-w-xs sm:max-w-sm overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style={{ backgroundColor: '#1a1a22' }} onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-white/10 px-6 py-4" style={{ backgroundColor: '#15151c' }}>
               <h3 className="text-sm font-semibold text-zinc-100">Delete Project</h3>
               <p className="text-[11px] text-zinc-500 mt-0.5">{deleteModal.name}</p>
