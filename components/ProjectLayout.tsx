@@ -8,7 +8,6 @@ import {
   isProjectsCacheStale,
   type CachedProject,
 } from '@/lib/projects-cache'
-import { PhoneAccessButton } from './PhoneAccessButton'
 
 // Module-level guard so concurrent ProjectLayout mounts (rare but possible
 // during fast navigation) don't fire two background revalidates against
@@ -201,12 +200,6 @@ export function ProjectLayout({
 
         {/* Spacer */}
         <div className="flex-1" />
-
-        {/* Phone access toggle — gated by .env config. Renders its own
-            popover with QR code + URL when the user is signed in. */}
-        <div className="mr-2 hidden md:flex">
-          <PhoneAccessButton />
-        </div>
 
         {/* Right side: tabs.
             Labels collapse to icons-only on mobile (<md) so all 5 tabs
