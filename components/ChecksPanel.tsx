@@ -423,8 +423,13 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
   const isClosed = isClosedRaw && !closedBannerDismissed
   const isReadyToMerge = hasOpenPr && pr && (pr.derivedStatus === 'approved' || (pr.derivedStatus === 'open' && pr.mergeable_state === 'clean'))
   // Git section is hidden when nothing is happening git-wise. Mirrors Conductor.
+  // For local worktrees: only show the section when there's real
+  // divergence (uncommitted or unpushed-vs-main) or a local merge to
+  // acknowledge — empty worktree on a local-only project has nothing
+  // to merge, so the "Ready to merge locally" badge is misleading.
   const showGitSection = !!status && (
-    hasUncommitted || hasUnpushed || isBehind || hasOpenPr || isMerged || isLocalWorktree ||
+    hasUncommitted || hasUnpushed || isBehind || hasOpenPr || isMerged ||
+    (isLocalWorktree && localMerged) ||
     (!status.githubConnected && !isLocalProject) || (isMain && status.mainProtected)
   )
   // Ready-to-merge and Merged states show a prominent banner already —
@@ -432,7 +437,7 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
   // Show the heading only when at least one row will actually render.
   const isReadyToMergeBanner = !!(isReadyToMerge && !isMerged)
   const hasPrRow = hasOpenPr && !isReadyToMergeBanner
-  const hasNoPrRow = !hasOpenPr && !isMerged && !isMain
+  const hasNoPrRow = !hasOpenPr && !isMerged && !isMain && !isLocalWorktree
   const hasMainProtectedRow = !!(isMain && status?.mainProtected && (hasUncommitted || hasUnpushed))
   const showGitHeading = !!status && (
     (!status.githubConnected && !isLocalProject) ||
@@ -444,7 +449,7 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
     isReadyToMerge ||
     isMerged ||
     isClosed ||
-    isLocalWorktree
+    (isLocalWorktree && (hasUncommitted || hasUnpushed || localMerged))
   )
 
   // When a PR is open, the draft title/body shouldn't be user-editable
@@ -509,7 +514,7 @@ export function ChecksPanel({ projectId, sessionId, worktreeId, onArchive, merge
             )
           })()}
 
-          {isLocalWorktree && !localMerged && (
+          {isLocalWorktree && !localMerged && (hasUncommitted || hasUnpushed) && (
             <Row
               indicator="green"
               label="Ready to merge locally"
