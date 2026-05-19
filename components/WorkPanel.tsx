@@ -468,14 +468,11 @@ function ChatsSidebar({
   }
 
   return (
-    // Static flex child, always 288px wide when open. The hamburger
-    // toggle in the top bar still hides it entirely via the parent's
-    // `sidebarOpen` flag — no fixed positioning or overlay backdrop
-    // needed since this is a desktop-first app (mobile users tunnel
-    // localhost via cloudflared and treat their phone as a wide
-    // viewport).
+    // Desktop: static flex child, 288px wide, pushes content.
+    // Mobile (<md): same width but `fixed` overlay below the 44 px
+    // navbar — slides over the workspace without resizing it.
     <div
-      className="flex h-full w-72 shrink-0 flex-col border-r border-white/10"
+      className="fixed bottom-0 left-0 top-11 z-40 flex w-72 flex-col border-r border-white/10 shadow-2xl shadow-black/40 md:static md:bottom-auto md:left-auto md:top-auto md:z-0 md:h-full md:shrink-0 md:shadow-none"
       style={{ backgroundColor: '#1F1F1F' }}
     >
 
@@ -1350,6 +1347,10 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // worktreeId pre-filter. Toggle lives in the top bar between the
   // origin/main badge and the scratchpad icon.
   const [showWorktreeTasks, setShowWorktreeTasks] = useState(false)
+  // Mobile-only: tracks whether the right panel (Explorer/Changes/
+  // Checks + terminal) is open as an overlay. Desktop ignores this —
+  // there the panel is always a flex child on the right.
+  const [rightPanelMobileOpen, setRightPanelMobileOpen] = useState(false)
   // Busy (currently processing) + unread are owned by the
   // `companionStore`. CompanionProvider feeds them from the single SSE
   // stream; hooks here just observe. That's how switching chats stays
@@ -2604,6 +2605,15 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Main area (sidebar + chat + file tree + minimap) */}
       <div className="flex flex-1 overflow-hidden">
+        {/* Mobile-only backdrop — tap to close. Desktop keeps the
+            sidebar inline so no scrim is needed. */}
+        {sidebarOpen && (
+          <div
+            className="fixed bottom-0 left-0 right-0 top-11 z-30 bg-black/50 md:hidden"
+            onClick={onToggleSidebar}
+            aria-hidden
+          />
+        )}
         {/* Left: Chats sidebar */}
         {sidebarOpen && <ChatsSidebar
           projectId={projectId}
@@ -3045,12 +3055,37 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
         )}
       </div>
 
+        {/* Mobile-only: backdrop dims the chat while the panel
+            overlay is open. Tap to close. Desktop never sees this. */}
+        {rightPanelMobileOpen && (
+          <div
+            className="fixed bottom-0 left-0 right-0 top-11 z-30 bg-black/50 md:hidden"
+            onClick={() => setRightPanelMobileOpen(false)}
+            aria-hidden
+          />
+        )}
+        {/* Mobile-only: vertical tab strip on the right edge — labels
+            what's behind it (Explorer / Changes / Checks depending on
+            context) and opens the overlay when tapped. Hidden while
+            the panel is open. */}
+        {!rightPanelMobileOpen && (
+          <button
+            type="button"
+            onClick={() => setRightPanelMobileOpen(true)}
+            aria-label="Open panel"
+            className="fixed bottom-24 right-0 z-30 flex flex-col items-center gap-2 rounded-l-lg border-y border-l border-[#2B2B2B] bg-[#1F1F1F] px-1.5 py-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 shadow-lg shadow-black/30 hover:text-zinc-200 md:hidden"
+            style={{ writingMode: 'vertical-rl' }}
+          >
+            {activeWorktreeId ? 'Changes' : 'Explorer'}
+          </button>
+        )}
         {/* Right: Explorer / Changes / Terminal panel.
-            Hidden on mobile (chat-only flow) so the screen has room
-            for the conversation. Files, terminal, and diffs are
-            primarily for desktop sessions — on a phone the user
-            delegates to claude and reads results. */}
-        <div className={`relative hidden min-w-0 shrink-0 flex-col border-l border-[#2B2B2B] transition-all duration-200 md:flex ${rightPanelExpanded ? 'md:w-[50%]' : 'md:w-[30%]'}`} style={{ backgroundColor: '#1F1F1F' }}>
+            Desktop: static flex child on the right (30% or 50% wide).
+            Mobile: `fixed` overlay below the 44 px navbar when open —
+            same content, just slides over the chat instead of pushing.
+            Closed on mobile by default; the right-edge tab strip below
+            opens it. */}
+        <div className={`flex-col border-l border-[#2B2B2B] ${rightPanelMobileOpen ? 'fixed bottom-0 right-0 top-11 z-40 flex w-[85%] max-w-md shadow-2xl shadow-black/40' : 'hidden'} md:relative md:bottom-auto md:right-auto md:top-auto md:z-0 md:flex md:max-w-none md:min-w-0 md:shrink-0 md:shadow-none md:transition-all md:duration-200 ${rightPanelExpanded ? 'md:w-[50%]' : 'md:w-[30%]'}`} style={{ backgroundColor: '#1F1F1F' }}>
           {/* Conflict resolver overlay — covers the whole right panel
               (tabs + body + bottom terminal) so the user is focused on
               resolving. Chat column stays live on the left. */}
@@ -3471,6 +3506,18 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
               active (main state is a read-only snapshot — Changes and
               Checks don't apply until the user starts a workspace). */}
           <div className="flex shrink-0 items-center border-b border-[#2B2B2B] px-3" style={{ backgroundColor: '#1F1F1F' }}>
+            {/* Mobile-only close button — dismisses the overlay panel.
+                Hidden on desktop where the panel is always docked. */}
+            <button
+              type="button"
+              onClick={() => setRightPanelMobileOpen(false)}
+              aria-label="Close panel"
+              className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200 md:hidden"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             {activeWorktreeId && (
               <button
                 onClick={() => setRightPanelTab('changes')}
