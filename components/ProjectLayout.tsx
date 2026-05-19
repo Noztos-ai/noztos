@@ -88,8 +88,8 @@ export function ProjectLayout({
         {/* Left section — aligned with sidebar width, has right border to continue the sidebar line */}
         {showSidebarSection && (
           <div
-            className={`relative flex shrink-0 items-center gap-2 border-r border-white/10 px-3 py-1.5 transition-all ${
-              sidebarOpen ? 'w-72' : 'w-auto'
+            className={`relative flex min-w-0 shrink items-center gap-2 border-r border-white/10 px-3 py-1.5 transition-all md:shrink-0 ${
+              sidebarOpen ? 'md:w-72' : 'md:w-auto'
             }`}
             style={{ backgroundColor: '#1F1F1F' }}
           >

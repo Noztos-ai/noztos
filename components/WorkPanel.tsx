@@ -7169,7 +7169,7 @@ function ChatPanel({
 
   return (
     <div
-      className={`flex flex-1 flex-col border-r border-[#2B2B2B] ${isDragging ? 'ring-2 ring-inset ring-white/30' : ''}`}
+      className={`flex min-w-0 flex-1 flex-col border-r border-[#2B2B2B] ${isDragging ? 'ring-2 ring-inset ring-white/30' : ''}`}
       style={{ backgroundColor: '#1F1F1F' }}
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
       onDragLeave={() => setIsDragging(false)}
@@ -7677,7 +7677,7 @@ function ChatPanel({
         )}
 
         {/* Input area — single floating card (VSCode Claude style) */}
-        <form onSubmit={sendMessage} className="shrink-0 px-3 pb-3 pt-1">
+        <form onSubmit={sendMessage} className="min-w-0 shrink-0 px-3 pb-3 pt-1">
           {/* Offline banner — distinguishes the two upstream gates:
                 (1) the local companion daemon (Mac / device-side)
                 (2) Claude itself (signed in inside the companion)
