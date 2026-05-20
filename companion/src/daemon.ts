@@ -170,6 +170,11 @@ export class Daemon extends EventEmitter {
     // the user had running. The browser will see `pty_exit` events
     // (if SSE still alive) and let cacheProtector age normally.
     this.ptyManager.killAll()
+    // Stop the ngrok tunnel subprocess too — without this, a Ctrl+C
+    // leaves ngrok zombie still forwarding the user's localhost to
+    // the public URL. Critical for the user's safety: stale tunnels
+    // are an exposed-port liability after the workstation sleeps.
+    this.tunnelManager.stop()
     // Give the sync worker one last chance to flush whatever it was
     // holding — fire-and-forget, stop() can't be async.
     this.syncWorker.flushNow().catch(() => {})

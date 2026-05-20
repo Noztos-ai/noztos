@@ -6,11 +6,8 @@
     "companion"
   ],
   "scripts": {
-    "dev:web": "NOZTOS_LOCAL_DEV=1 next dev",
-    "dev:daemon": "NOZTOS_LOCAL_DEV=1 node companion/dist/bin/bornastar.js start",
-    "dev": "npm run build:companion && concurrently -k -n web,daemon -c blue,green \"npm:dev:web\" \"npm:dev:daemon\"",
-    "go:web": "NOZTOS_LOCAL_DEV=1 next start",
-    "go": "npm run build:companion && next build && concurrently -k -n web,daemon -c green,blue \"npm:go:web\" \"npm:dev:daemon\"",
+    "dev": "npm run build:companion && bash scripts/stack.sh dev",
+    "go": "npm run build:companion && next build && bash scripts/stack.sh go",
     "build:companion": "npm run build --workspace=companion",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",

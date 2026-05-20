@@ -108,16 +108,26 @@ program
       console.error(`  ❌ Error: ${err.message}`)
     })
 
-    // Graceful shutdown
-    process.on('SIGINT', () => {
-      console.log('\n  Shutting down...')
-      daemon.stop()
-      process.exit(0)
-    })
-    process.on('SIGTERM', () => {
-      daemon.stop()
-      process.exit(0)
-    })
+    // Graceful shutdown with a hard upper bound. daemon.stop() fires
+    // fire-and-forget Promises (unregister, sync flush) plus does
+    // SIGKILL on PTYs + ngrok — usually returns in <500 ms. If for
+    // any reason it hangs (network-bound unregister, a stuck PTY
+    // helper), the setTimeout below force-exits so the user's
+    // Ctrl+C never leaves them waiting forever.
+    let shuttingDown = false
+    const onSignal = (signal: string) => {
+      if (shuttingDown) {
+        // User hit Ctrl+C twice — escalate immediately.
+        process.exit(1)
+      }
+      shuttingDown = true
+      if (signal === 'SIGINT') console.log('\n  Shutting down...')
+      try { daemon.stop() } catch { /* ignore */ }
+      // Hard ceiling: force-exit after 2 s no matter what.
+      setTimeout(() => process.exit(0), 2000).unref()
+    }
+    process.on('SIGINT', () => onSignal('SIGINT'))
+    process.on('SIGTERM', () => onSignal('SIGTERM'))
 
     await daemon.start()
   })
