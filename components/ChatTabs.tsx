@@ -35,7 +35,7 @@ export function ChatTabs({
   const editRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (editingId && editRef.current) editRef.current.focus()
+    if (editingId && editRef.current) editRef.current.focus({ preventScroll: true })
   }, [editingId])
 
   useEffect(() => {
@@ -127,6 +127,7 @@ export function ChatTabs({
         ))}
 
         <button
+          data-tour="new-chat"
           onClick={onNewSession}
           className="flex items-center justify-center px-2 py-1.5 text-zinc-500 hover:text-zinc-300"
         >

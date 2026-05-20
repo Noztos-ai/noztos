@@ -81,7 +81,7 @@ export function ProjectLayout({
   const showSidebarSection = activeTab === 'work'
 
   return (
-    <div className="flex h-screen flex-col" style={{ backgroundColor: '#181818' }}>
+    <div className="flex h-dvh flex-col" style={{ backgroundColor: '#181818' }}>
       <header className="flex h-11 shrink-0 items-center border-b border-white/10" style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }}>
 
         {/* Left section — aligned with sidebar width, has right border to continue the sidebar line */}

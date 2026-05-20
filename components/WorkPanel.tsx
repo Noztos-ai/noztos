@@ -487,6 +487,7 @@ function ChatsSidebar({
                   daemon. Same gating + copy used by the project picker
                   (CreateProjectButton.tsx). */}
               <button
+                data-tour="new-workspace"
                 onClick={onNewWorktree}
                 disabled={companionOffline}
                 className="flex w-full items-center gap-2 pl-9 pr-4 py-1.5 text-left text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-500"
@@ -5170,7 +5171,11 @@ function FileTree({ projectId, worktreeId, hasActiveSession, mainState, worktree
   }, [projectId, worktreeId, worktreePending])
 
   useEffect(() => {
-    if (creatingType && creatingRef.current) creatingRef.current.focus()
+    // preventScroll keeps iOS Safari from adjusting the viewport when
+    // an input receives programmatic focus — without it, the layout
+    // jumps as the OS tries to position the field above where the
+    // keyboard would be. Desktop ignores the option (no-op there).
+    if (creatingType && creatingRef.current) creatingRef.current.focus({ preventScroll: true })
   }, [creatingType])
 
   // Close context menu on click outside
@@ -6559,9 +6564,20 @@ function ChatPanel({
   // also lives on the screen. Skipped when the input is disabled
   // (offline / Claude not signed in) — focusing a disabled textarea
   // shows a misleading caret.
+  //
+  // Skipped entirely on mobile (<768px). Programmatic `.focus()` on
+  // iOS Safari, when triggered in the same tick as a user tap (which
+  // is exactly what a chat/worktree switch is), counts as a user-
+  // initiated focus and pops the soft keyboard — even with
+  // `preventScroll: true`. Native-app behaviour the user expects:
+  // tap to navigate moves the view; tap the input itself is what
+  // opens the keyboard. So on mobile we let the user explicitly tap
+  // the textarea when they want to type. Desktop keeps the auto-
+  // focus convenience.
   useEffect(() => {
     if (!canSendToLLM) return
-    chatTextareaRef.current?.focus()
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) return
+    chatTextareaRef.current?.focus({ preventScroll: true })
   }, [sessionId, canSendToLLM])
 
   // Auto-restore prompt on offline-induced stop. When an in-flight turn
@@ -7660,7 +7676,13 @@ function ChatPanel({
                               setShowSelector(false)
                               setInput('')
                               setSlashFilter('')
-                              requestAnimationFrame(() => chatTextareaRef.current?.focus())
+                              requestAnimationFrame(() => {
+                                // Skip on mobile — see the chat-switch effect above for
+                                // the rationale (programmatic focus pops the iOS soft keyboard
+                                // when triggered inside a user-tap tick).
+                                if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) return
+                                chatTextareaRef.current?.focus({ preventScroll: true })
+                              })
                             }}
                             className={`rounded-md bg-gradient-to-br ${wf.color} px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition-transform hover:scale-105`}
                           >
