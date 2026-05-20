@@ -9,6 +9,9 @@ working in parallel without stepping on each other. Hand bigger jobs to a
 runs end to end. Or queue up **tasks** and let agents pick them up on
 their own.
 
+> **Built for macOS.** Linux runs with a couple of tweaks; Windows
+> needs WSL2.
+
 ![noztos](docs/desktop.png)
 
 | Chat with your agents | Review diffs & open PRs |
