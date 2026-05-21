@@ -73,6 +73,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  // Every chat lives in a workspace (worktree). A session with no
+  // worktreeId would be a "main chat" — and an agent run from it would
+  // execute on the project root / main branch. Refuse to create one.
+  if (!body.worktreeId) {
+    return NextResponse.json(
+      { message: 'A chat must belong to a workspace (worktreeId required).' },
+      { status: 422 },
+    )
+  }
+
   // Validate worktreeId if provided
   if (body.worktreeId) {
     const wt = await withRetry(

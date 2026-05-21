@@ -2104,49 +2104,6 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   // cuid, the row is in the sidebar instantly so the user can't think
   // it didn't register, and a server failure surfaces explicitly.
 
-  async function handleNewMainChat(): Promise<string> {
-    const sessionId = companionStore.mintCuid('chat')
-    const tStart = performance.now()
-    console.log(`[opt] mainChat START sid=${sessionId.slice(0, 12)}`)
-    // Optimistic insert: sidebar shows the chat immediately.
-    setMainChats((prev) => [...prev, { id: sessionId, name: 'New Chat', worktreeId: null }])
-    setActiveSessionId(sessionId)
-    setActiveWorktreeId(null)
-
-    try {
-      const res = await fetch(`/api/projects/${projectId}/chat-sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sessionId }),
-      })
-      const fetchMs = Math.round(performance.now() - tStart)
-      console.log(`[opt] mainChat fetch sid=${sessionId.slice(0, 12)} status=${res.status} ms=${fetchMs}`)
-      if (!res.ok) throw new Error(`status=${res.status}`)
-      const session = await res.json()
-      // Server returned the canonical row. The id matches what we
-      // already have (idempotent), so just patch the name in case the
-      // server normalised it.
-      setMainChats((prev) => prev.map((c) =>
-        c.id === sessionId ? { ...c, name: session.name } : c,
-      ))
-      console.log(`[opt] mainChat READY sid=${sessionId.slice(0, 12)} totalMs=${Math.round(performance.now() - tStart)}`)
-    } catch (err) {
-      console.warn(`[opt] mainChat FAILED sid=${sessionId.slice(0, 12)}: ${(err as Error).message}`)
-      // Roll back the optimistic row.
-      setMainChats((prev) => prev.filter((c) => c.id !== sessionId))
-      if (activeSessionId === sessionId) setActiveSessionId(null)
-      setCreateErrorModal({
-        message: 'Couldn\'t create chat. Please try again.',
-        onRetry: () => { setCreateErrorModal(null); void handleNewMainChat() },
-      })
-    }
-    // Returns the session id even if the server POST failed — the
-    // optimistic row was already created and the caller (e.g. attach
-    // handlers) needs the id to target the right chat slot. The
-    // background failure is surfaced via the create-error modal.
-    return sessionId
-  }
-
   async function handleNewWorktree() {
     // Safety net for the companion-off gate — the buttons in the sidebar
     // and empty-state are disabled when offline, but a click could still
@@ -2315,9 +2272,9 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
         onRetry: () => { setCreateErrorModal(null); void handleAddChatToWorktree(worktreeId) },
       })
     }
-    // Return the optimistic session id even on POST failure — same
-    // contract as handleNewMainChat (caller needs the id to target the
-    // right chat slot for attachments/etc).
+    // Return the optimistic session id even on POST failure — the
+    // caller needs the id to target the right chat slot for
+    // attachments/etc.
     return sessionId
   }
 
@@ -2377,15 +2334,11 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
 
   async function handleAttachHunkToCurrentChat(filePath: string, fileStatus: 'M' | 'A' | 'D', hunk: DiffHunk) {
     const payload = buildHunkAttachmentPayload(filePath, fileStatus, hunk)
-    // Capture the target session id at click time. If no chat is active,
-    // create a new main chat first and attach there. Either way we
-    // commit the attachment to a SPECIFIC sessionId, not "whichever chat
-    // is active later" — switching chats afterwards must not drag the
-    // attachment to the wrong slot.
-    let targetSid = activeSessionId
-    if (!targetSid && !activeWorktreeId) {
-      targetSid = await handleNewMainChat()
-    }
+    // Attach to the chat active at click time — committed to a SPECIFIC
+    // sessionId, not "whichever chat is active later", so switching chats
+    // afterwards never drags the attachment to the wrong slot. No active
+    // chat → nothing to attach to (attaching lives inside a workspace).
+    const targetSid = activeSessionId
     if (!targetSid) return
     // Accumulate — same file+range is a no-op so double-clicks don't duplicate.
     const prev = companionStore.getPendingAttachments(targetSid)
@@ -2398,12 +2351,10 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   }
 
   async function handleAttachHunkToNewChat(filePath: string, fileStatus: 'M' | 'A' | 'D', hunk: DiffHunk) {
+    // A new chat only exists inside a workspace — no worktree, nothing to do.
+    if (!activeWorktreeId) return
     const payload = buildHunkAttachmentPayload(filePath, fileStatus, hunk)
-    // New chat follows the current context: inside a worktree → add chat to
-    // that worktree. Otherwise (main or empty) → new main chat.
-    const newSid = activeWorktreeId
-      ? await handleAddChatToWorktree(activeWorktreeId)
-      : await handleNewMainChat()
+    const newSid = await handleAddChatToWorktree(activeWorktreeId)
     // New chat starts fresh with exactly one attachment, scoped to its id.
     companionStore.setPendingAttachments(newSid, [payload])
   }
@@ -2484,10 +2435,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
 
   async function handleBulkAttachToCurrentChat(files: MockChangedFile[]) {
     if (files.length === 0) return
-    let targetSid = activeSessionId
-    if (!targetSid && !activeWorktreeId) {
-      targetSid = await handleNewMainChat()
-    }
+    const targetSid = activeSessionId
     if (!targetSid) return
     const filesWithHunks = await resolveFilesWithHunks(files)
     if (filesWithHunks.length === 0) return
@@ -2505,11 +2453,11 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
 
   async function handleBulkAttachToNewChat(files: MockChangedFile[]) {
     if (files.length === 0) return
+    // A new chat only exists inside a workspace.
+    if (!activeWorktreeId) return
     const filesWithHunks = await resolveFilesWithHunks(files)
     if (filesWithHunks.length === 0) return
-    const newSid = activeWorktreeId
-      ? await handleAddChatToWorktree(activeWorktreeId)
-      : await handleNewMainChat()
+    const newSid = await handleAddChatToWorktree(activeWorktreeId)
     companionStore.setPendingAttachments(newSid, flattenSelectedToPayloads(filesWithHunks))
   }
 
@@ -2553,10 +2501,7 @@ export function WorkPanel({ projectId, hiredEmployees, teams, sidebarOpen = true
   ) {
     if (lines.length === 0) return
     const payload = buildSelectionPayload(filePath, startLine, endLine, lines)
-    let targetSid = activeSessionId
-    if (!targetSid && !activeWorktreeId) {
-      targetSid = await handleNewMainChat()
-    }
+    const targetSid = activeSessionId
     if (!targetSid) return
     const prev = companionStore.getPendingAttachments(targetSid)
     const dup = prev.some((p) =>

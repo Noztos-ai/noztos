@@ -887,17 +887,42 @@ export class Daemon extends EventEmitter {
       return
     }
 
-    // Resolve the working directory: a specific worktree path (when the chat
-    // belongs to a worktree) or the project root (main chats).
-    const cwd = cmd.worktreePath ?? project.path
+    // Resolve the working directory. Every noztos chat belongs to a
+    // workspace — an isolated git worktree — there is no "main chat".
+    // A prompt with no (or a still-pending) worktreePath means an
+    // upstream bug dropped the link; running it anyway would let the
+    // agent edit the project root on the main branch. Refuse instead:
+    // surface the error in the originating chat and abort. Never fall
+    // back to project.path.
+    if (!cmd.worktreePath || cmd.worktreePath === '_pending_') {
+      console.warn(`[isolation] REFUSED prompt — no ready worktree (worktreePath=${cmd.worktreePath ?? 'none'}) project=${project.name} session=${cmd.bornastarSessionId?.slice(0, 8) ?? '-'} — would have run on the project root/main`)
+      if (cmd.bornastarSessionId) {
+        this.send({
+          type: 'claude_event',
+          payload: {
+            projectId: project.id,
+            bornastarSessionId: cmd.bornastarSessionId,
+            event: {
+              type: 'error',
+              error: 'This chat is not bound to a workspace — refused. An agent must never run on the project root / main branch. Reopen the chat from a workspace and try again.',
+            },
+          },
+        }).catch(() => {})
+      } else {
+        this.send({ type: 'error', payload: { message: 'Prompt refused: chat has no workspace bound.' } }).catch(() => {})
+      }
+      // Clear the optimistic "running" spinner — this turn never started.
+      this.broadcastRunning()
+      return
+    }
+    const cwd = cmd.worktreePath
 
     // Bridge key: one per Bornastar chat session so conversations stay
     // independent and multiple chats can run concurrently across worktrees.
     // Fallback to projectId for backward compatibility.
     const bridgeKey = cmd.bornastarSessionId ?? project.id
 
-    const scope = cmd.worktreePath ? 'worktree' : 'main'
-    console.log(`[isolation] prompt project=${project.name} scope=${scope} cwd=${cwd} bridgeKey=${bridgeKey.slice(0, 8)} mode=${cmd.mode ?? 'agent'} skill=${cmd.skillId ?? 'none'}`)
+    console.log(`[isolation] prompt project=${project.name} scope=worktree cwd=${cwd} bridgeKey=${bridgeKey.slice(0, 8)} mode=${cmd.mode ?? 'agent'} skill=${cmd.skillId ?? 'none'}`)
 
     let bridge = this.bridges.get(bridgeKey)
     if (bridge?.isRunning()) {

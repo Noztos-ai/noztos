@@ -78,6 +78,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Every noztos chat lives in a workspace (an isolated git worktree).
+  // A prompt with no resolved worktreePath would make the daemon fall
+  // back to the project root (main branch) and let the agent edit it.
+  // Refuse to relay it — defence in depth alongside the daemon's own
+  // guard. A '_pending_' path means the worktree hasn't provisioned yet.
+  if (type === 'prompt' && (!worktreePath || worktreePath === '_pending_')) {
+    console.warn(`[isolation] REFUSED prompt relay — session=${bornastarSessionId?.slice(0, 8) ?? '-'} has no ready worktree (worktreePath=${worktreePath ?? 'none'})`)
+    return NextResponse.json(
+      { message: 'This chat is not bound to a workspace — refused so no agent runs on the project root.' },
+      { status: 422 },
+    )
+  }
+
   if (type === 'prompt') {
     console.log(`[isolation] command type=prompt session=${bornastarSessionId?.slice(0, 8) ?? '-'} worktreePath=${worktreePath ?? '(main)'} mode=${mode ?? '-'} skill=${skillId ?? '-'}`)
   } else if (type === 'interrupt') {

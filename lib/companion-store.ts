@@ -1148,6 +1148,10 @@ class CompanionStore {
             if (data?.message) msg = data.message
             else if (data?.error) msg = data.error
           } catch { /* body wasn't JSON */ }
+          // The command was rejected outright (not 503/offline) — the
+          // turn will never run, so clear the optimistic spinner instead
+          // of leaving it to spin forever.
+          this.markIdle(sessionId)
           this.upsertMessage(sessionId, {
             id: localId(),
             role: 'system',
